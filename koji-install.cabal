@@ -12,7 +12,7 @@ category:            Unclassified
 homepage:            https://github.com/juhp/koji-install
 bug-reports:         https://github.com/juhp/koji-install/issues
 build-type:          Simple
---  extra-doc-files:     README.md
+extra-doc-files:     README.md
 --                       ChangeLog.md
 cabal-version:       1.18
 --tested-with:         GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.4
