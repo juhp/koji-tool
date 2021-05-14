@@ -27,7 +27,7 @@ executable koji-install
 --  hs-source-dirs:      app
   build-depends:       base < 5,
                        extra,
-                       koji,
+                       koji >= 0.0.2,
                        simple-cmd,
                        simple-cmd-args
   default-language:    Haskell2010

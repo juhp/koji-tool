@@ -1,0 +1,7 @@
+resolver: lts-13.30
+extra-deps:
+  - koji-0.0.2
+  - haxr-3000.11.4
+  - HaXml-1.25.5
+  - simple-cmd-0.2.0
+  - simple-cmd-args-0.1.4

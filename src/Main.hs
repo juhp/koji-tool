@@ -4,7 +4,7 @@ module Main (main) where
 
 import Control.Monad.Extra
 import Data.Char
-import Data.List
+import qualified Data.List as L
 import Data.Maybe
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
@@ -33,7 +33,7 @@ program allsubpkgs pkgs = do
         Nothing -> error' $ "latest " ++ pkg ++ " not found"
         Just nvr -> do
           putStrLn nvr
-          rpms <- sort . mapMaybe (stripPrefix "Downloading: ") <$>
+          rpms <- L.sort . mapMaybe (L.stripPrefix "Downloading: ") <$>
                   cmdLines "koji" ["download-build",
                                    "--noprogress",
                                    "--arch=x86_64",
