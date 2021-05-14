@@ -22,14 +22,19 @@ source-repository head
   location:            https://github.com/juhp/koji-install.git
 
 executable koji-install
-  main-is:             src/Main.hs
---  other-modules:       Paths_koji_install
---  hs-source-dirs:      app
+  main-is:             Main.hs
+  other-modules:       Paths_koji_install
+                       DownloadDir
+  hs-source-dirs:      src
   build-depends:       base < 5,
+                       directory,
                        extra,
+                       filepath,
                        koji >= 0.0.2,
+                       rpm-pkg,
                        simple-cmd,
-                       simple-cmd-args
+                       simple-cmd-args,
+                       xdg-userdirs
   default-language:    Haskell2010
   ghc-options:         -Wall -threaded
   if impl(ghc >= 8.0)

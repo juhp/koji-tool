@@ -4,44 +4,77 @@ module Main (main) where
 
 import Control.Monad.Extra
 import Data.Char
-import qualified Data.List as L
-import Data.Maybe
+import Data.List.Extra
+import Data.RPM.NVR
+import Data.RPM.Package
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
 import SimpleCmd
 import SimpleCmdArgs
+import System.Directory
+import System.FilePath ((<.>))
 import System.IO
 
--- FIXME install vs update
+import DownloadDir
+import Paths_koji_install (version)
+
+data InstallMode = Update | All | Ask | Base | NoDevel
+
 -- FIXME --exclude devel, etc
+-- FIXME specify tag or task
+-- FIXME support enterprise builds
+-- FIXME --arch (including src)
+-- FIXME --dryrun
+-- FIXME --debuginfo
 main :: IO ()
 main =
-  simpleCmdArgs Nothing "Install latest builds from Koji"
-    "Download and install latest builds from Koji tag." $
-    program <$> switchWith 'a' "all" "all subpackages" <*> some (strArg "PACKAGE")
-
-program :: Bool -> [String] -> IO ()
-program allsubpkgs pkgs = do
-  disttag <- cmd "rpm" ["--eval", "%{dist}"]
-  setNoBuffering
-  mapM (kojiLatestRPMs disttag) pkgs >>= installRPMs . mconcat
+  simpleCmdArgs (Just version) "Install latest build from Koji"
+    "Download and install latest package build from Koji tag." $
+    program <$> dryrunOpt <*> modeOpt <*> some (strArg "PACKAGE")
   where
-    kojiLatestRPMs :: String -> String -> IO [String]
-    kojiLatestRPMs disttag pkg = do
+    dryrunOpt = switchWith 'n' "dry-run" "Don't actually download anything"
+
+    modeOpt :: Parser InstallMode
+    modeOpt =
+      flagWith' All 'a' "all" "all subpackages" <|>
+      flagWith' Ask 'A' "ask" "ask for each subpackge" <|>
+      flagWith' Base 'b' "base-only" "only base package" <|>
+      flagWith' NoDevel 'D' "exclude-devel" "Skip devel packages" <|>
+      pure Update
+
+program :: Bool -> InstallMode -> [String] -> IO ()
+program dryrun mode pkgs = do
+  disttag <- cmd "rpm" ["--eval", "%{dist}"]
+  -- FIXME use this?
+  dlDir <- setDownloadDir dryrun "rpms"
+  setNoBuffering
+  mapM (kojiLatestRPMs disttag dlDir) pkgs >>= installRPMs dryrun . mconcat
+  where
+    kojiLatestRPMs :: String -> String -> String -> IO [String]
+    kojiLatestRPMs disttag dlDir pkg = do
       mnvr <- kojiLatestOSBuild fedoraKojiHub disttag pkg
       case mnvr of
         Nothing -> error' $ "latest " ++ pkg ++ " not found"
         Just nvr -> do
-          putStrLn nvr
-          rpms <- L.sort . mapMaybe (L.stripPrefix "Downloading: ") <$>
-                  cmdLines "koji" ["download-build",
-                                   "--noprogress",
-                                   "--arch=x86_64",
-                                   "--arch=noarch",
-                                   nvr]
-          if allsubpkgs
-            then return rpms
-            else mapMaybeM rpmPrompt rpms
+          putStrLn $ nvr ++ "\n"
+          allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs nvr
+          dlRpms <-
+            case mode of
+              All -> return allRpms
+              Ask -> mapMaybeM rpmPrompt allRpms
+              Base -> return $ pure $ minimumOn length $ filter (pkg `isPrefixOf`) allRpms
+              Update -> do
+                rpms <- filterM (isInstalled . rpmName . readRpmPkg) allRpms
+                if null rpms
+                  then error' $ "no subpkgs of " ++ nvr ++ " installed"
+                  else return rpms
+              NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
+          unless (dryrun || null dlRpms) $ do
+            mapM_ (downloadRpm (readNVR nvr)) dlRpms
+            -- FIXME once we check file size - can skip if no downloads
+            putStrLn $ "Packages downloaded to " ++ dlDir
+          return dlRpms
+
     rpmPrompt :: String -> IO (Maybe String)
     rpmPrompt rpm = do
       putStr $ rpm ++ " [y/n]: "
@@ -51,6 +84,12 @@ program allsubpkgs pkgs = do
         'y' -> return $ Just rpm
         'n' -> return $ Nothing
         _ -> rpmPrompt rpm
+
+    isInstalled :: String -> IO Bool
+    isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
+
+    debugPkg :: String -> Bool
+    debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
 kojiLatestOSBuild :: String -> String -> String -> IO (Maybe String)
 kojiLatestOSBuild hub disttag pkg = do
@@ -69,12 +108,59 @@ kojiLatestOSBuild hub disttag pkg = do
         [bld] -> return $ lookupStruct "nvr" bld
         _ -> error $ "more than one latest build found for " ++ pkg
 
+kojiGetBuildRPMs :: String -> IO [String]
+kojiGetBuildRPMs nvr = do
+  mbid <- kojiGetBuildID fedoraKojiHub nvr
+  case mbid of
+    Nothing -> error $ "Build id not found for " ++ nvr
+    Just (BuildId bid) -> do
+      rpms <- Koji.listBuildRPMs fedoraKojiHub bid
+      return $ map getNVRA $ filter (forArch "x86_64") rpms
+   where
+     forArch :: String -> Struct -> Bool
+     forArch sysarch st =
+       case lookupStruct "arch" st of
+         Just arch -> arch `elem` [sysarch, "noarch"]
+         Nothing -> error $ "No arch found for rpm for: " ++ nvr
+
+     getNVRA :: Struct -> String
+     getNVRA st =
+       case lookupStruct "nvr" st of
+         Nothing -> error' "NVR not found"
+         Just pnvr ->
+           case lookupStruct "arch" st of
+             Nothing -> error "arch not found"
+             Just arch ->
+               pnvr <.> arch
+
 setNoBuffering :: IO ()
 setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
-installRPMs :: [FilePath] -> IO ()
-installRPMs [] = return ()
-installRPMs pkgs =
+installRPMs :: Bool -> [FilePath] -> IO ()
+installRPMs _ [] = return ()
+installRPMs dryrun pkgs =
+  unless dryrun $
   sudo_ "dnf" ("install" : map ("./" ++) pkgs)
+
+-- FIXME check file size
+downloadRpm :: NVR -> String -> IO ()
+downloadRpm (NVR n (VerRel v r)) rpm = do
+  unlessM (doesFileExist rpm) $ do
+    -- FIXME Maybe Arch becomes Arch
+    case rpmMArch (readRpmPkg rpm) of
+      Just arch -> do
+        let url = "https://kojipkgs.fedoraproject.org/packages" +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
+        putStrLn $ "Downloading " ++ rpm
+        cmd_ "curl" ["--silent", "-C-", "--show-error", "--remote-name", url]
+      Nothing -> error' $ "unknown arch for " ++ rpm
+
+-- from next http-directory or http-query
+infixr 5 +/+
+(+/+) :: String -> String -> String
+"" +/+ s = s
+s +/+ "" = s
+s +/+ t | last s == '/' = init s +/+ t
+        | head t == '/' = s +/+ tail t
+s +/+ t = s ++ "/" ++ t
