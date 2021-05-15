@@ -58,22 +58,25 @@ program dryrun mode pkgs = do
         Just nvr -> do
           putStrLn $ nvr ++ "\n"
           allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs nvr
-          dlRpms <-
-            case mode of
-              All -> return allRpms
-              Ask -> mapMaybeM rpmPrompt allRpms
-              Base -> return $ pure $ minimumOn length $ filter (pkg `isPrefixOf`) allRpms
-              Update -> do
-                rpms <- filterM (isInstalled . rpmName . readRpmPkg) allRpms
-                if null rpms
-                  then error' $ "no subpkgs of " ++ nvr ++ " installed"
-                  else return rpms
-              NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
+          dlRpms <- decideRpms mode allRpms
           unless (dryrun || null dlRpms) $ do
             mapM_ (downloadRpm (readNVR nvr)) dlRpms
             -- FIXME once we check file size - can skip if no downloads
             putStrLn $ "Packages downloaded to " ++ dlDir
           return dlRpms
+      where
+       decideRpms :: InstallMode -> [String] -> IO [String]
+       decideRpms mode' allRpms =
+         case mode' of
+           All -> return allRpms
+           Ask -> mapMaybeM rpmPrompt allRpms
+           Base -> return $ pure $ minimumOn length $ filter (pkg `isPrefixOf`) allRpms
+           Update -> do
+             rpms <- filterM (isInstalled . rpmName . readRpmPkg) allRpms
+             if null rpms
+               then decideRpms Ask allRpms
+               else return rpms
+           NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
 
     rpmPrompt :: String -> IO (Maybe String)
     rpmPrompt rpm = do
