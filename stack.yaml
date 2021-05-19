@@ -1,4 +1,4 @@
-resolver: lts-17.11
+resolver: lts-17.12
 extra-deps:
   - git: https://github.com/juhp/rpm-pkg-hs.git
-    commit: 71854677d9bca2b16ea6a028b3e81d3b4bdafe67
+    commit: 7a550ecc97ce5ede961f3b7d9a5799752ec82c89

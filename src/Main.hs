@@ -6,7 +6,7 @@ import Control.Monad.Extra
 import Data.Char
 import Data.List.Extra
 import Data.RPM.NVR
-import Data.RPM.Package
+import Data.RPM.NVRA
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
 import SimpleCmd
@@ -20,12 +20,12 @@ import Paths_koji_install (version)
 
 data InstallMode = Update | All | Ask | Base | NoDevel
 
--- FIXME --exclude devel, etc
+-- FIXME --include devel, --exclude *
 -- FIXME specify tag or task
 -- FIXME support enterprise builds
 -- FIXME --arch (including src)
--- FIXME --dryrun
 -- FIXME --debuginfo
+-- FIXME --delete after installing
 main :: IO ()
 main =
   simpleCmdArgs (Just version) "Install latest build from Koji"
@@ -72,7 +72,7 @@ program dryrun mode pkgs = do
            Ask -> mapMaybeM rpmPrompt allRpms
            Base -> return $ pure $ minimumOn length $ filter (pkg `isPrefixOf`) allRpms
            Update -> do
-             rpms <- filterM (isInstalled . rpmName . readRpmPkg) allRpms
+             rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
              if null rpms
                then decideRpms Ask allRpms
                else return rpms
@@ -151,13 +151,10 @@ installRPMs dryrun pkgs =
 downloadRpm :: NVR -> String -> IO ()
 downloadRpm (NVR n (VerRel v r)) rpm = do
   unlessM (doesFileExist rpm) $ do
-    -- FIXME Maybe Arch becomes Arch
-    case rpmMArch (readRpmPkg rpm) of
-      Just arch -> do
-        let url = "https://kojipkgs.fedoraproject.org/packages" +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
-        putStrLn $ "Downloading " ++ rpm
-        cmd_ "curl" ["--silent", "-C-", "--show-error", "--remote-name", url]
-      Nothing -> error' $ "unknown arch for " ++ rpm
+    let arch = rpmArch (readNVRA rpm)
+        url = "https://kojipkgs.fedoraproject.org/packages" +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
+    putStrLn $ "Downloading " ++ rpm
+    cmd_ "curl" ["--silent", "-C-", "--show-error", "--remote-name", url]
 
 -- from next http-directory or http-query
 infixr 5 +/+

@@ -3,4 +3,4 @@ packages: .
 source-repository-package
     type: git
     location: https://github.com/juhp/rpm-pkg-hs.git
-    tag: 71854677d9bca2b16ea6a028b3e81d3b4bdafe67
+    tag: 7a550ecc97ce5ede961f3b7d9a5799752ec82c89
