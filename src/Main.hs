@@ -104,7 +104,6 @@ kojiLatestOSBuild hub disttag pkg = do
                   ("queryOpts",ValueStruct [("limit",ValueInt 1),
                                             ("order",ValueString "-build_id")])]
       res <- Koji.listBuilds hub $
-             -- centos stream koji 1.23 doesn't have pattern
              ("pattern", ValueString ("*" ++ disttag)) : opts
       case res of
         [] -> return Nothing
