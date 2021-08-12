@@ -85,7 +85,7 @@ program dryrun mode pkgs = do
       putStrLn ""
       case toLower c of
         'y' -> return $ Just rpm
-        'n' -> return $ Nothing
+        'n' -> return Nothing
         _ -> rpmPrompt rpm
 
     isInstalled :: String -> IO Bool
