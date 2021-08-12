@@ -21,4 +21,4 @@ and try to install it.
 
 ## Installation
 
-`stack install`, `cabal-rpm install`, or `cabal install`.
+`stack install` or `cabal-rpm builddep && cabal install`.
