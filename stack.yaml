@@ -1,4 +1,3 @@
-resolver: lts-17.12
+resolver: lts-17.15
 extra-deps:
-  - git: https://github.com/juhp/rpm-pkg-hs.git
-    commit: 7a550ecc97ce5ede961f3b7d9a5799752ec82c89
+  - rpm-nvr-0.1.0
