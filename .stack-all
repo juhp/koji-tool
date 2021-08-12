@@ -1,3 +1,5 @@
 [versions]
+# no haxr/HaXml in nightly yet
+newest = lts-18
 # lts-12 polyparse too old
 oldest = lts-13
