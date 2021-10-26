@@ -114,6 +114,7 @@ kojiLatestOSBuild hub disttag pkgpat = do
     Nothing -> error $ "package not found: " ++ pkg
     Just pkgid -> do
       let opts = [("packageID", ValueInt pkgid),
+                  ("state", ValueInt (fromEnum BuildComplete)),
                   ("queryOpts",ValueStruct [("limit",ValueInt 1),
                                             ("order",ValueString "-build_id")])]
       res <- Koji.listBuilds hub $
