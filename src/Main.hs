@@ -19,6 +19,8 @@ import Paths_koji_install (version)
 
 data InstallMode = Update | All | Ask | Base | NoDevel
 
+data Request = ReqName | ReqNV | ReqNVR
+
 -- FIXME --include devel, --exclude *
 -- FIXME specify tag or task
 -- FIXME support enterprise builds
@@ -34,6 +36,8 @@ main = do
     <$> dryrunOpt
     <*> modeOpt
     <*> disttagOpt sysdisttag
+    <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
+         <|> flagWith ReqName ReqNVR 'V' "nv" "Give an N-V instead of package name")
     <*> some (strArg "PACKAGE")
   where
     dryrunOpt = switchWith 'n' "dry-run" "Don't actually download anything"
@@ -55,8 +59,8 @@ main = do
         (c:_) -> if c == '.' then cs else '.' : cs
 
 
-program :: Bool -> InstallMode -> String -> [String] -> IO ()
-program dryrun mode disttag pkgs = do
+program :: Bool -> InstallMode -> String -> Request -> [String] -> IO ()
+program dryrun mode disttag request pkgs = do
   -- FIXME use this?
   dlDir <- setDownloadDir dryrun "rpms"
   setNoBuffering
@@ -64,7 +68,7 @@ program dryrun mode disttag pkgs = do
   where
     kojiLatestRPMs :: String -> String -> IO [String]
     kojiLatestRPMs dlDir pkg = do
-      mnvr <- kojiLatestOSBuild fedoraKojiHub disttag pkg
+      mnvr <- kojiLatestOSBuild fedoraKojiHub disttag request pkg
       case mnvr of
         Nothing -> error' $ "latest " ++ pkg ++ " not found"
         Just nvr -> do
@@ -106,8 +110,8 @@ program dryrun mode disttag pkgs = do
     debugPkg :: String -> Bool
     debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
-kojiLatestOSBuild :: String -> String -> String -> IO (Maybe String)
-kojiLatestOSBuild hub disttag pkgpat = do
+kojiLatestOSBuild :: String -> String -> Request -> String -> IO (Maybe String)
+kojiLatestOSBuild hub disttag request pkgpat = do
   let (pkg,full) = packageOfPattern pkgpat
   mpkgid <- Koji.getPackageID hub pkg
   case mpkgid of
@@ -126,13 +130,14 @@ kojiLatestOSBuild hub disttag pkgpat = do
   where
     packageOfPattern :: String -> (String, Bool)
     packageOfPattern pat =
-      case maybeNVR pat of
-        Just (NVR n _) -> (n, True)
-        Nothing ->
-          case maybeNV pat of
-            Just (NV n _) -> (n, False)
-            Nothing -> (dropSuffix "-" $ takeWhile (/= '*') pat, False)
-
+      case request of
+        ReqName -> (dropSuffix "-" $ takeWhile (/= '*') pat, False)
+        ReqNV ->
+          case readNV pat of
+            NV n _ -> (n, False)
+        ReqNVR ->
+          case readNVR pat of
+            NVR n _ -> (n, True)
 
 kojiGetBuildRPMs :: String -> IO [String]
 kojiGetBuildRPMs nvr = do
