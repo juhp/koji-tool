@@ -1,9 +1,11 @@
 import SimpleCmd
 import System.IO
 
-program :: [String] -> IO ()
-program args =
-  putStrLn "" >> cmdLog "koji-install" ("-n" : args)
+program :: Bool -> [String] -> IO ()
+program havedist args =
+  putStrLn "" >>
+  cmdLog "koji-install"
+  ((if havedist then id else (["-d", "fc35"] ++)) ("-n" : args))
 
 tests :: [[String]]
 tests =
@@ -19,5 +21,8 @@ tests =
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
-  mapM_ program tests
+  havedist <- do
+    dist <- cmd "rpm" ["--eval", "%{dist}"]
+    return $ dist /= "%{dist}"
+  mapM_ (program havedist) tests
   putStrLn $ show (length tests) ++ " tests run"
