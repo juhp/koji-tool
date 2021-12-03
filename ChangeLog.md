@@ -4,6 +4,7 @@
 - add `--list` command to list recent builds
 - fix bug in generating kojifiles url from short name
 - workarounds for rpmfusion's older koji not supporting patterns
+- check if %dist is defined
 
 ## 0.2.0 (2021-12-03)
 - initial Hackage release
