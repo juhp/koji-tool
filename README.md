@@ -13,18 +13,18 @@ $ koji-install podman
 Will download the latest build for your Fedora version,
 and try to install it.
 
-You can specify a different hub using `--hub`.
+You can specify a different Koji hub service with `--hub`.
 
 ### Selecting subpackages
 
-By default only installed subpackages are and downloaded and updated,
+By default only installed subpackages are downloaded and updated,
 but the following options change the behavior:
 
 `--all`: install all subpackages
 
 `--ask`: ask about each subpackage
 
-`--base-only`: only install base package
+`--base-only`: only install the base package
 
 `--exclude-devel`: skip devel subpackages
 
