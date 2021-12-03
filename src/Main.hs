@@ -37,7 +37,9 @@ data Request = ReqName | ReqNV | ReqNVR
 
 main :: IO ()
 main = do
-  sysdisttag <- cmd "rpm" ["--eval", "%{dist}"]
+  sysdisttag <- do
+    dist <- cmd "rpm" ["--eval", "%{dist}"]
+    return $ if dist == "%{dist}" then "" else dist
   simpleCmdArgs (Just Paths_koji_install.version)
     "Download and install latest package build from Koji tag."
     ("HUB = " ++ intercalate ", " knownHubs) $
