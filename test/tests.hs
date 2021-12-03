@@ -3,14 +3,17 @@ import System.IO
 
 program :: [String] -> IO ()
 program args =
-  putStrLn "" >> cmdLog "koji-install" ("-n" : "-b" : args)
+  putStrLn "" >> cmdLog "koji-install" ("-n" : args)
 
 tests :: [[String]]
 tests =
-  [["podman"]
-  ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash"]
-  ,["-H", "stream", "-d", "el9", "kernel"]
-  ,["-H", "rpmfusion", "ffmpeg"]
+  [["-b", "podman"]
+  ,["-l", "coreutils"]
+  ,["-b", "-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash"]
+  ,["-b", "-H", "stream", "-d", "el9", "kernel"]
+  ,["-l", "-H", "stream", "-d", "el9", "grep"]
+  ,["-b", "-H", "rpmfusion", "ffmpeg"]
+  ,["-l", "-H", "rpmfusion", "ffmpeg"]
   ]
 
 main :: IO ()

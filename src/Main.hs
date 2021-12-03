@@ -20,9 +20,15 @@ import System.IO
 import DownloadDir
 import Paths_koji_install (version)
 
+-- FIXME use subtype for listing vs installation
+data Mode = List | InstMode InstallMode
+  deriving Eq
+
 data InstallMode = Update | All | Ask | Base | NoDevel
+  deriving Eq
 
 data Request = ReqName | ReqNV | ReqNVR
+  deriving Eq
 
 -- FIXME --include devel, --exclude *
 -- FIXME specify tag or task
@@ -53,13 +59,15 @@ main = do
          <|> flagWith ReqName ReqNVR 'V' "nv" "Give an N-V instead of package name")
     <*> some (strArg "PACKAGE")
   where
-    modeOpt :: Parser InstallMode
+    modeOpt :: Parser Mode
     modeOpt =
-      flagWith' All 'a' "all" "all subpackages" <|>
+      flagWith' List 'l' "list" "List builds" <|>
+      InstMode <$>
+      (flagWith' All 'a' "all" "all subpackages" <|>
       flagWith' Ask 'A' "ask" "ask for each subpackge" <|>
       flagWith' Base 'b' "base-only" "only base package" <|>
       flagWith' NoDevel 'D' "exclude-devel" "Skip devel packages" <|>
-      pure Update
+      pure Update)
 
     disttagOpt :: String -> Parser String
     disttagOpt disttag = startingDot <$> strOptionalWith 'd' "disttag" "DISTTAG" ("Use a different disttag [default: " ++ disttag ++ "]") disttag
@@ -96,7 +104,7 @@ defaultPkgsURL url =
       then replace "kojihub" "kojifiles" url
       else error' $ "use --files-url to specify kojifiles url for " ++ url
 
-program :: Bool -> Bool -> Maybe String -> Maybe String -> InstallMode
+program :: Bool -> Bool -> Maybe String -> Maybe String -> Mode
         -> String -> Request -> [String] -> IO ()
 program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
@@ -109,22 +117,29 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
   when debug $ putStrLn dlDir
   setNoBuffering
   mapM (kojiLatestRPMs huburl pkgsurl dlDir) pkgs
-    >>= installRPMs dryrun . mconcat
+    >>= case mode of
+          List -> mapM_ putStrLn . mconcat
+          _ -> installRPMs dryrun . mconcat
   where
     kojiLatestRPMs :: String -> String -> String -> String -> IO [String]
     kojiLatestRPMs huburl pkgsurl dlDir pkg = do
-      mnvr <- kojiLatestOSBuild debug huburl disttag request pkg
-      case mnvr of
-        Nothing -> error' $ "latest " ++ pkg ++ " not found for " ++ disttag
-        Just nvr -> do
-          putStrLn $ nvr ++ "\n"
-          allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
-          dlRpms <- decideRpms mode allRpms
-          unless (dryrun || null dlRpms) $ do
-            mapM_ (downloadRpm pkgsurl (readNVR nvr)) dlRpms
-            -- FIXME once we check file size - can skip if no downloads
-            putStrLn $ "Packages downloaded to " ++ dlDir
-          return dlRpms
+      nvrs <- kojiLatestOSBuilds debug huburl (mode == List) disttag request pkg
+      case mode of
+        List -> return nvrs
+        InstMode instmode ->
+          case nvrs of
+            [] -> error' $ "latest " ++ pkg ++ " not found for " ++ disttag
+            [nvr] -> do
+              putStrLn $ nvr ++ "\n"
+              allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
+              dlRpms <- decideRpms instmode allRpms
+              unless (dryrun || null dlRpms) $ do
+                mapM_ (downloadRpm pkgsurl (readNVR nvr)) dlRpms
+                -- FIXME once we check file size - can skip if no downloads
+                putStrLn $ "Packages downloaded to " ++ dlDir
+              return dlRpms
+            _ -> error $ "multiple latest build founds for " ++ pkg ++ ": " ++
+                 unwords nvrs
       where
         decideRpms :: InstallMode -> [String] -> IO [String]
         decideRpms mode' allRpms =
@@ -155,29 +170,39 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
     debugPkg :: String -> Bool
     debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
-kojiLatestOSBuild :: Bool -> String -> String -> Request -> String
-                  -> IO (Maybe String)
-kojiLatestOSBuild debug hub disttag request pkgpat = do
+kojiLatestOSBuilds :: Bool -> String -> Bool -> String -> Request -> String
+                  -> IO [String]
+kojiLatestOSBuilds debug hub listmode disttag request pkgpat = do
   let (pkg,full) = packageOfPattern pkgpat
+      oldkoji = "rpmfusion" `isInfixOf` hub
+  when (oldkoji && ("*" `isInfixOf` pkgpat || request /= ReqName)) $
+    error' "cannot use pattern with this kojihub"
   mpkgid <- Koji.getPackageID hub pkg
   case mpkgid of
     Nothing -> error $ "package not found: " ++ pkg
     Just pkgid -> do
       -- strictly should getAPIVersion
-      -- FIXME warn/error if cannot pattern
-      let opts = (if "rpmfusion" `isInfixOf` hub
-                 then id
-                 else (("pattern", ValueString (if full then pkgpat else dropSuffix "*" pkgpat ++ "*" ++ disttag ++ "*")) :))
+      let opts = (if oldkoji
+                  then id
+                  else (("pattern", ValueString (if full then pkgpat else dropSuffix "*" pkgpat ++ "*" ++ disttag ++ "*")) :))
                  [("packageID", ValueInt pkgid),
                   ("state", ValueInt (fromEnum BuildComplete)),
-                  ("queryOpts",ValueStruct [("limit",ValueInt 1),
-                                            ("order",ValueString "-build_id")])]
+                  ("queryOpts",ValueStruct
+                    [("limit",ValueInt $ if listmode || oldkoji then 10 else 1),
+                     ("order",ValueString "-build_id")])]
       when debug $ print opts
-      res <- Koji.listBuilds hub opts
-      case res of
-        [] -> return Nothing
-        [bld] -> return $ lookupStruct "nvr" bld
-        _ -> error $ "more than one latest build found for " ++ pkg
+      nvrs <- mapMaybe (lookupStruct "nvr") <$> Koji.listBuilds hub opts
+      if null nvrs
+        then error' $ "no builds found for " ++ disttag
+        else
+        return $
+        if oldkoji
+        then case filter (disttag `isInfixOf`) nvrs of
+               [] -> error' $ "no builds found for " ++ disttag
+               [res] -> [res]
+               rs@(r:_) ->
+                 if listmode then rs else [r]
+        else nvrs
   where
     packageOfPattern :: String -> (String, Bool)
     packageOfPattern pat =
