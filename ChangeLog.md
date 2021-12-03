@@ -1,6 +1,6 @@
 # Release history for koji-install
 
-## 0.1.0 -- 2021-12-02
+## 0.1.0 (2021-12-03)
 
-- initial release with --all, --ask, --base-only, --exclude-devel,
-  --disttag, --nvr, --nv and --dry-run options
+- initial release with --hub, --all/--ask/--base-only/--exclude-devel,
+  --pkgsurl, --disttag, --nvr, --nv, --dry-run, --debug options
