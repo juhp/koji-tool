@@ -77,14 +77,15 @@ main = do
         "" -> error' "empty disttag"
         (c:_) -> if c == '.' then cs else '.' : cs
 
+-- mbox kojihub is locked
 knownHubs :: [String]
-knownHubs = ["fedora","stream","mbox","rpmfusion", "URL"]
+knownHubs = ["fedora","stream","rpmfusion", "URL"]
 
 hubURL :: String -> String
 hubURL "fedora" = fedoraKojiHub
 -- later use centosKojiHub
 hubURL "stream" = "https://kojihub.stream.centos.org/kojihub"
-hubURL "mbox" = "https://koji.mbox.centos.org/kojihub"
+--hubURL "mbox" = "https://koji.mbox.centos.org/kojihub"
 hubURL "rpmfusion" = "https://koji.rpmfusion.org/kojihub"
 hubURL "fusion" = "https://koji.rpmfusion.org/kojihub"
 hubURL hub =
