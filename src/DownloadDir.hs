@@ -10,6 +10,7 @@ import System.Directory (createDirectoryIfMissing,
 import System.Environment.XDG.UserDir (getUserDir)
 import System.FilePath
 
+-- FIXME check writeable
 setDownloadDir :: Bool -> String -> IO FilePath
 setDownloadDir dryrun subdir = do
   home <- getHomeDirectory
@@ -19,11 +20,11 @@ setDownloadDir dryrun subdir = do
   unless (dryrun || dirExists) $
     when (home == dlDir) $
       error' "HOME directory does not exist!"
-  let isoDir = dlDir </> subdir
-  isoExists <- doesDirectoryExist isoDir
+  let filesDir = dlDir </> subdir
+  filesExists <- doesDirectoryExist filesDir
   dir <-
-    if isoExists
-    then setCWD isoDir
+    if filesExists
+    then setCWD filesDir
     else
     if dirExists
       then setCWD dlDir
