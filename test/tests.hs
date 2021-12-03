@@ -10,7 +10,7 @@ tests =
   [["podman"]
   ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash"]
   ,["-H", "stream", "-d", "el9", "kernel"]
---  ,["-H", "rpmfusion", "ffmpeg"]
+  ,["-H", "rpmfusion", "ffmpeg"]
   ]
 
 main :: IO ()

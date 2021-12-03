@@ -163,13 +163,17 @@ kojiLatestOSBuild debug hub disttag request pkgpat = do
   case mpkgid of
     Nothing -> error $ "package not found: " ++ pkg
     Just pkgid -> do
-      let opts = [("packageID", ValueInt pkgid),
+      -- strictly should getAPIVersion
+      -- FIXME warn/error if cannot pattern
+      let opts = (if "rpmfusion" `isInfixOf` hub
+                 then id
+                 else (("pattern", ValueString (if full then pkgpat else dropSuffix "*" pkgpat ++ "*" ++ disttag ++ "*")) :))
+                 [("packageID", ValueInt pkgid),
                   ("state", ValueInt (fromEnum BuildComplete)),
                   ("queryOpts",ValueStruct [("limit",ValueInt 1),
                                             ("order",ValueString "-build_id")])]
-      res <- Koji.listBuilds hub $
-             ("pattern", ValueString (if full then pkgpat else dropSuffix "*" pkgpat ++ "*" ++ disttag)) : opts
       when debug $ print opts
+      res <- Koji.listBuilds hub opts
       case res of
         [] -> return Nothing
         [bld] -> return $ lookupStruct "nvr" bld
