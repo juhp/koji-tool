@@ -58,5 +58,7 @@ Available options:
 ```
 
 ## Installation
+Builds for fedora are available in [copr](https://copr.fedorainfracloud.org/coprs/petersen/koji-tools/monitor/detailed).
 
+## Build
 `cabal-rpm builddep && cabal install` or `stack install`.
