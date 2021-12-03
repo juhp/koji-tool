@@ -9,8 +9,6 @@ import Data.Maybe
 import Data.RPM
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
-import Options.Applicative (fullDesc, header, progDescDoc)
-import qualified Options.Applicative.Help.Pretty as P
 import SimpleCmd
 import SimpleCmdArgs
 import System.Directory
@@ -40,12 +38,9 @@ data Request = ReqName | ReqNV | ReqNVR
 main :: IO ()
 main = do
   sysdisttag <- cmd "rpm" ["--eval", "%{dist}"]
-  let pdoc = Just $ P.vcat
-             [ P.text "Download and install latest package build from Koji tag.",
-               P.text ("HUB = " <> intercalate ", " knownHubs)
-             ]
-  simpleCmdArgsWithMods (Just Paths_koji_install.version)
-    (fullDesc <> header "Install latest build from Koji" <> progDescDoc pdoc) $
+  simpleCmdArgs (Just Paths_koji_install.version)
+    "Download and install latest package build from Koji tag."
+    ("HUB = " ++ intercalate ", " knownHubs) $
     program
     <$> switchWith 'n' "dry-run" "Don't actually download anything"
     <*> switchWith 'D' "debug" "More detailed output"
@@ -79,7 +74,7 @@ main = do
 
 -- mbox kojihub is locked
 knownHubs :: [String]
-knownHubs = ["fedora","stream","rpmfusion", "URL"]
+knownHubs = ["fedora","stream","rpmfusion", "or URL"]
 
 hubURL :: String -> String
 hubURL "fedora" = fedoraKojiHub

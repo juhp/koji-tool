@@ -1,5 +1,10 @@
 # Release history for koji-install
 
+## 0.3 (2021-12-03)
+- add `--list` command to list recent builds
+- fix bug in generating kojifiles url from short name
+- workarounds for rpmfusion's older koji not supporting patterns
+
 ## 0.2.0 (2021-12-03)
 - initial Hackage release
 - `--hub` to select hub

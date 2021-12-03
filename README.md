@@ -30,16 +30,15 @@ but the following options change the behavior:
 
 ### Help
 ```shellsession
-$ koji-install
-Install latest build from Koji
+$ koji-install --help
+Download and install latest package build from Koji tag.
 
 Usage: koji-install [--version] [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
                     [-P|--packages-url URL]
-                    [(-a|--all) | (-A|--ask) | (-b|--base-only) |
+                    [(-l|--list) | (-a|--all) | (-A|--ask) | (-b|--base-only) |
                       (-D|--exclude-devel)] [-d|--disttag DISTTAG]
                     [(-R|--nvr) | (-V|--nv)] PACKAGE
-  Download and install latest package build from Koji tag.
-  HUB = fedora, stream, mbox, rpmfusion, URL
+  HUB = fedora, stream, rpmfusion, or URL
 
 Available options:
   -h,--help                Show this help text
@@ -48,6 +47,7 @@ Available options:
   -D,--debug               More detailed output
   -H,--hub HUB             KojiHub shortname or url [default: fedora]
   -P,--packages-url URL    KojiFiles packages url [default: fedora]
+  -l,--list                List builds
   -a,--all                 all subpackages
   -A,--ask                 ask for each subpackge
   -b,--base-only           only base package

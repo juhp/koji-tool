@@ -1,5 +1,5 @@
 name:                koji-install
-version:             0.2.0
+version:             0.3
 synopsis:            CLI tool for installing rpms directly from Fedora Koji
 description:
         koji-install can install the latest koji build of a package locally.
@@ -37,7 +37,6 @@ executable koji-install
                        extra,
                        filepath,
                        koji >= 0.0.2,
-                       optparse-applicative,
                        rpm-nvr,
                        simple-cmd,
                        simple-cmd-args,
