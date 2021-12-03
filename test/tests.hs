@@ -1,22 +1,23 @@
 import SimpleCmd
 import System.IO
 
-program :: Bool -> [String] -> IO ()
-program havedist args =
+program :: [String] -> IO ()
+program args =
   putStrLn "" >>
-  cmdLog "koji-install"
-  ((if havedist then id else (["-d", "fc35"] ++)) ("-n" : args))
+  cmdLog "koji-install" ("-n" : args)
 
-tests :: [[String]]
-tests =
-  [["-b", "podman"]
-  ,["-l", "coreutils"]
+tests :: Bool -> [[String]]
+tests havedist =
+  [["-b", "podman"] ++ sysdist
+  ,["-l", "coreutils"] ++ sysdist
   ,["-b", "-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash"]
   ,["-b", "-H", "stream", "-d", "el9", "kernel"]
   ,["-l", "-H", "stream", "-d", "el9", "grep"]
-  ,["-b", "-H", "rpmfusion", "ffmpeg"]
-  ,["-l", "-H", "rpmfusion", "ffmpeg"]
+  ,["-b", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
+  ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
   ]
+  where
+    sysdist = if havedist then [] else ["-d", "fc35"]
 
 main :: IO ()
 main = do
@@ -24,5 +25,6 @@ main = do
   havedist <- do
     dist <- cmd "rpm" ["--eval", "%{dist}"]
     return $ dist /= "%{dist}"
-  mapM_ (program havedist) tests
-  putStrLn $ show (length tests) ++ " tests run"
+  let cases = tests havedist
+  mapM_ program cases
+  putStrLn $ show (length cases) ++ " tests run"
