@@ -84,23 +84,23 @@ hubURL hub =
   then hub
   else error' $ "unknown hub: try " ++ show knownHubs
 
-defaultPkgsURL :: Maybe String -> String
-defaultPkgsURL Nothing =
-  "https://kojipkgs.fedoraproject.org/packages"
-defaultPkgsURL (Just url) =
-  case url of
+defaultPkgsURL :: String -> String
+defaultPkgsURL url =
+  case dropSuffix "/" url of
+    "https://koji.fedoraproject.org/kojihub" ->
+      "https://kojipkgs.fedoraproject.org/packages"
     "https://kojihub.stream.centos.org/kojihub" ->
       "https://kojihub.stream.centos.org/kojifiles/packages"
     _ ->
       if "kojihub" `isSuffixOf` url
       then replace "kojihub" "kojifiles" url
-      else error' "use --files-url to specify kojifiles url for this kojihub"
+      else error' $ "use --files-url to specify kojifiles url for " ++ url
 
 program :: Bool -> Bool -> Maybe String -> Maybe String -> InstallMode
         -> String -> Request -> [String] -> IO ()
 program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
-      pkgsurl = fromMaybe (defaultPkgsURL mhuburl) mpkgsurl
+      pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
     putStrLn huburl
     putStrLn pkgsurl
@@ -113,9 +113,9 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
   where
     kojiLatestRPMs :: String -> String -> String -> String -> IO [String]
     kojiLatestRPMs huburl pkgsurl dlDir pkg = do
-      mnvr <- kojiLatestOSBuild huburl disttag request pkg
+      mnvr <- kojiLatestOSBuild debug huburl disttag request pkg
       case mnvr of
-        Nothing -> error' $ "latest " ++ pkg ++ " not found"
+        Nothing -> error' $ "latest " ++ pkg ++ " not found for " ++ disttag
         Just nvr -> do
           putStrLn $ nvr ++ "\n"
           allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
@@ -155,8 +155,9 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
     debugPkg :: String -> Bool
     debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
-kojiLatestOSBuild :: String -> String -> Request -> String -> IO (Maybe String)
-kojiLatestOSBuild hub disttag request pkgpat = do
+kojiLatestOSBuild :: Bool -> String -> String -> Request -> String
+                  -> IO (Maybe String)
+kojiLatestOSBuild debug hub disttag request pkgpat = do
   let (pkg,full) = packageOfPattern pkgpat
   mpkgid <- Koji.getPackageID hub pkg
   case mpkgid of
@@ -168,6 +169,7 @@ kojiLatestOSBuild hub disttag request pkgpat = do
                                             ("order",ValueString "-build_id")])]
       res <- Koji.listBuilds hub $
              ("pattern", ValueString (if full then pkgpat else dropSuffix "*" pkgpat ++ "*" ++ disttag)) : opts
+      when debug $ print opts
       case res of
         [] -> return Nothing
         [bld] -> return $ lookupStruct "nvr" bld
