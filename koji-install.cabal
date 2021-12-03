@@ -37,6 +37,7 @@ executable koji-install
                        extra,
                        filepath,
                        koji >= 0.0.2,
+                       optparse-applicative,
                        rpm-nvr,
                        simple-cmd,
                        simple-cmd-args,

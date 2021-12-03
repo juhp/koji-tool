@@ -9,6 +9,8 @@ import Data.Maybe
 import Data.RPM
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
+import Options.Applicative (fullDesc, header, progDescDoc)
+import qualified Options.Applicative.Help.Pretty as P
 import SimpleCmd
 import SimpleCmdArgs
 import System.Directory
@@ -32,13 +34,17 @@ data Request = ReqName | ReqNV | ReqNVR
 main :: IO ()
 main = do
   sysdisttag <- cmd "rpm" ["--eval", "%{dist}"]
-  simpleCmdArgs (Just Paths_koji_install.version) "Install latest build from Koji"
-    "Download and install latest package build from Koji tag." $
+  let pdoc = Just $ P.vcat
+             [ P.text "Download and install latest package build from Koji tag.",
+               P.text ("HUB = " <> intercalate ", " knownHubs)
+             ]
+  simpleCmdArgsWithMods (Just Paths_koji_install.version)
+    (fullDesc <> header "Install latest build from Koji" <> progDescDoc pdoc) $
     program
     <$> switchWith 'n' "dry-run" "Don't actually download anything"
     <*> switchWith 'D' "debug" "More detailed output"
-    <*> optional (strOptionWith 'H' "hub-url" "URL"
-                  "KojiHub url [default: fedora]")
+    <*> optional (strOptionWith 'H' "hub" "HUB"
+                  "KojiHub shortname or url [default: fedora]")
     <*> optional (strOptionWith 'P' "packages-url" "URL"
                   "KojiFiles packages url [default: fedora]")
     <*> modeOpt
@@ -63,6 +69,21 @@ main = do
         "" -> error' "empty disttag"
         (c:_) -> if c == '.' then cs else '.' : cs
 
+knownHubs :: [String]
+knownHubs = ["fedora","stream","mbox","rpmfusion", "URL"]
+
+hubURL :: String -> String
+hubURL "fedora" = fedoraKojiHub
+-- later use centosKojiHub
+hubURL "stream" = "https://kojihub.stream.centos.org/kojihub"
+hubURL "mbox" = "https://koji.mbox.centos.org/kojihub"
+hubURL "rpmfusion" = "https://koji.rpmfusion.org/kojihub"
+hubURL "fusion" = "https://koji.rpmfusion.org/kojihub"
+hubURL hub =
+  if "http" `isPrefixOf` hub
+  then hub
+  else error' $ "unknown hub: try " ++ show knownHubs
+
 defaultPkgsURL :: Maybe String -> String
 defaultPkgsURL Nothing =
   "https://kojipkgs.fedoraproject.org/packages"
@@ -78,7 +99,7 @@ defaultPkgsURL (Just url) =
 program :: Bool -> Bool -> Maybe String -> Maybe String -> InstallMode
         -> String -> Request -> [String] -> IO ()
 program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
-  let huburl = fromMaybe fedoraKojiHub mhuburl
+  let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL mhuburl) mpkgsurl
   when debug $ do
     putStrLn huburl
