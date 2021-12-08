@@ -12,7 +12,7 @@ import qualified Distribution.Koji.API as Koji
 import SimpleCmd
 import SimpleCmdArgs
 import System.Directory
-import System.FilePath ((<.>))
+import System.FilePath ((<.>), isExtensionOf)
 import System.IO
 
 import DownloadDir
@@ -49,12 +49,12 @@ main = do
     <*> optional (strOptionWith 'H' "hub" "HUB"
                   "KojiHub shortname or url [default: fedora]")
     <*> optional (strOptionWith 'P' "packages-url" "URL"
-                  "KojiFiles packages url [default: fedora]")
+                  "KojiFiles packages url [default: Fedora]")
     <*> modeOpt
     <*> disttagOpt sysdisttag
     <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
          <|> flagWith ReqName ReqNVR 'V' "nv" "Give an N-V instead of package name")
-    <*> some (strArg "PACKAGE")
+    <*> some (strArg "PACKAGE|TASKID...")
   where
     modeOpt :: Parser Mode
     modeOpt =
@@ -98,7 +98,7 @@ defaultPkgsURL url =
     "https://kojihub.stream.centos.org/kojihub" ->
       "https://kojihub.stream.centos.org/kojifiles/packages"
     _ ->
-      if "kojihub" `isSuffixOf` url
+      if "kojihub" `isExtensionOf` url
       then replace "kojihub" "kojifiles" url
       else error' $ "use --files-url to specify kojifiles url for " ++ url
 
@@ -114,43 +114,71 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
   dlDir <- setDownloadDir dryrun "rpms"
   when debug $ putStrLn dlDir
   setNoBuffering
-  mapM (kojiLatestRPMs huburl pkgsurl dlDir) pkgs
+  mapM (kojiRPMs huburl pkgsurl dlDir) pkgs
     >>= case mode of
           List -> mapM_ putStrLn . mconcat
           _ -> installRPMs dryrun . mconcat
   where
-    kojiLatestRPMs :: String -> String -> String -> String -> IO [String]
-    kojiLatestRPMs huburl pkgsurl dlDir pkg = do
-      nvrs <- kojiLatestOSBuilds debug huburl (mode == List) disttag request pkg
+    kojiRPMs :: String -> String -> String -> String -> IO [String]
+    kojiRPMs huburl pkgsurl dlDir pkg =
+      if all isDigit pkg
+      then kojiTaskRPMs huburl pkgsurl dlDir pkg
+      else kojiBuildRPMs huburl pkgsurl dlDir pkg
+
+    kojiTaskRPMs :: String -> String -> String -> String -> IO [String]
+    kojiTaskRPMs huburl pkgsurl dlDir task = do
+      let taskid = read task
+      case mode of
+        List -> do
+          -- FIXME handle parent task
+          taskreq <- Koji.getTaskRequest huburl taskid
+          case taskreq of
+                ValueArray req -> do
+                  children <- Koji.getTaskChildren huburl taskid False
+                  return $ showTaskReq req : mapMaybe showChildTask children
+                _ -> error' "taskinfo request not found"
+        InstMode instmode -> do
+          rpms <- filter (".rpm" `isSuffixOf`) . map fst <$> Koji.listTaskOutput huburl taskid False True False
+          dlRpms <- decideRpms instmode Nothing rpms
+          unless (dryrun || null dlRpms) $ do
+            mapM_ (downloadTaskRpm pkgsurl task) dlRpms
+            putStrLn $ "Packages downloaded to " ++ dlDir
+          return dlRpms
+
+    kojiBuildRPMs :: String -> String -> String -> String -> IO [String]
+    kojiBuildRPMs huburl pkgsurl dlDir pkg = do
+      nvrs <- kojiBuildOSBuilds debug huburl (mode == List) disttag request pkg
       case mode of
         List -> return nvrs
         InstMode instmode ->
           case nvrs of
-            [] -> error' $ "latest " ++ pkg ++ " not found for " ++ disttag
+            [] -> error' $ pkg ++ " not found for " ++ disttag
             [nvr] -> do
               putStrLn $ nvr ++ "\n"
               allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
-              dlRpms <- decideRpms instmode allRpms
+              dlRpms <- decideRpms instmode (Just pkg) allRpms
               unless (dryrun || null dlRpms) $ do
-                mapM_ (downloadRpm pkgsurl (readNVR nvr)) dlRpms
+                mapM_ (downloadBuildRpm pkgsurl (readNVR nvr)) dlRpms
                 -- FIXME once we check file size - can skip if no downloads
                 putStrLn $ "Packages downloaded to " ++ dlDir
               return dlRpms
-            _ -> error $ "multiple latest build founds for " ++ pkg ++ ": " ++
+            _ -> error $ "multiple build founds for " ++ pkg ++ ": " ++
                  unwords nvrs
-      where
-        decideRpms :: InstallMode -> [String] -> IO [String]
-        decideRpms mode' allRpms =
-          case mode' of
-            All -> return allRpms
-            Ask -> mapMaybeM rpmPrompt allRpms
-            Base -> return $ pure $ minimumOn length $ filter (pkg `isPrefixOf`) allRpms
-            Update -> do
-              rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
-              if null rpms
-                then decideRpms Ask allRpms
-                else return rpms
-            NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
+
+    decideRpms :: InstallMode -> Maybe String -> [String] -> IO [String]
+    decideRpms mode' mpkg allRpms =
+      case mode' of
+        All -> return allRpms
+        Ask -> mapMaybeM rpmPrompt allRpms
+        Base ->
+          let predicate = maybe (const True) isPrefixOf mpkg
+          in return $ pure $ minimumOn length $ filter predicate allRpms
+        Update -> do
+          rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
+          if null rpms
+            then decideRpms Ask mpkg allRpms
+            else return rpms
+        NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
 
     rpmPrompt :: String -> IO (Maybe String)
     rpmPrompt rpm = do
@@ -168,9 +196,9 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
     debugPkg :: String -> Bool
     debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
-kojiLatestOSBuilds :: Bool -> String -> Bool -> String -> Request -> String
+kojiBuildOSBuilds :: Bool -> String -> Bool -> String -> Request -> String
                   -> IO [String]
-kojiLatestOSBuilds debug hub listmode disttag request pkgpat = do
+kojiBuildOSBuilds debug hub listmode disttag request pkgpat = do
   let (pkg,full) = packageOfPattern pkgpat
       oldkoji = "rpmfusion" `isInfixOf` hub
   when (oldkoji && ("*" `isInfixOf` pkgpat || request /= ReqName)) $
@@ -250,13 +278,30 @@ installRPMs dryrun pkgs =
   sudo_ "dnf" ("install" : map ("./" ++) pkgs)
 
 -- FIXME check file size
-downloadRpm :: String -> NVR -> String -> IO ()
-downloadRpm pkgsurl (NVR n (VerRel v r)) rpm = do
+downloadBuildRpm :: String -> NVR -> String -> IO ()
+downloadBuildRpm pkgsurl (NVR n (VerRel v r)) rpm = do
   unlessM (doesFileExist rpm) $ do
     let arch = rpmArch (readNVRA rpm)
         url = pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
     putStrLn $ "Downloading " ++ rpm
     cmd_ "curl" ["--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
+
+downloadTaskRpm :: String -> String -> String -> IO ()
+downloadTaskRpm pkgsurl taskid rpm = do
+  unlessM (doesFileExist rpm) $ do
+    let url = pkgsurl +/+ "work/tasks/" ++ takeEnd 4 taskid +/+ taskid +/+ rpm
+    putStrLn $ "Downloading " ++ rpm
+    cmd_ "curl" ["--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
+
+showTaskReq :: [Value] -> String
+showTaskReq = unwords . mapMaybe getString . take 2
+
+showChildTask :: Struct -> Maybe String
+showChildTask struct = do
+  arch <- lookupStruct "arch" struct
+  state <- getTaskState struct
+  taskid <- lookupStruct "id" struct
+  return $ arch ++ " " ++ show (taskid :: Int) ++ " " ++ show state
 
 -- from next http-directory or http-query
 infixr 5 +/+
