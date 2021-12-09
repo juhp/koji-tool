@@ -130,13 +130,12 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
       let taskid = read task
       case mode of
         List -> do
-          -- FIXME handle parent task
-          taskreq <- Koji.getTaskRequest huburl taskid
-          case taskreq of
-                ValueArray req -> do
-                  children <- Koji.getTaskChildren huburl taskid False
-                  return $ showTaskReq req : mapMaybe showChildTask children
-                _ -> error' "taskinfo request not found"
+          mtaskinfo <- Koji.getTaskInfo huburl taskid True
+          case mtaskinfo of
+            Just taskinfo -> do
+              children <- Koji.getTaskChildren huburl taskid False
+              return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
+            Nothing -> error' "failed to get taskinfo"
         InstMode instmode -> do
           rpms <- sort . filter isBinaryRpm . map fst <$> Koji.listTaskOutput huburl taskid False True False
           dlRpms <- decideRpms instmode Nothing rpms
@@ -293,15 +292,22 @@ downloadTaskRpm pkgsurl taskid rpm = do
     putStrLn $ "Downloading " ++ rpm
     cmd_ "curl" ["--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
 
-showTaskReq :: [Value] -> String
-showTaskReq = unwords . mapMaybe getString . take 2
+showTask :: Struct -> Maybe String
+showTask struct = do
+  state <- getTaskState struct
+  request <- lookupStruct "request" struct
+  method <- lookupStruct "method" struct
+  let mparent = lookupStruct "parent" struct :: Maybe Int
+      showreq = takeWhileEnd (/= '/') . unwords . mapMaybe getString . take 3
+  return $ showreq request +-+ method +-+ (if state == TaskClosed then "" else show state) +-+ maybe "" (\p -> "(" ++ show p ++ ")") mparent
 
 showChildTask :: Struct -> Maybe String
 showChildTask struct = do
   arch <- lookupStruct "arch" struct
   state <- getTaskState struct
+  method <- lookupStruct "method" struct
   taskid <- lookupStruct "id" struct
-  return $ arch ++ " " ++ show (taskid :: Int) ++ " " ++ show state
+  return $ arch +-+ show (taskid :: Int) +-+ method +-+ show state
 
 isBinaryRpm :: FilePath -> Bool
 isBinaryRpm file =
