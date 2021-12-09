@@ -98,8 +98,8 @@ defaultPkgsURL url =
     "https://kojihub.stream.centos.org/kojihub" ->
       "https://kojihub.stream.centos.org/kojifiles/packages"
     _ ->
-      if "kojihub" `isExtensionOf` url
-      then replace "kojihub" "kojifiles" url
+      if "kojihub" `isSuffixOf` url
+      then replace "kojihub" "kojifiles" url +/+ "packages"
       else error' $ "use --files-url to specify kojifiles url for " ++ url
 
 program :: Bool -> Bool -> Maybe String -> Maybe String -> Mode
@@ -289,7 +289,7 @@ downloadBuildRpm pkgsurl (NVR n (VerRel v r)) rpm = do
 downloadTaskRpm :: String -> String -> String -> IO ()
 downloadTaskRpm pkgsurl taskid rpm = do
   unlessM (doesFileExist rpm) $ do
-    let url = pkgsurl +/+ "work/tasks/" ++ takeEnd 4 taskid +/+ taskid +/+ rpm
+    let url = dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ takeEnd 4 taskid +/+ taskid +/+ rpm
     putStrLn $ "Downloading " ++ rpm
     cmd_ "curl" ["--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
 
