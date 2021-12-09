@@ -281,7 +281,7 @@ installRPMs :: Bool -> [FilePath] -> IO ()
 installRPMs _ [] = return ()
 installRPMs dryrun pkgs =
   unless dryrun $
-  sudo_ "dnf" ("install" : map ("./" ++) pkgs)
+  sudo_ "dnf" ("localinstall" : pkgs)
 
 downloadBuildRpm :: Bool -> String -> NVR -> String -> IO ()
 downloadBuildRpm debug pkgsurl (NVR n (VerRel v r)) rpm = do
