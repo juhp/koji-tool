@@ -36,6 +36,7 @@ executable koji-install
                        directory,
                        extra,
                        filepath,
+                       http-directory >= 0.1.9,
                        koji >= 0.0.2,
                        rpm-nvr,
                        simple-cmd,

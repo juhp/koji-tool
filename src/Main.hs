@@ -9,10 +9,11 @@ import Data.Maybe
 import Data.RPM
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
+import Network.HTTP.Directory (httpFileSize', httpLastModified', (+/+))
 import SimpleCmd
 import SimpleCmdArgs
 import System.Directory
-import System.FilePath ((<.>), isExtensionOf)
+import System.FilePath ((<.>), isExtensionOf, takeFileName)
 import System.IO
 
 import DownloadDir
@@ -122,27 +123,8 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
     kojiRPMs :: String -> String -> String -> String -> IO [String]
     kojiRPMs huburl pkgsurl dlDir pkg =
       if all isDigit pkg
-      then kojiTaskRPMs huburl pkgsurl dlDir pkg
+      then kojiTaskRPMs dryrun debug huburl pkgsurl mode dlDir pkg
       else kojiBuildRPMs huburl pkgsurl dlDir pkg
-
-    kojiTaskRPMs :: String -> String -> String -> String -> IO [String]
-    kojiTaskRPMs huburl pkgsurl dlDir task = do
-      let taskid = read task
-      case mode of
-        List -> do
-          mtaskinfo <- Koji.getTaskInfo huburl taskid True
-          case mtaskinfo of
-            Just taskinfo -> do
-              children <- Koji.getTaskChildren huburl taskid False
-              return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
-            Nothing -> error' "failed to get taskinfo"
-        InstMode instmode -> do
-          rpms <- sort . filter isBinaryRpm . map fst <$> Koji.listTaskOutput huburl taskid False True False
-          dlRpms <- decideRpms instmode Nothing rpms
-          unless (dryrun || null dlRpms) $ do
-            mapM_ (downloadTaskRpm pkgsurl task) dlRpms
-            putStrLn $ "Packages downloaded to " ++ dlDir
-          return dlRpms
 
     kojiBuildRPMs :: String -> String -> String -> String -> IO [String]
     kojiBuildRPMs huburl pkgsurl dlDir pkg = do
@@ -157,43 +139,68 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
               allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
               dlRpms <- decideRpms instmode (Just pkg) allRpms
               unless (dryrun || null dlRpms) $ do
-                mapM_ (downloadBuildRpm pkgsurl (readNVR nvr)) dlRpms
+                mapM_ (downloadBuildRpm debug pkgsurl (readNVR nvr)) dlRpms
                 -- FIXME once we check file size - can skip if no downloads
                 putStrLn $ "Packages downloaded to " ++ dlDir
               return dlRpms
             _ -> error $ "multiple build founds for " ++ pkg ++ ": " ++
                  unwords nvrs
 
-    decideRpms :: InstallMode -> Maybe String -> [String] -> IO [String]
-    decideRpms mode' mpkg allRpms =
-      case mode' of
-        All -> return allRpms
-        Ask -> mapMaybeM rpmPrompt allRpms
-        Base ->
-          let predicate = maybe (const True) isPrefixOf mpkg
-          in return $ pure $ minimumOn length $ filter predicate allRpms
-        Update -> do
-          rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
-          if null rpms
-            then decideRpms Ask mpkg allRpms
-            else return rpms
-        NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
+    debugPkg :: String -> Bool
+    debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
-    rpmPrompt :: String -> IO (Maybe String)
-    rpmPrompt rpm = do
-      putStr $ rpm ++ " [y/n]: "
-      c <- getChar
-      putStrLn ""
-      case toLower c of
-        'y' -> return $ Just rpm
-        'n' -> return Nothing
-        _ -> rpmPrompt rpm
+kojiTaskRPMs :: Bool -> Bool -> String -> String -> Mode -> String -> String
+             -> IO [String]
+kojiTaskRPMs dryrun debug huburl pkgsurl mode dlDir task = do
+  let taskid = read task
+  case mode of
+    List -> do
+      mtaskinfo <- Koji.getTaskInfo huburl taskid True
+      case mtaskinfo of
+        Just taskinfo -> do
+          children <- Koji.getTaskChildren huburl taskid False
+          return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
+        Nothing -> error' "failed to get taskinfo"
+    InstMode instmode -> do
+      rpms <- sort . filter isBinaryRpm . map fst <$> Koji.listTaskOutput huburl taskid False True False
+      if null rpms
+        then do
+        kojiTaskRPMs dryrun debug huburl pkgsurl List dlDir task >>= mapM_ putStrLn
+        return []
+        else do
+        dlRpms <- decideRpms instmode Nothing rpms
+        unless (dryrun || null dlRpms) $ do
+          mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
+          putStrLn $ "Packages downloaded to " ++ dlDir
+        return dlRpms
 
+decideRpms :: InstallMode -> Maybe String -> [String] -> IO [String]
+decideRpms mode' mpkg allRpms =
+  case mode' of
+    All -> return allRpms
+    Ask -> mapMaybeM rpmPrompt allRpms
+    Base ->
+      let predicate = maybe (const True) isPrefixOf mpkg
+      in return $ pure $ minimumOn length $ filter predicate allRpms
+    Update -> do
+      rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
+      if null rpms
+        then decideRpms Ask mpkg allRpms
+        else return rpms
+    NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
+  where
     isInstalled :: String -> IO Bool
     isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
 
-    debugPkg :: String -> Bool
-    debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
+rpmPrompt :: String -> IO (Maybe String)
+rpmPrompt rpm = do
+  putStr $ rpm ++ " [y/n]: "
+  c <- getChar
+  putStrLn ""
+  case toLower c of
+    'y' -> return $ Just rpm
+    'n' -> return Nothing
+    _ -> rpmPrompt rpm
 
 kojiBuildOSBuilds :: Bool -> String -> Bool -> String -> Request -> String
                   -> IO [String]
@@ -276,21 +283,45 @@ installRPMs dryrun pkgs =
   unless dryrun $
   sudo_ "dnf" ("install" : map ("./" ++) pkgs)
 
--- FIXME check file size
-downloadBuildRpm :: String -> NVR -> String -> IO ()
-downloadBuildRpm pkgsurl (NVR n (VerRel v r)) rpm = do
-  unlessM (doesFileExist rpm) $ do
-    let arch = rpmArch (readNVRA rpm)
-        url = pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
-    putStrLn $ "Downloading " ++ rpm
-    cmd_ "curl" ["--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
+downloadBuildRpm :: Bool -> String -> NVR -> String -> IO ()
+downloadBuildRpm debug pkgsurl (NVR n (VerRel v r)) rpm = do
+  let arch = rpmArch (readNVRA rpm)
+      url = pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
+  downloadRPM debug url
 
-downloadTaskRpm :: String -> String -> String -> IO ()
-downloadTaskRpm pkgsurl taskid rpm = do
-  unlessM (doesFileExist rpm) $ do
-    let url = dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ takeEnd 4 taskid +/+ taskid +/+ rpm
-    putStrLn $ "Downloading " ++ rpm
-    cmd_ "curl" ["--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
+downloadTaskRpm :: Bool -> String -> String -> String -> IO ()
+downloadTaskRpm debug pkgsurl taskid rpm = do
+  let url = dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ takeEnd 4 taskid +/+ taskid +/+ rpm
+  downloadRPM debug url
+
+-- FIXME check file size
+-- FIXME check timestamp
+downloadRPM :: Bool -> String -> IO ()
+downloadRPM debug url = do
+  let rpm = takeFileName url
+  exists <- doesFileExist rpm
+  notfile <-
+    if exists
+    then do
+      old <- outOfDate rpm
+      when old $ removeFile rpm
+      return old
+    else return True
+  when notfile $ do
+    putStrLn $ "Downloading " ++ if debug then url else rpm
+    cmd_ "curl" ["--remote-time", "--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
+  where
+    outOfDate :: String -> IO Bool
+    outOfDate file = do
+      mremotetime <- httpLastModified' url
+      case mremotetime of
+        Just remotetime -> do
+          localtime <- getModificationTime file
+          return $ localtime < remotetime
+        Nothing -> do
+          remotesize <- httpFileSize' url
+          localsize <- getFileSize file
+          return $ remotesize /= Just localsize
 
 showTask :: Struct -> Maybe String
 showTask struct = do
@@ -312,12 +343,3 @@ showChildTask struct = do
 isBinaryRpm :: FilePath -> Bool
 isBinaryRpm file =
   ".rpm" `isExtensionOf` file && not (".src.rpm" `isExtensionOf` file)
-
--- from next http-directory or http-query
-infixr 5 +/+
-(+/+) :: String -> String -> String
-"" +/+ s = s
-s +/+ "" = s
-s +/+ t | last s == '/' = init s +/+ t
-        | head t == '/' = s +/+ tail t
-s +/+ t = s ++ "/" ++ t
