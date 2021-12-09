@@ -138,7 +138,7 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
                   return $ showTaskReq req : mapMaybe showChildTask children
                 _ -> error' "taskinfo request not found"
         InstMode instmode -> do
-          rpms <- filter (".rpm" `isSuffixOf`) . map fst <$> Koji.listTaskOutput huburl taskid False True False
+          rpms <- sort . filter isBinaryRpm . map fst <$> Koji.listTaskOutput huburl taskid False True False
           dlRpms <- decideRpms instmode Nothing rpms
           unless (dryrun || null dlRpms) $ do
             mapM_ (downloadTaskRpm pkgsurl task) dlRpms
@@ -302,6 +302,10 @@ showChildTask struct = do
   state <- getTaskState struct
   taskid <- lookupStruct "id" struct
   return $ arch ++ " " ++ show (taskid :: Int) ++ " " ++ show state
+
+isBinaryRpm :: FilePath -> Bool
+isBinaryRpm file =
+  ".rpm" `isExtensionOf` file && not (".src.rpm" `isExtensionOf` file)
 
 -- from next http-directory or http-query
 infixr 5 +/+
