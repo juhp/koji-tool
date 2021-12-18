@@ -14,6 +14,7 @@ import SimpleCmd
 import SimpleCmdArgs
 import System.Directory
 import System.FilePath ((<.>), isExtensionOf, takeFileName)
+import System.FilePath.Glob
 import System.IO
 
 import DownloadDir
@@ -23,7 +24,10 @@ import Paths_koji_install (version)
 data Mode = List | InstMode InstallMode
   deriving Eq
 
-data InstallMode = Update | All | Ask | Base | NoDevel
+data InstallMode = Update | All | Ask | PkgsReq SubPackages
+  deriving Eq
+
+data SubPackages = Subpkgs [String] | ExclPkgs [String]
   deriving Eq
 
 data Request = ReqName | ReqNV | ReqNVR
@@ -62,9 +66,9 @@ main = do
       flagWith' List 'l' "list" "List builds" <|>
       InstMode <$>
       (flagWith' All 'a' "all" "all subpackages" <|>
-      flagWith' Ask 'A' "ask" "ask for each subpackge" <|>
-      flagWith' Base 'b' "base-only" "only base package" <|>
-      flagWith' NoDevel 'D' "exclude-devel" "Skip devel packages" <|>
+      flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
+      PkgsReq <$> (Subpkgs <$> some (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <|>
+                   ExclPkgs <$> some (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")) <|>
       pure Update)
 
     disttagOpt :: String -> Parser String
@@ -188,18 +192,27 @@ decideRpms mode' mpkg allRpms =
   case mode' of
     All -> return allRpms
     Ask -> mapMaybeM rpmPrompt allRpms
-    Base ->
-      let predicate = maybe (const True) isPrefixOf mpkg
-      in return $ pure $ minimumOn length $ filter predicate allRpms
     Update -> do
       rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
       if null rpms
         then decideRpms Ask mpkg allRpms
         else return rpms
-    NoDevel -> return $ filter (not . ("-devel-" `isInfixOf`)) allRpms
+    PkgsReq pkgsreq ->
+      case pkgsreq of
+        Subpkgs subpkgs ->
+          return $ filter (matches subpkgs) allRpms
+        ExclPkgs subpkgs ->
+          return $ filter (not . matches subpkgs) allRpms
   where
     isInstalled :: String -> IO Bool
     isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
+
+    matches :: [String] -> String -> Bool
+    matches [] _ = False
+    matches (p:ps) pkg = match (compile p) (nvraName pkg) || matches ps pkg
+
+    nvraName :: String -> String
+    nvraName = rpmName . readNVRA
 
 rpmPrompt :: String -> IO (Maybe String)
 rpmPrompt rpm = do
