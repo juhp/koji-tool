@@ -158,11 +158,15 @@ kojiTaskRPMs dryrun debug huburl pkgsurl mode dlDir task = do
       mtaskinfo <- Koji.getTaskInfo huburl taskid True
       case mtaskinfo of
         Just taskinfo -> do
-          children <- Koji.getTaskChildren huburl taskid False
-          return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
+          when debug $ mapM_ print taskinfo
+          if isNothing (lookupStruct "parent" taskinfo :: Maybe Int)
+            then do
+            children <- Koji.getTaskChildren huburl taskid False
+            return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
+            else getRPMs taskid
         Nothing -> error' "failed to get taskinfo"
     InstMode instmode -> do
-      rpms <- sort . filter isBinaryRpm . map fst <$> Koji.listTaskOutput huburl taskid False True False
+      rpms <- getRPMs taskid
       if null rpms
         then do
         kojiTaskRPMs dryrun debug huburl pkgsurl List dlDir task >>= mapM_ putStrLn
@@ -173,6 +177,11 @@ kojiTaskRPMs dryrun debug huburl pkgsurl mode dlDir task = do
           mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
           putStrLn $ "Packages downloaded to " ++ dlDir
         return dlRpms
+  where
+    getRPMs :: Int -> IO [String]
+    getRPMs taskid =
+       sort . filter isBinaryRpm . map fst <$>
+       Koji.listTaskOutput huburl taskid False True False
 
 decideRpms :: InstallMode -> Maybe String -> [String] -> IO [String]
 decideRpms mode' mpkg allRpms =
