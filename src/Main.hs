@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- SPDX-License-Identifier: BSD-3-Clause
 
 module Main (main) where
@@ -398,3 +400,9 @@ showChildTask struct = do
 isBinaryRpm :: FilePath -> Bool
 isBinaryRpm file =
   ".rpm" `isExtensionOf` file && not (".src.rpm" `isExtensionOf` file)
+
+#if !MIN_VERSION_filepath(1,4,2)
+isExtensionOf :: String -> FilePath -> Bool
+isExtensionOf ext@('.':_) = isSuffixOf ext . takeExtensions
+isExtensionOf ext         = isSuffixOf ('.':ext) . takeExtensions
+#endif
