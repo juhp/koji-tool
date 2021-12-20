@@ -50,7 +50,7 @@ main = do
     ("HUB = " ++ intercalate ", " knownHubs) $
     program
     <$> switchWith 'n' "dry-run" "Don't actually download anything"
-    <*> switchWith 'd' "debug" "More detailed output"
+    <*> switchWith 'D' "debug" "More detailed output"
     <*> optional (strOptionWith 'H' "hub" "HUB"
                   "KojiHub shortname or url [default: fedora]")
     <*> optional (strOptionWith 'P' "packages-url" "URL"
