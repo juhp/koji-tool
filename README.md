@@ -2,7 +2,8 @@
 
 A CLI tool to download and install rpms from a Koji build or task.
 
-Koji is a package buildsystem used by Fedora, Centos, and some other projects.
+[Koji](https://pagure.io/koji/) is a RPM package buildsystem used by
+Fedora, Centos, and some other projects.
 
 ## Usage
 
