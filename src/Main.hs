@@ -115,7 +115,7 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
   when debug $ do
     putStrLn huburl
     putStrLn pkgsurl
-  -- FIXME use this?
+  -- FIXME use this location?
   dlDir <- setDownloadDir dryrun "rpms"
   when debug $ putStrLn dlDir
   setNoBuffering

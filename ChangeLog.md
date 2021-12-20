@@ -1,5 +1,14 @@
 # Release history for koji-install
 
+## 0.4 (2021-12-20)
+- support installing/listing by koji taskid
+- selection subpackages with --package and --exclude, which support globbing
+- check remote files date/size with http-directory
+- listing a task either lists task children or rpms
+- use dnf reinstall for installed packages and otherwise localinstall
+- more detailed debug output
+- system arch no longer hardcoded to x86_64
+
 ## 0.3 (2021-12-03)
 - add `--list` command to list recent builds
 - fix bug in generating kojifiles url from short name
