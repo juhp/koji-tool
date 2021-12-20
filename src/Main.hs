@@ -280,7 +280,8 @@ kojiGetBuildRPMs huburl nvr = do
     Nothing -> error $ "Build id not found for " ++ nvr
     Just (BuildId bid) -> do
       rpms <- Koji.listBuildRPMs huburl bid
-      return $ map getNVRA $ filter (forArch "x86_64") rpms
+      sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
+      return $ map getNVRA $ filter (forArch sysarch) rpms
    where
      forArch :: String -> Struct -> Bool
      forArch sysarch st =
