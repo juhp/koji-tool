@@ -141,7 +141,9 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
             [nvr] -> do
               putStrLn $ nvr ++ "\n"
               allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
+              when debug $ print allRpms
               dlRpms <- decideRpms instmode (Just pkg) allRpms
+              when debug $ print dlRpms
               unless (dryrun || null dlRpms) $ do
                 mapM_ (downloadBuildRpm debug pkgsurl (readNVR nvr)) dlRpms
                 -- FIXME once we check file size - can skip if no downloads
@@ -176,7 +178,9 @@ kojiTaskRPMs dryrun debug huburl pkgsurl mode dlDir task = do
         kojiTaskRPMs dryrun debug huburl pkgsurl List dlDir task >>= mapM_ putStrLn
         return []
         else do
+        when debug $ print rpms
         dlRpms <- decideRpms instmode Nothing rpms
+        when debug $ print dlRpms
         unless (dryrun || null dlRpms) $ do
           mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
           putStrLn $ "Packages downloaded to " ++ dlDir
