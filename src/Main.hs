@@ -15,7 +15,7 @@ import Network.HTTP.Directory (httpFileSize', httpLastModified', (+/+))
 import SimpleCmd
 import SimpleCmdArgs
 import System.Directory
-import System.FilePath ((<.>), isExtensionOf, takeFileName)
+import System.FilePath
 import System.FilePath.Glob
 import System.IO
 
