@@ -364,7 +364,7 @@ showChildTask struct = do
   state <- getTaskState struct
   method <- lookupStruct "method" struct
   taskid <- lookupStruct "id" struct
-  return $ arch +-+ show (taskid :: Int) +-+ method +-+ show state
+  return $ arch ++ replicate (8 - length arch) ' ' +-+ show (taskid :: Int) +-+ method +-+ show state
 
 isBinaryRpm :: FilePath -> Bool
 isBinaryRpm file =
