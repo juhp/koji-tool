@@ -208,15 +208,15 @@ decideRpms mode' mpkg allRpms =
         ExclPkgs subpkgs ->
           return $ filter (not . matches subpkgs) allRpms
   where
-    isInstalled :: String -> IO Bool
-    isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
-
     matches :: [String] -> String -> Bool
     matches [] _ = False
     matches (p:ps) pkg = match (compile p) (nvraName pkg) || matches ps pkg
 
     nvraName :: String -> String
     nvraName = rpmName . readNVRA
+
+isInstalled :: String -> IO Bool
+isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
 
 rpmPrompt :: String -> IO (Maybe String)
 rpmPrompt rpm = do
@@ -306,9 +306,17 @@ setNoBuffering = do
 
 installRPMs :: Bool -> [FilePath] -> IO ()
 installRPMs _ [] = return ()
-installRPMs dryrun pkgs =
-  unless dryrun $
-  sudo_ "dnf" ("localinstall" : pkgs)
+installRPMs dryrun pkgs = do
+  installed <- filterM (isInstalled . rpmName . readNVRA) pkgs
+  unless (null installed) $
+    if dryrun
+    then mapM_ putStrLn $ "would reinstall:" : installed
+    else sudo_ "dnf" ("reinstall" : installed)
+  let rest = pkgs \\ installed
+  unless (null rest) $
+    if dryrun
+    then mapM_ putStrLn $ "would install:" : rest
+    else sudo_ "dnf" ("localinstall" : rest)
 
 downloadBuildRpm :: Bool -> String -> NVR -> String -> IO ()
 downloadBuildRpm debug pkgsurl (NVR n (VerRel v r)) rpm = do
