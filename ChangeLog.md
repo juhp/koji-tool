@@ -2,9 +2,9 @@
 
 ## 0.4 (2021-12-20)
 - support installing/listing by koji taskid
-- selection subpackages with --package and --exclude, which support globbing
+- select subpackages with --package and --exclude, by name or globbing
 - check remote files date/size with http-directory
-- listing a task either lists task children or rpms
+- listing a task either lists the task's children or rpms
 - use dnf reinstall for installed packages and otherwise localinstall
 - more detailed debug output
 - system arch no longer hardcoded to x86_64
