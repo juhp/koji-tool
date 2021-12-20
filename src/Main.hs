@@ -215,7 +215,7 @@ selectRPMs :: SubPackages -> [String] -> [String]
 selectRPMs pkgsreq allRpms =
   case pkgsreq of
     Subpkgs subpkgs ->
-      mconcat $
+      sort . mconcat $
       flip map subpkgs $ \ pkgpat ->
       case filter (match (compile pkgpat) . nvraName) allRpms of
         [] -> error' $ "no subpackage match for " ++ pkgpat
