@@ -326,7 +326,7 @@ installRPMs dryrun pkgs = do
   installed <- filterM (isInstalled . rpmName . readNVRA) pkgs
   unless (null installed) $
     if dryrun
-    then mapM_ putStrLn $ "would reinstall:" : installed
+    then mapM_ putStrLn $ "would update:" : installed
     else sudo_ "dnf" ("reinstall" : installed)
   let rest = pkgs \\ installed
   unless (null rest) $
