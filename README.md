@@ -20,7 +20,7 @@ You can specify a different Koji hub service with `--hub`.
 By default only installed subpackages are downloaded and updated,
 but the following options change the behavior:
 
-`--package`: select subpackages by name or glob pattern (this only works currently for a single build)
+`--package`: select subpackages by name or glob pattern (this doesn't work currently on multiple builds/tasks)
 
 `--exclude`: exclude subpackages by name or glob pattern
 
@@ -33,19 +33,18 @@ but the following options change the behavior:
 $ koji-install --help
 Download and install latest package build from Koji tag.
 
-Usage: koji-install [--version] [-n|--dry-run] [-d|--debug] [-H|--hub HUB]
-                    [-P|--packages-url URL]
-                    [(-l|--list) | (-a|--all) | (-A|--ask) |
-                      (-p|--package SUBPKG) | (-x|--exclude SUBPKG)]
-                    [-d|--disttag DISTTAG] [(-R|--nvr) | (-V|--nv)]
-                    PACKAGE|TASKID...
+Usage: koji-install [--version] [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
+                    [-P|--packages-url URL] [-l|--list]
+                    [(-a|--all) | (-A|--ask) | (-p|--package SUBPKG) |
+                      (-x|--exclude SUBPKG)] [-d|--disttag DISTTAG]
+                    [(-R|--nvr) | (-V|--nv)] PACKAGE|TASKID...
   HUB = fedora, stream, rpmfusion, or URL
 
 Available options:
   -h,--help                Show this help text
   --version                Show version
   -n,--dry-run             Don't actually download anything
-  -d,--debug               More detailed output
+  -D,--debug               More detailed output
   -H,--hub HUB             KojiHub shortname or url [default: fedora]
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
   -l,--list                List builds

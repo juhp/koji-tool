@@ -20,11 +20,7 @@ import System.IO
 import DownloadDir
 import Paths_koji_install (version)
 
--- FIXME use subtype for listing vs installation
-data Mode = List | InstMode InstallMode
-  deriving Eq
-
-data InstallMode = Update | All | Ask | PkgsReq SubPackages
+data Mode = Update | All | Ask | PkgsReq SubPackages
   deriving Eq
 
 data SubPackages = Subpkgs [String] | ExclPkgs [String]
@@ -55,6 +51,7 @@ main = do
                   "KojiHub shortname or url [default: fedora]")
     <*> optional (strOptionWith 'P' "packages-url" "URL"
                   "KojiFiles packages url [default: Fedora]")
+    <*> switchWith 'l' "list" "List builds"
     <*> modeOpt
     <*> disttagOpt sysdisttag
     <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
@@ -63,13 +60,11 @@ main = do
   where
     modeOpt :: Parser Mode
     modeOpt =
-      flagWith' List 'l' "list" "List builds" <|>
-      InstMode <$>
-      (flagWith' All 'a' "all" "all subpackages" <|>
+      flagWith' All 'a' "all" "all subpackages" <|>
       flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
       PkgsReq <$> (Subpkgs <$> some (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <|>
                    ExclPkgs <$> some (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")) <|>
-      pure Update)
+      pure Update
 
     disttagOpt :: String -> Parser String
     disttagOpt disttag = startingDot <$> strOptionalWith 'd' "disttag" "DISTTAG" ("Use a different disttag [default: " ++ disttag ++ "]") disttag
@@ -107,9 +102,9 @@ defaultPkgsURL url =
       then replace "kojihub" "kojifiles" url +/+ "packages"
       else error' $ "use --files-url to specify kojifiles url for " ++ url
 
-program :: Bool -> Bool -> Maybe String -> Maybe String -> Mode
+program :: Bool -> Bool -> Maybe String -> Maybe String -> Bool -> Mode
         -> String -> Request -> [String] -> IO ()
-program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
+program dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgs = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -120,99 +115,114 @@ program dryrun debug mhuburl mpkgsurl mode disttag request pkgs = do
   when debug $ putStrLn dlDir
   setNoBuffering
   mapM (kojiRPMs huburl pkgsurl dlDir) pkgs
-    >>= case mode of
-          List -> mapM_ putStrLn . mconcat
-          _ -> installRPMs dryrun . mconcat
+    >>= if listmode
+        then mapM_ putStrLn . mconcat
+        else installRPMs dryrun . mconcat
   where
     kojiRPMs :: String -> String -> String -> String -> IO [String]
     kojiRPMs huburl pkgsurl dlDir pkg =
       if all isDigit pkg
-      then kojiTaskRPMs dryrun debug huburl pkgsurl mode dlDir pkg
+      then kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir pkg
       else kojiBuildRPMs huburl pkgsurl dlDir pkg
 
     kojiBuildRPMs :: String -> String -> String -> String -> IO [String]
     kojiBuildRPMs huburl pkgsurl dlDir pkg = do
-      nvrs <- kojiBuildOSBuilds debug huburl (mode == List) disttag request pkg
-      case mode of
-        List -> return nvrs
-        InstMode instmode ->
-          case nvrs of
-            [] -> error' $ pkg ++ " not found for " ++ disttag
-            [nvr] -> do
-              putStrLn $ nvr ++ "\n"
-              allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
-              when debug $ print allRpms
-              dlRpms <- decideRpms instmode (Just pkg) allRpms
-              when debug $ print dlRpms
-              unless (dryrun || null dlRpms) $ do
-                mapM_ (downloadBuildRpm debug pkgsurl (readNVR nvr)) dlRpms
-                -- FIXME once we check file size - can skip if no downloads
-                putStrLn $ "Packages downloaded to " ++ dlDir
-              return dlRpms
-            _ -> error $ "multiple build founds for " ++ pkg ++ ": " ++
-                 unwords nvrs
+      nvrs <- kojiBuildOSBuilds debug huburl listmode disttag request pkg
+      if listmode
+        then if mode /= Update
+             then error' "modes not supported for listing build"
+             else return nvrs
+        else
+        case nvrs of
+          [] -> error' $ pkg ++ " not found for " ++ disttag
+          [nvr] -> do
+            putStrLn $ nvr ++ "\n"
+            allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
+            when debug $ print allRpms
+            dlRpms <- decideRpms listmode mode (Just pkg) allRpms
+            when debug $ print dlRpms
+            unless (dryrun || null dlRpms) $ do
+              mapM_ (downloadBuildRpm debug pkgsurl (readNVR nvr)) dlRpms
+              -- FIXME once we check file size - can skip if no downloads
+              putStrLn $ "Packages downloaded to " ++ dlDir
+            return dlRpms
+          _ -> error $ "multiple build founds for " ++ pkg ++ ": " ++
+               unwords nvrs
 
     debugPkg :: String -> Bool
     debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
-kojiTaskRPMs :: Bool -> Bool -> String -> String -> Mode -> String -> String
-             -> IO [String]
-kojiTaskRPMs dryrun debug huburl pkgsurl mode dlDir task = do
+kojiTaskRPMs :: Bool -> Bool -> String -> String -> Bool -> Mode -> String
+             -> String -> IO [String]
+kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
   let taskid = read task
-  case mode of
-    List -> do
-      mtaskinfo <- Koji.getTaskInfo huburl taskid True
-      case mtaskinfo of
-        Just taskinfo -> do
-          when debug $ mapM_ print taskinfo
-          if isNothing (lookupStruct "parent" taskinfo :: Maybe Int)
-            then do
-            children <- Koji.getTaskChildren huburl taskid False
-            return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
-            else getRPMs taskid
-        Nothing -> error' "failed to get taskinfo"
-    InstMode instmode -> do
-      rpms <- getRPMs taskid
-      if null rpms
-        then do
-        kojiTaskRPMs dryrun debug huburl pkgsurl List dlDir task >>= mapM_ putStrLn
-        return []
-        else do
-        when debug $ print rpms
-        dlRpms <- decideRpms instmode Nothing rpms
-        when debug $ print dlRpms
-        unless (dryrun || null dlRpms) $ do
-          mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
-          putStrLn $ "Packages downloaded to " ++ dlDir
-        return dlRpms
+  if listmode
+    then do
+    mtaskinfo <- Koji.getTaskInfo huburl taskid True
+    case mtaskinfo of
+      Just taskinfo -> do
+        when debug $ mapM_ print taskinfo
+        if isNothing (lookupStruct "parent" taskinfo :: Maybe Int)
+          then do
+          children <- Koji.getTaskChildren huburl taskid False
+          return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
+          else getTaskRPMs taskid >>= decideRpms listmode mode Nothing
+      Nothing -> error' "failed to get taskinfo"
+    else do
+    rpms <- getTaskRPMs taskid
+    if null rpms
+      then do
+      kojiTaskRPMs dryrun debug huburl pkgsurl True mode dlDir task >>= mapM_ putStrLn
+      return []
+      else do
+      when debug $ print rpms
+      dlRpms <- decideRpms listmode mode Nothing rpms
+      when debug $ print dlRpms
+      unless (dryrun || null dlRpms) $ do
+        mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
+        putStrLn $ "Packages downloaded to " ++ dlDir
+      return dlRpms
   where
-    getRPMs :: Int -> IO [String]
-    getRPMs taskid =
+    getTaskRPMs :: Int -> IO [String]
+    getTaskRPMs taskid =
        sort . filter isBinaryRpm . map fst <$>
        Koji.listTaskOutput huburl taskid False True False
 
-decideRpms :: InstallMode -> Maybe String -> [String] -> IO [String]
-decideRpms mode' mpkg allRpms =
-  case mode' of
-    All -> return allRpms
-    Ask -> mapMaybeM rpmPrompt allRpms
-    Update -> do
+decideRpms :: Bool -> Mode -> Maybe String -> [String] -> IO [String]
+decideRpms listmode mode mpkg allRpms =
+  case mode of
+    All -> if listmode
+           then error' "cannot use --list and --all together"
+           else return allRpms
+    Ask -> if listmode
+           then error' "cannot use --list and --ask together"
+           else mapMaybeM rpmPrompt allRpms
+    Update ->
+      if listmode
+      then return allRpms
+      else do
       rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
       if null rpms
-        then decideRpms Ask mpkg allRpms
+        then decideRpms listmode Ask mpkg allRpms
         else return rpms
     PkgsReq pkgsreq ->
-      return $
-      case pkgsreq of
-        Subpkgs subpkgs ->
-          mconcat $
-          flip map subpkgs $ \ pkgpat ->
-          case filter (match (compile pkgpat) . nvraName) allRpms of
-            [] -> error' $ "no subpackage match for " ++ pkgpat
-            result -> result
-        ExclPkgs subpkgs ->
-          -- FIXME somehow determine unused excludes
-          foldl' (exclude subpkgs) [] allRpms
+      return $ selectRPMs pkgsreq allRpms
+
+isInstalled :: String -> IO Bool
+isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
+
+selectRPMs :: SubPackages -> [String] -> [String]
+selectRPMs pkgsreq allRpms =
+  case pkgsreq of
+    Subpkgs subpkgs ->
+      mconcat $
+      flip map subpkgs $ \ pkgpat ->
+      case filter (match (compile pkgpat) . nvraName) allRpms of
+        [] -> error' $ "no subpackage match for " ++ pkgpat
+        result -> result
+    ExclPkgs subpkgs ->
+      -- FIXME somehow determine unused excludes
+      foldl' (exclude subpkgs) [] allRpms
   where
     nvraName :: String -> String
     nvraName = rpmName . readNVRA
@@ -223,9 +233,6 @@ decideRpms mode' mpkg allRpms =
       if match (compile p) (nvraName pkg)
       then acc
       else exclude ps acc pkg
-
-isInstalled :: String -> IO Bool
-isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
 
 rpmPrompt :: String -> IO (Maybe String)
 rpmPrompt rpm = do
