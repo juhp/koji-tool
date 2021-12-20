@@ -335,8 +335,12 @@ downloadBuildRpm debug pkgsurl (NVR n (VerRel v r)) rpm = do
 
 downloadTaskRpm :: Bool -> String -> String -> String -> IO ()
 downloadTaskRpm debug pkgsurl taskid rpm = do
-  let url = dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ takeEnd 4 taskid +/+ taskid +/+ rpm
+  let url = dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ taskid +/+ rpm
   downloadRPM debug url
+  where
+    lastFew =
+      let few = dropWhile (== '0') $ takeEnd 4 taskid in
+        if null few then "0" else few
 
 -- FIXME check file size
 -- FIXME check timestamp
