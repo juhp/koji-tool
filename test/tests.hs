@@ -8,12 +8,12 @@ program args =
 
 tests :: Bool -> [[String]]
 tests havedist =
-  [["-b", "podman"] ++ sysdist
+  [["podman", "-p", "podman"] ++ sysdist
   ,["-l", "coreutils"] ++ sysdist
-  ,["-b", "-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash"]
-  ,["-b", "-H", "stream", "-d", "el9", "kernel"]
+  ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash", "-p", "bash"]
+  ,["-H", "stream", "-d", "el9", "kernel", "-x", "kernel-devel*", "-x", "*-debug*"]
   ,["-l", "-H", "stream", "-d", "el9", "grep"]
-  ,["-b", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
+  ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
   ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
   ]
   where

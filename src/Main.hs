@@ -202,24 +202,27 @@ decideRpms mode' mpkg allRpms =
         then decideRpms Ask mpkg allRpms
         else return rpms
     PkgsReq pkgsreq ->
+      return $
       case pkgsreq of
         Subpkgs subpkgs ->
-          fmap mconcat <$>
-          forM subpkgs $ \ pkgpat -> do
-            let result = filter (match (compile pkgpat) . nvraName) allRpms
-            if null result
-              then error' $ "no subpackage match for " ++ pkgpat
-              else return result
+          mconcat $
+          flip map subpkgs $ \ pkgpat ->
+          case filter (match (compile pkgpat) . nvraName) allRpms of
+            [] -> error' $ "no subpackage match for " ++ pkgpat
+            result -> result
         ExclPkgs subpkgs ->
-          fmap mconcat <$>
-          forM subpkgs $ \ pkgpat -> do
-            let result = filter (not . match (compile pkgpat) . nvraName) allRpms
-            when (length result == length subpkgs) $
-              putStrLn $ "Warning: no matches for " ++ pkgpat
-            return result
+          -- FIXME somehow determine unused excludes
+          foldl' (exclude subpkgs) [] allRpms
   where
     nvraName :: String -> String
     nvraName = rpmName . readNVRA
+
+    exclude :: [String] -> [String] -> String -> [String]
+    exclude [] acc pkg = acc ++ [pkg]
+    exclude (p:ps) acc pkg =
+      if match (compile p) (nvraName pkg)
+      then acc
+      else exclude ps acc pkg
 
 isInstalled :: String -> IO Bool
 isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
