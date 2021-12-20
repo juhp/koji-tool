@@ -204,14 +204,20 @@ decideRpms mode' mpkg allRpms =
     PkgsReq pkgsreq ->
       case pkgsreq of
         Subpkgs subpkgs ->
-          return $ filter (matches subpkgs) allRpms
+          fmap mconcat <$>
+          forM subpkgs $ \ pkgpat -> do
+            let result = filter (match (compile pkgpat) . nvraName) allRpms
+            if null result
+              then error' $ "no subpackage match for " ++ pkgpat
+              else return result
         ExclPkgs subpkgs ->
-          return $ filter (not . matches subpkgs) allRpms
+          fmap mconcat <$>
+          forM subpkgs $ \ pkgpat -> do
+            let result = filter (not . match (compile pkgpat) . nvraName) allRpms
+            when (length result == length subpkgs) $
+              putStrLn $ "Warning: no matches for " ++ pkgpat
+            return result
   where
-    matches :: [String] -> String -> Bool
-    matches [] _ = False
-    matches (p:ps) pkg = match (compile p) (nvraName pkg) || matches ps pkg
-
     nvraName :: String -> String
     nvraName = rpmName . readNVRA
 
