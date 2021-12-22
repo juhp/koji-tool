@@ -22,10 +22,10 @@ import System.IO
 import DownloadDir
 import Paths_koji_install (version)
 
-data Mode = Update | All | Ask | PkgsReq SubPackages
-  deriving Eq
-
-data SubPackages = Subpkgs [String] | ExclPkgs [String]
+data Mode = Update
+          | All
+          | Ask
+          | PkgsReq [String] [String] -- ^ included and excluded
   deriving Eq
 
 data Request = ReqName | ReqNV | ReqNVR
@@ -64,9 +64,11 @@ main = do
     modeOpt =
       flagWith' All 'a' "all" "all subpackages" <|>
       flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
-      PkgsReq <$> (Subpkgs <$> some (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <|>
-                   ExclPkgs <$> some (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")) <|>
+      pkgsReqOpts <|>
       pure Update
+
+    pkgsReqOpts = PkgsReq
+      <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
 
     disttagOpt :: String -> Parser String
     disttagOpt disttag = startingDot <$> strOptionalWith 'd' "disttag" "DISTTAG" ("Use a different disttag [default: " ++ disttag ++ "]") disttag
@@ -207,34 +209,36 @@ decideRpms listmode mode mpkg allRpms =
       if null rpms
         then decideRpms listmode Ask mpkg allRpms
         else return rpms
-    PkgsReq pkgsreq ->
-      return $ selectRPMs pkgsreq allRpms
+    PkgsReq subpkgs exclpkgs ->
+      return $ selectRPMs (subpkgs,exclpkgs) allRpms
 
 isInstalled :: String -> IO Bool
 isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
 
-selectRPMs :: SubPackages -> [String] -> [String]
-selectRPMs pkgsreq allRpms =
-  case pkgsreq of
-    Subpkgs subpkgs ->
-      sort . mconcat $
-      flip map subpkgs $ \ pkgpat ->
-      case filter (match (compile pkgpat) . nvraName) allRpms of
-        [] -> error' $ "no subpackage match for " ++ pkgpat
-        result -> result
-    ExclPkgs subpkgs ->
-      -- FIXME somehow determine unused excludes
-      foldl' (exclude subpkgs) [] allRpms
+selectRPMs :: ([String],[String])  -> [String] -> [String]
+selectRPMs (subpkgs,[]) allRpms =
+  sort . mconcat $
+  flip map subpkgs $ \ pkgpat ->
+  case filter (match (compile pkgpat) . nvraName) allRpms of
+    [] -> error' $ "no subpackage match for " ++ pkgpat
+    result -> result
+selectRPMs ([], subpkgs) allRpms =
+  -- FIXME somehow determine unused excludes
+  foldl' (exclude subpkgs) [] allRpms
   where
-    nvraName :: String -> String
-    nvraName = rpmName . readNVRA
-
     exclude :: [String] -> [String] -> String -> [String]
     exclude [] acc pkg = acc ++ [pkg]
     exclude (p:ps) acc pkg =
       if match (compile p) (nvraName pkg)
       then acc
       else exclude ps acc pkg
+selectRPMs (subpkgs,exclpkgs) allRpms =
+  let needed = selectRPMs (subpkgs,[]) allRpms
+      excluded = selectRPMs ([], exclpkgs) allRpms
+  in nub . sort $ needed ++ excluded
+
+nvraName :: String -> String
+nvraName = rpmName . readNVRA
 
 rpmPrompt :: String -> IO (Maybe String)
 rpmPrompt rpm = do
