@@ -22,62 +22,6 @@ import System.IO
 import DownloadDir
 import Paths_koji_install (version)
 
-data Mode = Update
-          | All
-          | Ask
-          | PkgsReq [String] [String] -- ^ included and excluded
-  deriving Eq
-
-data Request = ReqName | ReqNV | ReqNVR
-  deriving Eq
-
--- FIXME --include devel, --exclude *
--- FIXME specify tag or task
--- FIXME support enterprise builds
--- FIXME --arch (including src)
--- FIXME --debuginfo
--- FIXME --delete after installing
-
-main :: IO ()
-main = do
-  sysdisttag <- do
-    dist <- cmd "rpm" ["--eval", "%{dist}"]
-    return $ if dist == "%{dist}" then "" else dist
-  simpleCmdArgs (Just Paths_koji_install.version)
-    "Download and install latest package build from Koji tag."
-    ("HUB = " ++ intercalate ", " knownHubs) $
-    program
-    <$> switchWith 'n' "dry-run" "Don't actually download anything"
-    <*> switchWith 'D' "debug" "More detailed output"
-    <*> optional (strOptionWith 'H' "hub" "HUB"
-                  "KojiHub shortname or url [default: fedora]")
-    <*> optional (strOptionWith 'P' "packages-url" "URL"
-                  "KojiFiles packages url [default: Fedora]")
-    <*> switchWith 'l' "list" "List builds"
-    <*> modeOpt
-    <*> disttagOpt sysdisttag
-    <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
-         <|> flagWith ReqName ReqNVR 'V' "nv" "Give an N-V instead of package name")
-    <*> some (strArg "PACKAGE|TASKID...")
-  where
-    modeOpt :: Parser Mode
-    modeOpt =
-      flagWith' All 'a' "all" "all subpackages" <|>
-      flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
-      pkgsReqOpts <|>
-      pure Update
-
-    pkgsReqOpts = PkgsReq
-      <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
-
-    disttagOpt :: String -> Parser String
-    disttagOpt disttag = startingDot <$> strOptionalWith 'd' "disttag" "DISTTAG" ("Use a different disttag [default: " ++ disttag ++ "]") disttag
-
-    startingDot cs =
-      case cs of
-        "" -> error' "empty disttag"
-        (c:_) -> if c == '.' then cs else '.' : cs
-
 -- mbox kojihub is locked
 knownHubs :: [String]
 knownHubs = ["fedora","stream","rpmfusion", "or URL"]
@@ -106,9 +50,63 @@ defaultPkgsURL url =
       then replace "kojihub" "kojifiles" url +/+ "packages"
       else error' $ "use --files-url to specify kojifiles url for " ++ url
 
+data Mode = All
+          | Ask
+          -- distinguish except and exclude
+          | PkgsReq [String] [String] -- ^ include, except/exclude
+  deriving Eq
+
+data Request = ReqName | ReqNV | ReqNVR
+  deriving Eq
+
+-- FIXME --include devel, --exclude *
+-- FIXME specify tag or task
+-- FIXME support enterprise builds
+-- FIXME --arch (including src)
+-- FIXME --debuginfo
+-- FIXME --delete after installing
+main :: IO ()
+main = do
+  sysdisttag <- do
+    dist <- cmd "rpm" ["--eval", "%{dist}"]
+    return $ if dist == "%{dist}" then "" else dist
+  simpleCmdArgs (Just Paths_koji_install.version)
+    "Download and install latest package build from Koji tag."
+    ("HUB = " ++ intercalate ", " knownHubs) $
+    program
+    <$> switchWith 'n' "dry-run" "Don't actually download anything"
+    <*> switchWith 'D' "debug" "More detailed output"
+    <*> optional (strOptionWith 'H' "hub" "HUB"
+                  "KojiHub shortname or url [default: fedora]")
+    <*> optional (strOptionWith 'P' "packages-url" "URL"
+                  "KojiFiles packages url [default: Fedora]")
+    <*> switchWith 'l' "list" "List builds"
+    <*> modeOpt
+    <*> disttagOpt sysdisttag
+    <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
+         <|> flagWith ReqName ReqNVR 'V' "nv" "Give an N-V instead of package name")
+    <*> some (strArg "PKG|NVR|TASKID...")
+  where
+    modeOpt :: Parser Mode
+    modeOpt =
+      flagWith' All 'a' "all" "all subpackages" <|>
+      flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
+      pkgsReqOpts
+
+    pkgsReqOpts = PkgsReq
+      <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
+
+    disttagOpt :: String -> Parser String
+    disttagOpt disttag = startingDot <$> strOptionalWith 'd' "disttag" "DISTTAG" ("Use a different disttag [default: " ++ disttag ++ "]") disttag
+
+    startingDot cs =
+      case cs of
+        "" -> error' "empty disttag"
+        (c:_) -> if c == '.' then cs else '.' : cs
+
 program :: Bool -> Bool -> Maybe String -> Maybe String -> Bool -> Mode
         -> String -> Request -> [String] -> IO ()
-program dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgs = do
+program dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -118,39 +116,39 @@ program dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgs = do
   dlDir <- setDownloadDir dryrun "rpms"
   when debug $ putStrLn dlDir
   setNoBuffering
-  mapM (kojiRPMs huburl pkgsurl dlDir) pkgs
+  mapM (kojiRPMs huburl pkgsurl dlDir) pkgbldtsks
     >>= if listmode
         then mapM_ putStrLn . mconcat
         else installRPMs dryrun . mconcat
   where
-    kojiRPMs :: String -> String -> String -> String -> IO [String]
-    kojiRPMs huburl pkgsurl dlDir pkg =
-      if all isDigit pkg
-      then kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir pkg
-      else kojiBuildRPMs huburl pkgsurl dlDir pkg
+    kojiRPMs :: String -> String -> String -> String -> IO [String] -- ([String],String)
+    kojiRPMs huburl pkgsurl dlDir bldtask =
+      if all isDigit bldtask
+      then kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir bldtask
+      else kojiBuildRPMs huburl pkgsurl dlDir bldtask
 
     kojiBuildRPMs :: String -> String -> String -> String -> IO [String]
-    kojiBuildRPMs huburl pkgsurl dlDir pkg = do
-      nvrs <- kojiBuildOSBuilds debug huburl listmode disttag request pkg
+    kojiBuildRPMs huburl pkgsurl dlDir pkgbld = do
+      nvrs <- kojiBuildOSBuilds debug huburl listmode disttag request pkgbld
       if listmode
-        then if mode /= Update
+        then if mode /= PkgsReq [] []
              then error' "modes not supported for listing build"
              else return nvrs
         else
         case nvrs of
-          [] -> error' $ pkg ++ " not found for " ++ disttag
+          [] -> error' $ pkgbld ++ " not found for " ++ disttag
           [nvr] -> do
             putStrLn $ nvr ++ "\n"
             allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
             when debug $ print allRpms
-            dlRpms <- decideRpms listmode mode (Just pkg) allRpms
+            dlRpms <- decideRpms listmode mode (maybeNVR nvr) allRpms
             when debug $ print dlRpms
             unless (dryrun || null dlRpms) $ do
               mapM_ (downloadBuildRpm debug pkgsurl (readNVR nvr)) dlRpms
               -- FIXME once we check file size - can skip if no downloads
               putStrLn $ "Packages downloaded to " ++ dlDir
             return dlRpms
-          _ -> error $ "multiple build founds for " ++ pkg ++ ": " ++
+          _ -> error $ "multiple build founds for " ++ pkgbld ++ ": " ++
                unwords nvrs
 
     debugPkg :: String -> Bool
@@ -180,7 +178,12 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
       return []
       else do
       when debug $ print rpms
-      dlRpms <- decideRpms listmode mode Nothing rpms
+      let srpm =
+            case filter (".src.rpm" `isExtensionOf`) rpms of
+              [src] -> src
+              _ -> error' "could not determine nvr from any srpm"
+          nvr = dropSuffix ".src.rpm" srpm
+      dlRpms <- decideRpms listmode mode (maybeNVR nvr) $ rpms \\ [srpm]
       when debug $ print dlRpms
       unless (dryrun || null dlRpms) $ do
         mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
@@ -189,11 +192,11 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
   where
     getTaskRPMs :: Int -> IO [String]
     getTaskRPMs taskid =
-       sort . filter isBinaryRpm . map fst <$>
+       sort . filter (".rpm" `isExtensionOf`) . map fst <$>
        Koji.listTaskOutput huburl taskid False True False
 
-decideRpms :: Bool -> Mode -> Maybe String -> [String] -> IO [String]
-decideRpms listmode mode mpkg allRpms =
+decideRpms :: Bool -> Mode -> Maybe NVR -> [String] -> IO [String]
+decideRpms listmode mode mnvr allRpms =
   case mode of
     All -> if listmode
            then error' "cannot use --list and --all together"
@@ -201,30 +204,34 @@ decideRpms listmode mode mpkg allRpms =
     Ask -> if listmode
            then error' "cannot use --list and --ask together"
            else mapMaybeM rpmPrompt allRpms
-    Update ->
+    PkgsReq [] [] ->
       if listmode
       then return allRpms
       else do
-      rpms <- filterM (isInstalled . rpmName . readNVRA) allRpms
+      rpms <- filterM (isInstalled . nvraName) $
+              filter isBinaryRpm allRpms
       if null rpms
-        then decideRpms listmode Ask mpkg allRpms
+        then decideRpms listmode Ask mnvr allRpms
         else return rpms
     PkgsReq subpkgs exclpkgs ->
-      return $ selectRPMs (subpkgs,exclpkgs) allRpms
+      return $ selectRPMs mnvr (subpkgs,exclpkgs) allRpms
 
 isInstalled :: String -> IO Bool
 isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
 
-selectRPMs :: ([String],[String])  -> [String] -> [String]
-selectRPMs (subpkgs,[]) allRpms =
+selectRPMs :: Maybe NVR -> ([String],[String])  -> [String] -> [String]
+selectRPMs mnvr (subpkgs,[]) rpms =
   sort . mconcat $
   flip map subpkgs $ \ pkgpat ->
-  case filter (match (compile pkgpat) . nvraName) allRpms of
-    [] -> error' $ "no subpackage match for " ++ pkgpat
+  case filter (match (compile pkgpat) . nvraName) rpms of
+    [] -> case mnvr of
+      Just nvr | head pkgpat /= '*' ->
+                 selectRPMs Nothing ([nvrName nvr ++ '-' : pkgpat],[]) rpms
+      _ -> error' $ "no subpackage match for " ++ pkgpat
     result -> result
-selectRPMs ([], subpkgs) allRpms =
+selectRPMs _ ([], subpkgs) rpms =
   -- FIXME somehow determine unused excludes
-  foldl' (exclude subpkgs) [] allRpms
+  foldl' (exclude subpkgs) [] rpms
   where
     exclude :: [String] -> [String] -> String -> [String]
     exclude [] acc pkg = acc ++ [pkg]
@@ -232,9 +239,9 @@ selectRPMs ([], subpkgs) allRpms =
       if match (compile p) (nvraName pkg)
       then acc
       else exclude ps acc pkg
-selectRPMs (subpkgs,exclpkgs) allRpms =
-  let needed = selectRPMs (subpkgs,[]) allRpms
-      excluded = selectRPMs ([], exclpkgs) allRpms
+selectRPMs mnvr (subpkgs,exclpkgs) rpms =
+  let needed = selectRPMs mnvr (subpkgs,[]) rpms
+      excluded = selectRPMs mnvr ([], exclpkgs) rpms
   in nub . sort $ needed ++ excluded
 
 nvraName :: String -> String
@@ -328,13 +335,13 @@ setNoBuffering = do
 
 installRPMs :: Bool -> [FilePath] -> IO ()
 installRPMs _ [] = return ()
-installRPMs dryrun pkgs = do
-  installed <- filterM (isInstalled . rpmName . readNVRA) pkgs
+installRPMs dryrun rpms = do
+  installed <- filterM (isInstalled . dropExtension) rpms
   unless (null installed) $
     if dryrun
     then mapM_ putStrLn $ "would update:" : installed
     else sudo_ "dnf" ("reinstall" : installed)
-  let rest = pkgs \\ installed
+  let rest = rpms \\ installed
   unless (null rest) $
     if dryrun
     then mapM_ putStrLn $ "would install:" : rest
