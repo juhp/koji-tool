@@ -40,7 +40,7 @@ executable koji-install
                        Glob,
                        http-directory >= 0.1.9,
                        koji >= 0.0.2,
-                       rpm-nvr,
+                       rpm-nvr >= 0.1.1,
                        simple-cmd,
                        simple-cmd-args,
                        xdg-userdirs
