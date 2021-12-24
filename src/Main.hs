@@ -141,7 +141,7 @@ program dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgbldtsks =
             putStrLn $ nvr ++ "\n"
             allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
             when debug $ print allRpms
-            dlRpms <- decideRpms listmode mode (maybeNVR nvr) allRpms
+            dlRpms <- decideRpms listmode mode (maybeNVRName nvr) allRpms
             when debug $ print dlRpms
             unless (dryrun || null dlRpms) $ do
               mapM_ (downloadBuildRpm debug pkgsurl (readNVR nvr)) dlRpms
@@ -183,7 +183,7 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
               [src] -> src
               _ -> error' "could not determine nvr from any srpm"
           nvr = dropSuffix ".src.rpm" srpm
-      dlRpms <- decideRpms listmode mode (maybeNVR nvr) $ rpms \\ [srpm]
+      dlRpms <- decideRpms listmode mode (maybeNVRName nvr) $ rpms \\ [srpm]
       when debug $ print dlRpms
       unless (dryrun || null dlRpms) $ do
         mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
@@ -195,8 +195,11 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
        sort . filter (".rpm" `isExtensionOf`) . map fst <$>
        Koji.listTaskOutput huburl taskid False True False
 
-decideRpms :: Bool -> Mode -> Maybe NVR -> [String] -> IO [String]
-decideRpms listmode mode mnvr allRpms =
+maybeNVRName :: String -> Maybe String
+maybeNVRName = fmap nvrName . maybeNVR
+
+decideRpms :: Bool -> Mode -> Maybe String -> [String] -> IO [String]
+decideRpms listmode mode mbase allRpms =
   case mode of
     All -> if listmode
            then error' "cannot use --list and --all together"
@@ -211,37 +214,45 @@ decideRpms listmode mode mnvr allRpms =
       rpms <- filterM (isInstalled . nvraName) $
               filter isBinaryRpm allRpms
       if null rpms
-        then decideRpms listmode Ask mnvr allRpms
+        then decideRpms listmode Ask mbase allRpms
         else return rpms
     PkgsReq subpkgs exclpkgs ->
-      return $ selectRPMs mnvr (subpkgs,exclpkgs) allRpms
+      return $ selectRPMs mbase (subpkgs,exclpkgs) allRpms
 
 isInstalled :: String -> IO Bool
 isInstalled rpm = cmdBool "rpm" ["--quiet", "-q", rpm]
 
-selectRPMs :: Maybe NVR -> ([String],[String])  -> [String] -> [String]
-selectRPMs mnvr (subpkgs,[]) rpms =
+selectRPMs :: Maybe String -> ([String],[String])  -> [String] -> [String]
+selectRPMs mbase (subpkgs,[]) rpms =
   sort . mconcat $
   flip map subpkgs $ \ pkgpat ->
   case filter (match (compile pkgpat) . nvraName) rpms of
-    [] -> case mnvr of
-      Just nvr | head pkgpat /= '*' ->
-                 selectRPMs Nothing ([nvrName nvr ++ '-' : pkgpat],[]) rpms
+    [] -> case mbase of
+      Just base | head pkgpat /= '*' ->
+                  selectRPMs Nothing ([base ++ '-' : pkgpat],[]) rpms
       _ -> error' $ "no subpackage match for " ++ pkgpat
     result -> result
-selectRPMs _ ([], subpkgs) rpms =
+selectRPMs mbase ([], subpkgs) rpms =
   -- FIXME somehow determine unused excludes
   foldl' (exclude subpkgs) [] rpms
   where
     exclude :: [String] -> [String] -> String -> [String]
-    exclude [] acc pkg = acc ++ [pkg]
-    exclude (p:ps) acc pkg =
-      if match (compile p) (nvraName pkg)
-      then acc
-      else exclude ps acc pkg
-selectRPMs mnvr (subpkgs,exclpkgs) rpms =
-  let needed = selectRPMs mnvr (subpkgs,[]) rpms
-      excluded = selectRPMs mnvr ([], exclpkgs) rpms
+    exclude [] acc rpm = acc ++ [rpm]
+    exclude (pat:pats) acc rpm =
+        if checkMatch (nvraName rpm)
+        then acc
+        else exclude pats acc rpm
+      where
+        checkMatch :: String -> Bool
+        checkMatch rpmname =
+          let comppat = compile pat
+          in if isLiteral comppat
+             then pat == rpmname ||
+                  maybe False (\b -> (b ++ '-' : pat) == rpmname) mbase
+             else match comppat rpmname
+selectRPMs mbase (subpkgs,exclpkgs) rpms =
+  let needed = selectRPMs mbase (subpkgs,[]) rpms
+      excluded = selectRPMs mbase ([], exclpkgs) rpms
   in nub . sort $ needed ++ excluded
 
 nvraName :: String -> String
