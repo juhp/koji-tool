@@ -1,5 +1,5 @@
 name:                koji-install
-version:             0.4
+version:             0.5
 synopsis:            CLI tool for installing rpms directly from Fedora Koji
 description:
         koji-install can install a koji build/task of a package locally.

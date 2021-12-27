@@ -36,9 +36,9 @@ Download and install latest package build from Koji tag.
 
 Usage: koji-install [--version] [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
                     [-P|--packages-url URL] [-l|--list]
-                    [(-a|--all) | (-A|--ask) | (-p|--package SUBPKG) |
-                      (-x|--exclude SUBPKG)] [-d|--disttag DISTTAG]
-                    [(-R|--nvr) | (-V|--nv)] PACKAGE|TASKID...
+                    [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
+                      [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
+                    [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
   HUB = fedora, stream, rpmfusion, or URL
 
 Available options:

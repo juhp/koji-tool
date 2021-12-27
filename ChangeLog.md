@@ -1,5 +1,9 @@
 # Release history for koji-install
 
+## 0.5 (2021-12-27)
+- --package and --exclude filters can now be combined
+- --package and --exclude now also check subpackage names without base prefix
+
 ## 0.4 (2021-12-20)
 - support installing/listing by koji taskid
 - select subpackages with --package and --exclude, by name or globbing
