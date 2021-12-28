@@ -10,7 +10,7 @@ tests :: Bool -> [[String]]
 tests havedist =
   [["podman", "-p", "podman"] ++ sysdist
   ,["-l", "coreutils"] ++ sysdist
-  ,["-l", "79802560", "-p", "rpmlint"]
+  ,["-l", "-R", "rpmlint-2.2.0-1.fc36"]
   ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash", "-p", "bash"]
   ,["-H", "stream", "-d", "el9", "kernel", "-x", "kernel-devel*", "-x", "*-debug*"]
   ,["-l", "-H", "stream", "-d", "el9", "grep"]
