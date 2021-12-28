@@ -3,9 +3,7 @@ version:             0.5
 synopsis:            CLI tool for installing rpms directly from Fedora Koji
 description:
         koji-install can install a koji build/task of a package locally.
-        By default it only downloads newer binaries of already-installed
-        subpackages, but there are options to list and select other packages.
-        Koji is the RPM-based buildsystem of Fedora Linux and Centos.
+        Koji is the RPM-based buildsystem of Fedora Linux and CentOS.
 license:             BSD3
 license-file:        LICENSE
 author:              Jens Petersen <juhpetersen@gmail.com>

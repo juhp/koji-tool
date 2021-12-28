@@ -3,18 +3,33 @@
 A CLI tool to download and install rpms from a Koji build or task.
 
 [Koji](https://pagure.io/koji/) is a RPM package buildsystem used by
-Fedora, Centos, and some other projects.
+Fedora, CentOS, and some other projects.
+
+By default it only downloads binaries of already-installed subpackages,
+but there are options to list and select or exclude specific subpackages.
+
+Note koji-install is intended for development and testing purposes
+and should not be necessary/used normally on production systems,
+but it can be very helpful for quickly testing an specific package build or
+update.
 
 ## Usage
 
 By default it uses Fedora Koji.
 
+```
 $ koji-install podman
-
-Will download the latest build for your Fedora version,
+```
+will download the latest build for your Fedora version,
 and try to install it.
+Use `--disttag` suffix to select a different Fedora version.
 
-You can specify a different Koji hub service with `--hub`.
+```
+$ koji-install TASKID --exclude "*-devel"
+```
+will install all the non-devel subpackages from the task.
+
+One can use `--hub` to specify a different Koji hub build service.
 
 ### Selecting subpackages
 
