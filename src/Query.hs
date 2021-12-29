@@ -31,6 +31,7 @@ import Distribution.Koji
 import Distribution.Koji.API
 import Network.HTTP.Directory
 import SimpleCmd
+import System.Directory (findExecutable)
 import System.FilePath
 import Text.Pretty.Simple
 
@@ -80,13 +81,22 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
         TaskQuery -> do
           date <- cmd "date" ["+%F %T%z", "--date=" ++ dateString mdate]
           putStrLn $ "completed since " ++ date
-          user <- case muser of
-                    Just user -> return user
-                    Nothing -> do
-                      mfasid <- (dropSuffix "@FEDORAPROJECT.ORG" <$>) . find ("@FEDORAPROJECT.ORG" `isSuffixOf`) . words <$> cmd "klist" ["-l"]
-                      case mfasid of
-                        Just fas -> return fas
+          user <-
+            case muser of
+              Just user -> return user
+              Nothing -> do
+                haveKlist <- optionalProgram "klist"
+                if haveKlist
+                  then do
+                  mkls <- fmap words <$> cmdMaybe "klist" ["-l"]
+                  case mkls of
+                    Nothing -> error "klist failed"
+                    Just kls ->
+                      case find ("@FEDORAPROJECT.ORG" `isSuffixOf`) kls of
                         Nothing -> error' "Could not determine FAS id from klist"
+                        Just principal ->
+                          return $ dropSuffix "@FEDORAPROJECT.ORG" principal
+                  else error' "Please specify koji user"
           mowner <- kojiGetUserID fedoraKojiHub user
           case mowner of
             Nothing -> error "No owner found"
@@ -274,3 +284,7 @@ kojiMethods =
    "createImage",
    "livemedia",
    "createLiveMedia"]
+
+optionalProgram :: String -> IO Bool
+optionalProgram c =
+  isJust <$> findExecutable c
