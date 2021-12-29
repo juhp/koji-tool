@@ -1,8 +1,9 @@
-name:                koji-install
-version:             0.5
-synopsis:            CLI tool for installing rpms directly from Fedora Koji
+name:                koji-tool
+version:             0.6
+synopsis:            Koji CLI tool for querying tasks and installing builds
 description:
-        koji-install can install a koji build/task of a package locally.
+        koji-tool is a CLI interface to Koji with commands to query tasks,
+        install rpms, and check buildlog sizes.
         Koji is the RPM-based buildsystem of Fedora Linux and CentOS.
 license:             BSD3
 license-file:        LICENSE
@@ -10,8 +11,8 @@ author:              Jens Petersen <juhpetersen@gmail.com>
 maintainer:          Jens Petersen <juhpetersen@gmail.com>
 copyright:           2021  Jens Petersen <juhpetersen@gmail.com>
 category:            Utility
-homepage:            https://github.com/juhp/koji-install
-bug-reports:         https://github.com/juhp/koji-install/issues
+homepage:            https://github.com/juhp/koji-tool
+bug-reports:         https://github.com/juhp/koji-tool/issues
 build-type:          Simple
 extra-doc-files:     README.md
                      ChangeLog.md
@@ -24,23 +25,31 @@ tested-with:         GHC== 8.4.4
 
 source-repository head
   type:                git
-  location:            https://github.com/juhp/koji-install.git
+  location:            https://github.com/juhp/koji-tool.git
 
-executable koji-install
+executable koji-tool
   main-is:             Main.hs
-  other-modules:       Paths_koji_install
+  other-modules:       Paths_koji_tool
+                       BuildlogSizes
                        DownloadDir
+                       Install
+                       Progress
+                       Query
   hs-source-dirs:      src
   build-depends:       base < 5,
                        directory,
                        extra,
                        filepath,
+                       format-numbers,
                        Glob,
                        http-directory >= 0.1.9,
                        koji >= 0.0.2,
+                       pretty-simple,
                        rpm-nvr >= 0.1.1,
                        simple-cmd,
                        simple-cmd-args,
+                       text,
+                       time,
                        xdg-userdirs
   if impl(ghc<8.4)
        build-depends: http-common < 0.8.3.4
@@ -70,4 +79,4 @@ test-suite test
     ghc-options:   -Wall
     build-depends: base >= 4 && < 5
                  , simple-cmd
-    build-tools:   koji-install
+    build-tools:   koji-tool

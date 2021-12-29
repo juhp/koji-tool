@@ -1,0 +1,38 @@
+# install
+- --latest (-L)
+- autodetect nvr
+- --nodeps
+- --deps
+- --srpm
+- --exclude vs --except
+- list build subpackages
+  - -l -R just lists same NVR
+- tags
+
+# query
+- determine username for non-Fedora
+- build pattern
+- different hubs put builds in different locations
+- html output
+
+# buildlog-sizes/progress
+- combine
+
+# progress
+- accept task or build url
+- cache and compare sizes with previous build(s)
+
+- show the build duration
+- support builds as well as tasks
+- option to order by log size
+- % of previous build (or finished tasks)
+- mbs urls?
+- average build times? (cache or separate tool?)
+- quits during srpm builds
+- show log sizes for old finished builds
+
+- display buildtimes for completed tasks
+
+- pick up user's new builds
+
+- screen mode inplace tui
