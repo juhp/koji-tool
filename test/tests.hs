@@ -4,7 +4,7 @@ import System.IO
 program :: [String] -> IO ()
 program args =
   putStrLn "" >>
-  cmdLog "koji-install" ("-n" : args)
+  cmdLog "koji-tool" ("install" : "-n" : args)
 
 tests :: Bool -> [[String]]
 tests havedist =
