@@ -1,3 +1,8 @@
+# koji-tool
+
+A CLI UI to the Koji buildsystem
+with commands to query tasks, install rpms, and check buildlog sizes.
+
 ## koji-tool query
 
 Query Koji for tasks.
@@ -134,6 +139,8 @@ aarch64 7.2M open
 x86_64 18M open
 ppc64le 15M open
 ```
+
+The `buildlog-sizes` command is similar but runs once over nvr patterns.
 
 ## Installation
 Builds for fedora are available in [copr](https://copr.fedorainfracloud.org/coprs/petersen/koji-tool/monitor/detailed).
