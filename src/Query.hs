@@ -113,7 +113,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
             ++ [("method",  ValueString method) | Just method <- [mmethod]]
 
     dateString :: Maybe String -> String
-    dateString Nothing = "yesterday"
+    dateString Nothing = "today 00:00"
     -- make time refer to past not future
     dateString (Just s) =
       case words s of
