@@ -117,9 +117,12 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
     -- make time refer to past not future
     dateString (Just s) =
       case words s of
-        [t] -> if t `elem` ["hour", "day", "week", "month", "year"]
-               then "last " ++ s
-               else t
+        [t] | t `elem` ["hour", "day", "week", "month", "year"] ->
+              "last " ++ t
+        [t] | t `elem` ["today", "yesterday"] ->
+              t ++ " 00:00"
+        [t] | any (lower t `isPrefixOf`) ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] ->
+              "last " ++ t ++ " 00:00"
         [n,_unit] | all isDigit n -> s ++ " ago"
         _ -> s
 
