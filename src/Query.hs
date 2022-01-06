@@ -64,7 +64,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
     _ -> do
       query <- setupQuery
       results <- listTasks server query
-                 [("limit",ValueInt limit), ("order", ValueString "id")]
+                 [("limit",ValueInt limit), ("order", ValueString "-id")]
       when debug $ mapM_ pPrintCompact results
       (mapM_ (printTask mgr tz) . filterResults . mapMaybe maybeTaskResult) results
   where
