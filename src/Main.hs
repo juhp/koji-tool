@@ -50,7 +50,8 @@ main = do
            <|> pure TaskQuery)
       <*> many (parseTaskState <$> strOptionWith 's' "state" "STATE" "Filter tasks by state")
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
-      <*> optional (strOptionWith 'd' "date" "DURATION" "Tasks started after date [default: today]")
+      <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before date" <|>
+                    After <$> strOptionWith 'A' "after" "TIMESTAMP" "Tasks completed after date [default: today]")
       <*> (fmap normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" "Select tasks by method: [build,buildarch,etc]"))
       <*> switchWith 'D' "debug" "Pretty-pretty raw XML result"
       -- FIXME error if integer (eg mistakenly taskid)

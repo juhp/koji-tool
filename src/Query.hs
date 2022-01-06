@@ -5,6 +5,7 @@
 module Query (
   TaskFilter(..),
   TaskReq(..),
+  BeforeAfter(..),
   queryCmd,
   parseTaskState,
   kojiMethods,
@@ -14,7 +15,7 @@ where
 
 import Control.Monad.Extra
 
-import Data.Char (isDigit)
+import Data.Char (isDigit, toUpper)
 import Data.List.Extra
 import Data.Maybe
 #if !MIN_VERSION_base(4,11,0)
@@ -39,23 +40,37 @@ data TaskReq = Task Int | Parent Int | Build String | TaskQuery
 
 data TaskFilter = TaskPackage String | TaskNVR String
 
+data BeforeAfter = Before String | After String
+
+instance Show BeforeAfter where
+  show (Before _) = "before"
+  show (After _) = "after"
+
+getTimedate :: BeforeAfter -> String
+getTimedate (Before s) = s
+getTimedate (After s) = s
+
+capitalize :: String -> String
+capitalize "" = ""
+capitalize (h:t) = toUpper h : t
+
 queryCmd :: String -> Maybe String -> Int -> TaskReq -> [TaskState]
-        -> [String] -> Maybe String -> Maybe String -> Bool -> Maybe TaskFilter
-        -> IO ()
+         -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
+         -> Maybe TaskFilter -> IO ()
 queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = do
   tz <- getCurrentTimeZone
   mgr <- httpManager
   case taskreq of
     Task taskid -> do
       when (isJust muser || isJust mdate || isJust mfilter') $
-        error' "cannot use --task together with --user, --date, or filter"
+        error' "cannot use --task together with --user, timedate, or filter"
       mtask <- kojiGetTaskInfo server (TaskId taskid)
       whenJust mtask$ \task -> do
         when debug $ pPrintCompact task
         whenJust (maybeTaskResult task) $ printTask mgr tz
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
-        error' "cannot use --build together with --date or filter"
+        error' "cannot use --build together with timedate or filter"
       mtaskid <- if all isDigit bld
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
                 else kojiGetBuildTaskID server bld
@@ -75,12 +90,12 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
         Build _ -> error' "unreachable build request"
         Parent parent -> do
           when (isJust muser || isJust mdate || isJust mfilter') $
-            error' "cannot use --parent together with --user, --date, or filter"
+            error' "cannot use --parent together with --user, timedate, or filter"
           return $
             ("parent", ValueInt parent) : commonParams
         TaskQuery -> do
           date <- cmd "date" ["+%F %T%z", "--date=" ++ dateString mdate]
-          putStrLn $ "completed since " ++ date
+          putStrLn $ "completed " ++ maybe "after" show mdate ++ " " ++ date
           user <-
             case muser of
               Just user -> return user
@@ -103,7 +118,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
             Just owner ->
               return $
                 [("owner", ValueInt (getID owner)),
-                 ("completeAfter", ValueString date)]
+                 ("complete" ++ maybe "After" (capitalize . show) mdate, ValueString date)]
                 ++ commonParams
         where
           commonParams =
@@ -112,19 +127,20 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
             ++ [("arch", ValueArray (map ValueString archs)) | notNull archs]
             ++ [("method",  ValueString method) | Just method <- [mmethod]]
 
-    dateString :: Maybe String -> String
+    dateString :: Maybe BeforeAfter -> String
     dateString Nothing = "today 00:00"
     -- make time refer to past not future
-    dateString (Just s) =
-      case words s of
-        [t] | t `elem` ["hour", "day", "week", "month", "year"] ->
-              "last " ++ t
-        [t] | t `elem` ["today", "yesterday"] ->
-              t ++ " 00:00"
-        [t] | any (lower t `isPrefixOf`) ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] ->
-              "last " ++ t ++ " 00:00"
-        [n,_unit] | all isDigit n -> s ++ " ago"
-        _ -> s
+    dateString (Just beforeAfter) =
+      let timedate = getTimedate beforeAfter
+      in case words timedate of
+           [t] | t `elem` ["hour", "day", "week", "month", "year"] ->
+                 "last " ++ t
+           [t] | t `elem` ["today", "yesterday"] ->
+                 t ++ " 00:00"
+           [t] | any (lower t `isPrefixOf`) ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] ->
+                 "last " ++ t ++ " 00:00"
+           [n,_unit] | all isDigit n -> timedate ++ " ago"
+           _ -> timedate
 
     maybeTaskResult :: Struct -> Maybe TaskResult
     maybeTaskResult st = do
