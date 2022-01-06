@@ -43,7 +43,7 @@ main = do
       queryCmd
       <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
       <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
-      <*> optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 20]" 20
+      <*> optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 10]" 10
       <*> (Task <$> optionWith auto 't' "task" "TASKID" "Show task"
            <|> Parent <$> optionWith auto 'c' "children" "TASKID" "List child tasks of parent"
            <|> Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
