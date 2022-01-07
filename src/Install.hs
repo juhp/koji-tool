@@ -110,15 +110,20 @@ installCmd dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgbldtsk
             dlRpms <- decideRpms listmode mode (maybeNVRName nvr) allRpms
             when debug $ print dlRpms
             unless (dryrun || null dlRpms) $ do
-              mapM_ (downloadBuildRpm debug pkgsurl (readNVR nvr)) dlRpms
+              downloadRpms debug (buildURL (readNVR nvr)) dlRpms
               -- FIXME once we check file size - can skip if no downloads
               putStrLn $ "Packages downloaded to " ++ dlDir
             return dlRpms
           _ -> error $ "multiple build founds for " ++ pkgbld ++ ": " ++
                unwords nvrs
+        where
+          buildURL :: NVR -> String -> String
+          buildURL (NVR n (VerRel v r)) rpm =
+             let arch = rpmArch (readNVRA rpm)
+             in pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
 
-    debugPkg :: String -> Bool
-    debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
+          debugPkg :: String -> Bool
+          debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
 kojiTaskRPMs :: Bool -> Bool -> String -> String -> Bool -> Mode -> String
              -> String -> IO [String]
@@ -152,7 +157,7 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
       dlRpms <- decideRpms listmode mode (maybeNVRName nvr) $ rpms \\ [srpm]
       when debug $ print dlRpms
       unless (dryrun || null dlRpms) $ do
-        mapM_ (downloadTaskRpm debug pkgsurl task) dlRpms
+        downloadRpms debug (taskRPMURL task) dlRpms
         putStrLn $ "Packages downloaded to " ++ dlDir
       return dlRpms
   where
@@ -160,6 +165,13 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
     getTaskRPMs taskid =
        sort . filter (".rpm" `isExtensionOf`) . map fst <$>
        Koji.listTaskOutput huburl taskid False True False
+
+    taskRPMURL :: String -> String -> String
+    taskRPMURL taskid rpm =
+      let lastFew =
+            let few = dropWhile (== '0') $ takeEnd 4 taskid in
+              if null few then "0" else few
+      in dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ taskid +/+ rpm
 
 maybeNVRName :: String -> Maybe String
 maybeNVRName = fmap nvrName . maybeNVR
@@ -324,49 +336,42 @@ installRPMs dryrun rpms = do
     then mapM_ putStrLn $ "would install:" : rest
     else sudo_ "dnf" ("localinstall" : rest)
 
-downloadBuildRpm :: Bool -> String -> NVR -> String -> IO ()
-downloadBuildRpm debug pkgsurl (NVR n (VerRel v r)) rpm = do
-  let arch = rpmArch (readNVRA rpm)
-      url = pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
-  downloadRPM debug url
-
-downloadTaskRpm :: Bool -> String -> String -> String -> IO ()
-downloadTaskRpm debug pkgsurl taskid rpm = do
-  let url = dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ taskid +/+ rpm
-  downloadRPM debug url
+downloadRpms :: Bool -> (String -> String) -> [String] -> IO ()
+downloadRpms debug urlOf rpms = do
+  urls <- fmap catMaybes <$>
+    forM rpms $ \rpm -> do
+    exists <- doesFileExist rpm
+    let url = urlOf rpm
+    notfile <-
+      if exists
+      then do
+        old <- outOfDate rpm url
+        when old $ removeFile rpm
+        return old
+      else return True
+    when notfile $ putStrLn $ if debug then url else rpm
+    return $ if notfile then Just url else Nothing
+  unless (null urls) $ do
+    mapM_ putStrLn urls
+    putStrLn "downloading..."
+    cmd_ "curl" $ ["--remote-time", "--fail", "-C-", "--show-error", "--remote-name-all", "--progress-bar"] ++ urls
   where
-    lastFew =
-      let few = dropWhile (== '0') $ takeEnd 4 taskid in
-        if null few then "0" else few
-
--- FIXME check file size
--- FIXME check timestamp
-downloadRPM :: Bool -> String -> IO ()
-downloadRPM debug url = do
-  let rpm = takeFileName url
-  exists <- doesFileExist rpm
-  notfile <-
-    if exists
-    then do
-      old <- outOfDate rpm
-      when old $ removeFile rpm
-      return old
-    else return True
-  when notfile $ do
-    putStrLn $ "Downloading " ++ if debug then url else rpm
-    cmd_ "curl" ["--remote-time", "--fail", "--silent", "-C-", "--show-error", "--remote-name", url]
-  where
-    outOfDate :: String -> IO Bool
-    outOfDate file = do
+    outOfDate :: String -> String -> IO Bool
+    outOfDate file url = do
       mremotetime <- httpLastModified' url
       case mremotetime of
         Just remotetime -> do
           localtime <- getModificationTime file
-          return $ localtime < remotetime
-        Nothing -> do
-          remotesize <- httpFileSize' url
-          localsize <- getFileSize file
-          return $ remotesize /= Just localsize
+          if localtime < remotetime
+            then return True
+            else sizeOk file url
+        Nothing -> sizeOk file url
+
+    sizeOk :: String -> String -> IO Bool
+    sizeOk file url = do
+      remotesize <- httpFileSize' url
+      localsize <- getFileSize file
+      return $ remotesize /= Just localsize
 
 showTask :: Struct -> Maybe String
 showTask struct = do
