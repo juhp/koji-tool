@@ -20,7 +20,7 @@ main = do
     dist <- cmd "rpm" ["--eval", "%{dist}"]
     return $ if dist == "%{dist}" then "" else dist
   simpleCmdArgs (Just Paths_koji_tool.version)
-    "Query Koji tasks and install rpms from Koji."
+    "Query and track Koji tasks, and install rpms from Koji."
     ("HUB = " ++ intercalate ", " knownHubs) $
     subcommands
     [ Subcommand "install"
