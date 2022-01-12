@@ -50,7 +50,7 @@ main = do
            <|> Parent <$> optionWith auto 'c' "children" "TASKID" "List child tasks of parent"
            <|> Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
            <|> pure TaskQuery)
-      <*> many (parseTaskState <$> strOptionWith 's' "state" "STATE" "Filter tasks by state")
+      <*> many (parseTaskState <$> strOptionWith 's' "state" "STATE" "Filter tasks by state (open, close(d), cancel(ed), fail(ed), assigned, free)")
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before date" <|>
                     After <$> strOptionWith 'A' "after" "TIMESTAMP" "Tasks completed after date [default: today]")
