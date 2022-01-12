@@ -41,7 +41,8 @@ main = do
            <|> flagWith ReqName ReqNVR 'V' "nv" "Give an N-V instead of package name")
       <*> some (strArg "PKG|NVR|TASKID...")
 
-    , Subcommand "query" "Query Koji tasks" $
+    , Subcommand "query"
+      "Query Koji tasks (by default lists your tasks today)" $
       queryCmd
       <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
       <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
@@ -60,7 +61,8 @@ main = do
       <*> optional (TaskPackage <$> strOptionWith 'p' "package" "PKG" "Filter results to specified package"
                    <|> TaskNVR <$> strOptionWith 'n' "nvr" "PREFIX" "Filter results by NVR prefix")
 
-    , Subcommand "progress" "Track running Koji tasks by buildlog size" $
+    , Subcommand "progress"
+      "Track running Koji tasks by buildlog size" $
       progressCmd
       <$> optionalWith auto 'i' "interval" "MINUTES" "Polling interval between updates (default 2 min)" 2
       <*> switchWith 'm' "modules" "Track module builds"
