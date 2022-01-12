@@ -10,10 +10,12 @@
 - tags
 
 # query
+(rename to 'list'?)
 - determine username for non-Fedora
 - build pattern
 - different hubs put builds in different locations
 - html output
+- list builds of package
 
 # buildlog-sizes/progress
 - combine

@@ -1,7 +1,10 @@
 # koji-tool
 
-A CLI UI to the Koji buildsystem
+A CLI UI to the [Koji](https://koji.fedoraproject.org/koji/) buildsystem
 with commands to query tasks, install rpms, and check buildlog sizes.
+
+[Koji](https://pagure.io/koji/) is the RPM package buildsystem used by
+Fedora, CentOS, and some other projects.
 
 ## koji-tool query
 
@@ -14,27 +17,30 @@ and can filter results by package.
 
 ### Usage
 
-By default it shows your Fedora Koji tasks since yesterday.
+By default it lists your Fedora Koji tasks from today.
 
 ```shellsession
 $ koji-tool query --help
-sage: koji-tool query [-S|--server URL] [-u|--user USER] [-l|--limit INT]
+Usage: koji-tool query [-S|--server URL] [-u|--user USER] [-l|--limit INT]
                        [(-t|--task TASKID) | (-c|--children TASKID) |
                          (-b|--build BUILD)] [-s|--state STATE] [-a|--arch ARCH]
-                       [-d|--date DURATION] [-m|--method METHOD] [-D|--debug]
+                       [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
+                       [-m|--method METHOD] [-D|--debug]
                        [(-p|--package PKG) | (-n|--nvr PREFIX)]
-  Query Koji tasks
+  Query Koji tasks (by default lists your tasks today)
 
 Available options:
   -S,--server URL          Koji Hub [default: Fedora]
   -u,--user USER           Koji user [default: fasid]
-  -l,--limit INT           Maximum number of tasks to show [default: 20]
+  -l,--limit INT           Maximum number of tasks to show [default: 10]
   -t,--task TASKID         Show task
   -c,--children TASKID     List child tasks of parent
   -b,--build BUILD         List child tasks of build
-  -s,--state STATE         Filter tasks by state
+  -s,--state STATE         Filter tasks by state (open, close(d), cancel(ed),
+                           fail(ed), assigned, free)
   -a,--arch ARCH           Task arch
-  -d,--date DURATION       Tasks started after date [default: yesterday]
+  -B,--before TIMESTAMP    Tasks completed before timedate
+  -F,--from TIMESTAMP      Tasks completed after timedate [default: today]
   -m,--method METHOD       Select tasks by method: [build,buildarch,etc]
   -D,--debug               Pretty-pretty raw XML result
   -p,--package PKG         Filter results to specified package
@@ -44,17 +50,26 @@ Available options:
 
 Example:
 
+```shellsession
+$ koji-tool query -a aarch64 --from "last week" -s fail
 ```
-$ koji-query -a aarch64 -d "last week" -s fail
-```
+lists your arm64 tasks that failed in the last week.
 
+List kojira tasks from the last hour:
+```shellsession
+$ koji-tool query --from hour -u kojira
+completed after 2022-01-13 09:14:41+0800
+
+epel7-infra-mailman newRepo TaskFailed
+https://koji.fedoraproject.org/koji/taskinfo?taskID=81172651
+Start: Thu Jan 13 10:12:09  2022
+End:   Thu Jan 13 10:14:09  2022
+duration: 0h 2m 0s
+```
 
 ## koji-tool install
 
 Download and install rpms from a Koji build or task.
-
-[Koji](https://pagure.io/koji/) is a RPM package buildsystem used by
-Fedora, CentOS, and some other projects.
 
 By default it only downloads binaries of already-installed subpackages,
 but there are options to list and select or exclude specific subpackages.
@@ -108,7 +123,8 @@ Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
 Available options:
   -n,--dry-run             Don't actually download anything
   -D,--debug               More detailed output
-  -H,--hub HUB             KojiHub shortname or url [default: fedora]
+  -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
+                           rpmfusion, or URL) [default: fedora]
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
   -l,--list                List builds
   -a,--all                 all subpackages
@@ -133,11 +149,13 @@ a long time to complete for which some arch's may take considerably longer.
 ```shellsession
 $ koji-tool progress --mine
 :
-$ koji-tool progress 29986248  # ← Koji taskid
-qemu-3.0.0-1.fc29.src.rpm
-aarch64 7.2M open
-x86_64 18M open
-ppc64le 15M open
+$ koji-tool progress 81148584  # ← Koji taskid
+:
+23:19:19 vim-8.2.4068-1.fc36 (81148584)
+aarch64    351kB [109,133 B/min]
+armhfp     133kB [ 65,244 B/min]
+ppc64le    493kB [141,598 B/min] TaskClosed
+s390x      558kB [100,481 B/min] TaskClosed
 ```
 
 The `buildlog-sizes` command is similar but runs once over nvr patterns.
@@ -150,5 +168,6 @@ Builds for fedora are available in [copr](https://copr.fedorainfracloud.org/copr
 
 ## History
 The query, install, progress, buildlog-sizes were originally separate programs
-and projects, and merged together into koji-install (after 0.5) and renamed
-to koji-tool. One can check the other original repos for their history.
+and projects (koji-query, koji-install, koji-progress),
+and merged together into koji-install (after 0.5) and renamed
+to koji-tool. See the other original repos for their history.
