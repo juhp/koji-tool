@@ -21,15 +21,17 @@ main = do
     return $ if dist == "%{dist}" then "" else dist
   simpleCmdArgs (Just Paths_koji_tool.version)
     "Query and track Koji tasks, and install rpms from Koji."
-    ("HUB = " ++ intercalate ", " knownHubs) $
+    "see https://github.com/juhp/koji-tool#readme" $
     subcommands
     [ Subcommand "install"
-      "Install rpm packages directly from a Koji  build task" $
+      "Install rpm packages directly from a Koji build task" $
       installCmd
       <$> switchWith 'n' "dry-run" "Don't actually download anything"
       <*> switchWith 'D' "debug" "More detailed output"
       <*> optional (strOptionWith 'H' "hub" "HUB"
-                    "KojiHub shortname or url [default: fedora]")
+                    ("KojiHub shortname or url (HUB = " ++
+                     intercalate ", " knownHubs ++
+                     ") [default: fedora]"))
       <*> optional (strOptionWith 'P' "packages-url" "URL"
                     "KojiFiles packages url [default: Fedora]")
       <*> switchWith 'l' "list" "List builds"
