@@ -1,3 +1,13 @@
+# Version history of koji-tool
+
+## 0.6 (2022-01-13)
+- renamed from koji-install to koji-tool, which combines koji-query and koji-progress
+- subcommands are 'install', 'query', 'progress', and 'buildlog-sizes'
+- 'query' now has separate before/after options: --before and --from
+- 'query' now defaults to '--from 00:00' and supports days of week & today/yesterday timedates
+- 'query' now limits to 10 results by default in descending order
+- 'install' now uses a single curl invocation to download multiple rpms
+
 # Release history for koji-install
 
 ## 0.5 (2021-12-27)
