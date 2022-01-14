@@ -5,8 +5,7 @@
 - --deps
 - --srpm
 - --exclude vs --except
-- list build subpackages
-  - -l -R just lists same NVR
+- -l -R just lists same NVR ?
 - tags
 
 # query

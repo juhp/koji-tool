@@ -99,7 +99,9 @@ installCmd dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgbldtsk
       if listmode
         then if mode /= PkgsReq [] []
              then error' "modes not supported for listing build"
-             else return nvrs
+             else case nvrs of
+                    [nvr] -> map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
+                    _ -> return nvrs
         else
         case nvrs of
           [] -> error' $ pkgbld ++ " not found for " ++ disttag
