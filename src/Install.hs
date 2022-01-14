@@ -257,7 +257,7 @@ kojiBuildOSBuilds debug hub listmode disttag request pkgpat = do
     error' "cannot use pattern with this kojihub"
   mpkgid <- Koji.getPackageID hub pkg
   case mpkgid of
-    Nothing -> error $ "package not found: " ++ pkg
+    Nothing -> error' $ "package not found: " ++ pkg
     Just pkgid -> do
       -- strictly should getAPIVersion
       let opts = (if oldkoji
