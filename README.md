@@ -114,7 +114,7 @@ but the following options change the behavior:
 ```shellsession
 $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
-                         [-P|--packages-url URL] [-l|--list]
+                         [-P|--packages-url URL] [-l|--list] [-L|--latest]
                          [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
                            [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
                          [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
@@ -127,6 +127,7 @@ Available options:
                            rpmfusion, or URL) [default: fedora]
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
   -l,--list                List builds
+  -L,--latest              Latest build
   -a,--all                 all subpackages
   -A,--ask                 ask for each subpackge [default if not installed]
   -p,--package SUBPKG      Subpackage (glob) to install

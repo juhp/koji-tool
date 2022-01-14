@@ -35,6 +35,7 @@ main = do
       <*> optional (strOptionWith 'P' "packages-url" "URL"
                     "KojiFiles packages url [default: Fedora]")
       <*> switchWith 'l' "list" "List builds"
+      <*> switchWith 'L' "latest" "Latest build"
       <*> modeOpt
       <*> disttagOpt sysdisttag
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"

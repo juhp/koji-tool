@@ -1,5 +1,4 @@
 # install
-- --latest (-L)
 - autodetect nvr
 - --nodeps
 - --deps

@@ -70,9 +70,9 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME --arch (including src)
 -- FIXME --debuginfo
 -- FIXME --delete after installing
-installCmd :: Bool -> Bool -> Maybe String -> Maybe String -> Bool -> Mode
-        -> String -> Request -> [String] -> IO ()
-installCmd dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgbldtsks = do
+installCmd :: Bool -> Bool -> Maybe String -> Maybe String -> Bool -> Bool
+           -> Mode -> String -> Request -> [String] -> IO ()
+installCmd dryrun debug mhuburl mpkgsurl listmode latest mode disttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -95,7 +95,7 @@ installCmd dryrun debug mhuburl mpkgsurl listmode mode disttag request pkgbldtsk
 
     kojiBuildRPMs :: String -> String -> String -> String -> IO [String]
     kojiBuildRPMs huburl pkgsurl dlDir pkgbld = do
-      nvrs <- kojiBuildOSBuilds debug huburl listmode disttag request pkgbld
+      nvrs <- kojiBuildOSBuilds debug huburl listmode latest disttag request pkgbld
       if listmode
         then if mode /= PkgsReq [] []
              then error' "modes not supported for listing build"
@@ -248,13 +248,17 @@ rpmPrompt rpm = do
     'n' -> return Nothing
     _ -> rpmPrompt rpm
 
-kojiBuildOSBuilds :: Bool -> String -> Bool -> String -> Request -> String
-                  -> IO [String]
-kojiBuildOSBuilds debug hub listmode disttag request pkgpat = do
+kojiBuildOSBuilds :: Bool -> String -> Bool -> Bool -> String -> Request
+                  -> String -> IO [String]
+kojiBuildOSBuilds debug hub listmode latest disttag request pkgpat = do
   when debug $ putStrLn pkgpat
   let (pkg,full) = packageOfPattern request pkgpat
       oldkoji = "rpmfusion" `isInfixOf` hub
   when debug $ putStrLn pkg
+  when (latest && request == ReqNVR) $
+    error' "cannot use --latest with --nvr"
+  when (latest && not listmode) $
+    putStrLn "--latest is implied when not using --list"
   when (oldkoji && ("*" `isInfixOf` pkgpat || request /= ReqName)) $
     error' "cannot use pattern with this kojihub"
   mpkgid <- Koji.getPackageID hub pkg
@@ -268,7 +272,7 @@ kojiBuildOSBuilds debug hub listmode disttag request pkgpat = do
                  [("packageID", ValueInt pkgid),
                   ("state", ValueInt (fromEnum BuildComplete)),
                   ("queryOpts",ValueStruct
-                    [("limit",ValueInt $ if listmode || oldkoji then 10 else 1),
+                    [("limit",ValueInt $ if listmode && not latest || oldkoji then 10 else 1),
                      ("order",ValueString "-build_id")])]
       when debug $ print opts
       nvrs <- mapMaybe (lookupStruct "nvr") <$> Koji.listBuilds hub opts
