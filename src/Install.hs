@@ -251,8 +251,10 @@ rpmPrompt rpm = do
 kojiBuildOSBuilds :: Bool -> String -> Bool -> String -> Request -> String
                   -> IO [String]
 kojiBuildOSBuilds debug hub listmode disttag request pkgpat = do
-  let (pkg,full) = packageOfPattern pkgpat
+  when debug $ putStrLn pkgpat
+  let (pkg,full) = packageOfPattern request pkgpat
       oldkoji = "rpmfusion" `isInfixOf` hub
+  when debug $ putStrLn pkg
   when (oldkoji && ("*" `isInfixOf` pkgpat || request /= ReqName)) $
     error' "cannot use pattern with this kojihub"
   mpkgid <- Koji.getPackageID hub pkg
@@ -281,17 +283,17 @@ kojiBuildOSBuilds debug hub listmode disttag request pkgpat = do
                rs@(r:_) ->
                  if listmode then rs else [r]
         else nvrs
-  where
-    packageOfPattern :: String -> (String, Bool)
-    packageOfPattern pat =
-      case request of
-        ReqName -> (dropSuffix "-" $ takeWhile (/= '*') pat, False)
-        ReqNV ->
-          case readNV pat of
-            NV n _ -> (n, False)
-        ReqNVR ->
-          case readNVR pat of
-            NVR n _ -> (n, True)
+
+packageOfPattern :: Request -> String -> (String, Bool)
+packageOfPattern request pat =
+  case request of
+    ReqName -> (dropSuffix "-" $ takeWhile (/= '*') pat, False)
+    ReqNV ->
+      case readNV pat of
+        NV n _ -> (n, False)
+    ReqNVR ->
+      case readNVR pat of
+        NVR n _ -> (n, True)
 
 kojiGetBuildRPMs :: String -> String -> IO [String]
 kojiGetBuildRPMs huburl nvr = do
