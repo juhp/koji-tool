@@ -3,7 +3,7 @@ version:             0.6.1
 synopsis:            Koji CLI tool for querying tasks and installing builds
 description:
         koji-tool is a CLI interface to Koji with commands to query tasks,
-        install rpms, and check buildlog sizes.
+        install rpms, and track buildlog sizes.
         .
         Koji is the RPM-based buildsystem of Fedora Linux and CentOS.
 license:             BSD3

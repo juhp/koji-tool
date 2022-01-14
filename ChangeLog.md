@@ -1,5 +1,10 @@
 # Version history of koji-tool
 
+# 0.6.1 (2022-01-14)
+- install --list: now lists the rpms of a unique nvr
+- install --list: new --latest option which only finds the latest build
+- install --nv: now actually looks for N-V nor N-V-R
+
 ## 0.6 (2022-01-13)
 - renamed from koji-install to koji-tool, which combines koji-query and koji-progress
 - subcommands are 'install', 'query', 'progress', and 'buildlog-sizes'

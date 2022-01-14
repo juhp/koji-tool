@@ -4,11 +4,10 @@
 - --deps
 - --srpm
 - --exclude vs --except
-- -l -R just lists same NVR ?
 - tags
 
 # query
-(rename to 'list'?)
+- rename to 'list'?
 - determine username for non-Fedora
 - build pattern
 - different hubs put builds in different locations
