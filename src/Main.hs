@@ -38,7 +38,7 @@ main = do
       <*> modeOpt
       <*> disttagOpt sysdisttag
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
-           <|> flagWith ReqName ReqNVR 'V' "nv" "Give an N-V instead of package name")
+           <|> flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
       <*> some (strArg "PKG|NVR|TASKID...")
 
     , Subcommand "query"
