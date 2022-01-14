@@ -4,6 +4,7 @@
 - install --list: now lists the rpms of a unique nvr
 - install --list: new --latest option which only finds the latest build
 - install --nv: now actually looks for N-V nor N-V-R
+- install --exclude: don't exclude subpackage when a rpm package matches
 
 ## 0.6 (2022-01-13)
 - renamed from koji-install to koji-tool, which combines koji-query and koji-progress

@@ -217,6 +217,8 @@ selectRPMs mbase ([], subpkgs) rpms =
   -- FIXME somehow determine unused excludes
   foldl' (exclude subpkgs) [] rpms
   where
+    rpmnames = map nvraName rpms
+
     exclude :: [String] -> [String] -> String -> [String]
     exclude [] acc rpm = acc ++ [rpm]
     exclude (pat:pats) acc rpm =
@@ -229,6 +231,7 @@ selectRPMs mbase ([], subpkgs) rpms =
           let comppat = compile pat
           in if isLiteral comppat
              then pat == rpmname ||
+                  pat `notElem` rpmnames &&
                   maybe False (\b -> (b ++ '-' : pat) == rpmname) mbase
              else match comppat rpmname
 selectRPMs mbase (subpkgs,exclpkgs) rpms =
