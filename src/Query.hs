@@ -124,8 +124,13 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
           commonParams =
             [("decode", ValueBool True)]
             ++ [("state", ValueArray (map taskStateToValue states)) | notNull states]
-            ++ [("arch", ValueArray (map ValueString archs)) | notNull archs]
+            ++ [("arch", ValueArray (map (ValueString . kojiArch) archs)) | notNull archs]
             ++ [("method",  ValueString method) | Just method <- [mmethod]]
+
+          kojiArch :: String -> String
+          kojiArch "i686" = "i386"
+          kojiArch "armv7hl" = "armhfp"
+          kojiArch a = a
 
     dateString :: Maybe BeforeAfter -> String
     dateString Nothing = "today 00:00"
