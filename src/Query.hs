@@ -94,7 +94,16 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
                   queryCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter'
                 Nothing -> error' "task id not found"
             _ -> do
-              mapM_ putStrLn $ mapMaybe (lookupStruct "nvr") blds
+              mapM_ putStrLn $ mapMaybe buildResult blds
+              where
+                buildResult :: Struct -> Maybe String
+                buildResult bld = do
+                  nvr <- lookupStruct "nvr" bld
+                  state <- readBuildState <$> lookupStruct "state" bld
+                  date <- lookupStruct "completion_time" bld
+                  return $ nvr ++
+                    " (" ++ takeWhile (/= '.') date ++ ")" ++
+                    (if state == BuildComplete then "" else " " ++ show state)
     _ -> do
       query <- setupQuery
       results <- listTasks server query
@@ -108,8 +117,8 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
         Task _ -> error' "unreachable task request"
         Build _ -> error' "unreachable build request"
         Package _ ->
-          return $ [("queryOpts",ValueStruct [("limit",ValueInt limit),
-                                             ("order",ValueString "-build_id")])]
+          return [("queryOpts",ValueStruct [("limit",ValueInt limit),
+                                            ("order",ValueString "-build_id")])]
         Parent parent -> do
           when (isJust muser || isJust mdate || isJust mfilter') $
             error' "cannot use --parent together with --user, timedate, or filter"
