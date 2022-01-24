@@ -187,18 +187,26 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
       method <- lookupStruct "method" st
       hostid <- lookupStruct "host_id" st
       state <- getTaskState st
-      request <- lookupStruct "request" st >>= getString . head
+      request <- lookupStruct "request" st
       let package =
-            let file = takeFileName request
-            in if ".src.rpm" `isSuffixOf` file
-               then Right $ readNVR $ removeSuffix ".src.rpm" file
-               else Left $ takeBaseName file
+            case (getString . head) request of
+              Nothing -> Left $ unwords $ map showValue $ take 2 request
+              Just req ->
+                let file = takeFileName req
+                in if ".src.rpm" `isSuffixOf` file
+                   then Right $ readNVR $ removeSuffix ".src.rpm" file
+                   else Left $ takeBaseName file
           mparent' = lookupStruct "parent" st :: Maybe Int
       return $
         TaskResult package arch method hostid state mparent' taskid start_time mend_time
       where
         readTime' :: String -> UTCTime
         readTime' = read . replace "+00:00" "Z"
+
+        showValue :: Value -> String
+        showValue (ValueString cs) = cs
+        showValue (ValueInt i) = show i
+        showValue val = show val
 
     filterResults :: [TaskResult] -> [TaskResult]
     filterResults ts =
