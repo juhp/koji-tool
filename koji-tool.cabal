@@ -1,5 +1,5 @@
 name:                koji-tool
-version:             0.6.2
+version:             0.7
 synopsis:            Koji CLI tool for querying tasks and installing builds
 description:
         koji-tool is a CLI interface to Koji with commands to query tasks,
@@ -10,7 +10,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Jens Petersen <juhpetersen@gmail.com>
 maintainer:          Jens Petersen <juhpetersen@gmail.com>
-copyright:           2021  Jens Petersen <juhpetersen@gmail.com>
+copyright:           2021-2022  Jens Petersen <juhpetersen@gmail.com>
 category:            Utility
 homepage:            https://github.com/juhp/koji-tool
 bug-reports:         https://github.com/juhp/koji-tool/issues

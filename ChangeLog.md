@@ -1,8 +1,11 @@
 # Version history of koji-tool
 
-# 0.6.2 (2022-01-XX)
-- query: add '--package' and '--latest'
+# 0.7 (2022-01-25)
+- query: new options: '--package' to search recent builds and '--latest'
+- query --method: now defaults to buildArch (use 'any' to include all)
+- query: now defaults to "--before now" (instead of "--from today 00:00')
 - query --arch: map i686 to i386 and armv7hl to armhfp
+- query: do not drop tasks without string request
 
 # 0.6.1 (2022-01-14)
 - install --list: now lists the rpms of a unique nvr

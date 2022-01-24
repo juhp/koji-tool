@@ -10,14 +10,14 @@ Fedora, CentOS, and some other projects.
 
 Query Koji for tasks.
 
-Similar to `koji list-tasks --mine --quiet --all ...`,
+Somewhat like `koji list-tasks --mine --quiet --all ...`,
 but it shows duration, kojiweb urls and build.log size,
 and it uses `date` to parse a specified date string
-and can filter results by package.
+and can filter task results by package or nvr prefix.
 
 ### Usage
 
-By default it lists your Fedora Koji tasks from today.
+By default it lists your 10 most recent Fedora Koji buildArch tasks.
 
 ```shellsession
 $ koji-tool query --help
@@ -43,10 +43,11 @@ Available options:
   -s,--state STATE         Filter tasks by state (open, close(d), cancel(ed),
                            fail(ed), assigned, free)
   -a,--arch ARCH           Task arch
-  -B,--before TIMESTAMP    Tasks completed before timedate
-  -F,--from TIMESTAMP      Tasks completed after timedate [default: today]
-  -m,--method METHOD       Select tasks by method: [build,buildarch,etc]
-  -D,--debug               Pretty-pretty raw XML result
+  -B,--before TIMESTAMP    Tasks completed before timedate [default: now]
+  -F,--from TIMESTAMP      Tasks completed after timedate
+  -m,--method METHOD       Select tasks by method: [build,buildarch,etc] or
+                           'any' (default 'buildArch')
+  -D,--debug               Pretty-print raw XML result
   -P,--only-package PKG    Filter task results to specified package
   -N,--only-nvr PREFIX     Filter task results by NVR prefix
   -h,--help                Show this help text
