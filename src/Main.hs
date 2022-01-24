@@ -58,7 +58,7 @@ main = do
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate [default: today]")
-      <*> (fmap normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" "Select tasks by method: [build,buildarch,etc]"))
+      <*> (normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" "Select tasks by method: [build,buildarch,etc] or 'any' (default 'buildArch')"))
       <*> switchWith 'D' "debug" "Pretty-pretty raw XML result"
       -- FIXME error if integer (eg mistakenly taskid)
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
@@ -92,8 +92,10 @@ main = do
         "" -> error' "empty disttag"
         (c:_) -> if c == '.' then cs else '.' : cs
 
-    normalizeMethod :: String -> String
-    normalizeMethod m =
+    normalizeMethod :: Maybe String -> Maybe String
+    normalizeMethod Nothing = normalizeMethod (Just "buildarch")
+    normalizeMethod (Just "any") = Nothing
+    normalizeMethod (Just m) =
       case elemIndex (lower m) (map lower kojiMethods) of
-        Just i -> kojiMethods !! i
+        Just i -> Just $ kojiMethods !! i
         Nothing -> error' $! "unknown method: " ++ m
