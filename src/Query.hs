@@ -36,7 +36,8 @@ import System.Directory (findExecutable)
 import System.FilePath
 import Text.Pretty.Simple
 
-data TaskReq = Task Int | Parent Int | Build String | TaskQuery
+data TaskReq = Task Int | Parent Int | Build String | Package String
+             | TaskQuery
 
 data TaskFilter = TaskPackage String | TaskNVR String
 
@@ -76,6 +77,24 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
                 else kojiGetBuildTaskID server bld
       whenJust mtaskid $ \(TaskId taskid) ->
         queryCmd server muser limit (Parent taskid) states archs mdate mmethod debug mfilter'
+    Package pkg -> do
+      when (isJust mdate || isJust mfilter') $
+        error' "cannot use --package together with timedate or filter"
+      mpkgid <- getPackageID server pkg
+      case mpkgid of
+        Nothing -> error' $ "no package id found for " ++ pkg
+        Just pkgid -> do
+          options <- setupQuery
+          blds <- listBuilds server $
+                  ("packageID", ValueInt pkgid):options
+          case blds of
+            [bld] -> do
+              case lookupStruct "task_id" bld of
+                Just taskid ->
+                  queryCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter'
+                Nothing -> error' "task id not found"
+            _ -> do
+              mapM_ putStrLn $ mapMaybe (lookupStruct "nvr") blds
     _ -> do
       query <- setupQuery
       results <- listTasks server query
@@ -85,9 +104,12 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
   where
     setupQuery = do
       case taskreq of
-        -- FIXME:
+        -- FIXME!
         Task _ -> error' "unreachable task request"
         Build _ -> error' "unreachable build request"
+        Package _ ->
+          return $ [("queryOpts",ValueStruct [("limit",ValueInt limit),
+                                             ("order",ValueString "-build_id")])]
         Parent parent -> do
           when (isJust muser || isJust mdate || isJust mfilter') $
             error' "cannot use --parent together with --user, timedate, or filter"
