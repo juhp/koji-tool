@@ -1,5 +1,9 @@
 # Version history of koji-tool
 
+# 0.6.2 (2022-01-XX)
+- query: add '--package' and '--latest'
+- query --arch: map i686 to i386 and armv7hl to armhfp
+
 # 0.6.1 (2022-01-14)
 - install --list: now lists the rpms of a unique nvr
 - install --list: new --latest option which only finds the latest build

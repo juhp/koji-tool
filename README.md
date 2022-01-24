@@ -21,21 +21,25 @@ By default it lists your Fedora Koji tasks from today.
 
 ```shellsession
 $ koji-tool query --help
-Usage: koji-tool query [-S|--server URL] [-u|--user USER] [-l|--limit INT]
+Usage: koji-tool query [-S|--server URL] [-u|--user USER]
+                       [(-L|--latest) | (-l|--limit INT)]
                        [(-t|--task TASKID) | (-c|--children TASKID) |
-                         (-b|--build BUILD)] [-s|--state STATE] [-a|--arch ARCH]
+                         (-b|--build BUILD) | (-p|--package PKG)]
+                       [-s|--state STATE] [-a|--arch ARCH]
                        [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
                        [-m|--method METHOD] [-D|--debug]
-                       [(-p|--package PKG) | (-n|--nvr PREFIX)]
+                       [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)]
   Query Koji tasks (by default lists your tasks today)
 
 Available options:
   -S,--server URL          Koji Hub [default: Fedora]
   -u,--user USER           Koji user [default: fasid]
+  -L,--latest              Latest build or task
   -l,--limit INT           Maximum number of tasks to show [default: 10]
   -t,--task TASKID         Show task
   -c,--children TASKID     List child tasks of parent
   -b,--build BUILD         List child tasks of build
+  -p,--package PKG         Build tasks of package
   -s,--state STATE         Filter tasks by state (open, close(d), cancel(ed),
                            fail(ed), assigned, free)
   -a,--arch ARCH           Task arch
@@ -43,12 +47,12 @@ Available options:
   -F,--from TIMESTAMP      Tasks completed after timedate [default: today]
   -m,--method METHOD       Select tasks by method: [build,buildarch,etc]
   -D,--debug               Pretty-pretty raw XML result
-  -p,--package PKG         Filter results to specified package
-  -n,--nvr PREFIX          Filter results by NVR prefix
+  -P,--only-package PKG    Filter task results to specified package
+  -N,--only-nvr PREFIX     Filter task results by NVR prefix
   -h,--help                Show this help text
 ```
 
-Example:
+Examples:
 
 ```shellsession
 $ koji-tool query -a aarch64 --from "last week" -s fail
@@ -65,6 +69,13 @@ https://koji.fedoraproject.org/koji/taskinfo?taskID=81172651
 Start: Thu Jan 13 10:12:09  2022
 End:   Thu Jan 13 10:14:09  2022
 duration: 0h 2m 0s
+```
+
+List builds:
+```shellsession
+$ koji-tool query --package redhat-rpm-config --limit 2
+redhat-rpm-config-212-1.eln114 (2022-01-23 12:50:46)
+redhat-rpm-config-212-1.fc36 (2022-01-23 11:49:42)
 ```
 
 ## koji-tool install
