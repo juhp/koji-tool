@@ -126,7 +126,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
             ("parent", ValueInt parent) : commonParams
         TaskQuery -> do
           date <- cmd "date" ["+%F %T%z", "--date=" ++ dateString mdate]
-          putStrLn $ "completed " ++ maybe "after" show mdate ++ " " ++ date
+          putStrLn $ "completed " ++ maybe "" (++ " ") mmethod ++ maybe "before" show mdate ++ " " ++ date
           user <-
             case muser of
               Just user -> return user
@@ -149,7 +149,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
             Just owner ->
               return $
                 [("owner", ValueInt (getID owner)),
-                 ("complete" ++ maybe "After" (capitalize . show) mdate, ValueString date)]
+                 ("complete" ++ maybe "Before" (capitalize . show) mdate, ValueString date)]
                 ++ commonParams
         where
           commonParams =
@@ -164,7 +164,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
           kojiArch a = a
 
     dateString :: Maybe BeforeAfter -> String
-    dateString Nothing = "today 00:00"
+    dateString Nothing = "now"
     -- make time refer to past not future
     dateString (Just beforeAfter) =
       let timedate = getTimedate beforeAfter

@@ -56,8 +56,8 @@ main = do
            <|> pure TaskQuery)
       <*> many (parseTaskState <$> strOptionWith 's' "state" "STATE" "Filter tasks by state (open, close(d), cancel(ed), fail(ed), assigned, free)")
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
-      <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate" <|>
-                    After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate [default: today]")
+      <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
+                    After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate")
       <*> (normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" "Select tasks by method: [build,buildarch,etc] or 'any' (default 'buildArch')"))
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       -- FIXME error if integer (eg mistakenly taskid)
