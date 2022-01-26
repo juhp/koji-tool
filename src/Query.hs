@@ -15,6 +15,7 @@ where
 
 import Control.Monad.Extra
 
+import qualified Data.ByteString.Lazy.UTF8 as U
 import Data.Char (isDigit, toUpper)
 import Data.List.Extra
 import Data.Maybe
@@ -31,6 +32,7 @@ import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
 import Network.HTTP.Directory
+import Network.HTTP.Simple
 import SimpleCmd
 import System.Directory (findExecutable)
 import System.FilePath
@@ -303,7 +305,7 @@ buildlogSize tail' mgr taskid = do
       putStrLn ")"
       -- FIXME if too small show root.log url instead
       if tail'
-        then cmd_ "curl" [logtail]
+        then displayLog logtail
         else putStrLn logtail
   where
     tid = show taskid
@@ -353,3 +355,16 @@ kojiMethods =
 optionalProgram :: String -> IO Bool
 optionalProgram c =
   isJust <$> findExecutable c
+
+displayLog :: String -> IO ()
+displayLog url = do
+  req <- parseRequest url
+  resp <- httpLBS req
+  let out = U.toString $ getResponseBody resp
+      ls = lines out
+  if last ls == "Child return code was: 0"
+    then putStr out
+    else do
+    let err = "Child return code was: 1"
+    putStr $ unlines $ takeWhile (err /=) ls
+    putStrLn err
