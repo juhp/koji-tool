@@ -63,6 +63,7 @@ main = do
       -- FIXME error if integer (eg mistakenly taskid)
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
+      <*> switchWith 'T' "tail" "Fetch the tail of build.log"
 
     , Subcommand "progress"
       "Track running Koji tasks by buildlog size" $

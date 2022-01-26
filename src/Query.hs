@@ -57,8 +57,8 @@ capitalize (h:t) = toUpper h : t
 
 queryCmd :: String -> Maybe String -> Int -> TaskReq -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
-         -> Maybe TaskFilter -> IO ()
-queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = do
+         -> Maybe TaskFilter -> Bool -> IO ()
+queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' tail' = do
   tz <- getCurrentTimeZone
   mgr <- httpManager
   case taskreq of
@@ -76,7 +76,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
                 else kojiGetBuildTaskID server bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        queryCmd server muser limit (Parent taskid) states archs mdate mmethod debug mfilter'
+        queryCmd server muser limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     Package pkg -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --package together with timedate or filter"
@@ -91,7 +91,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
             [bld] -> do
               case lookupStruct "task_id" bld of
                 Just taskid ->
-                  queryCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter'
+                  queryCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
                 Nothing -> error' "task id not found"
             _ -> do
               mapM_ putStrLn $ mapMaybe buildResult blds
@@ -229,7 +229,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' = 
       let mendtime = mtaskEndTime task
       time <- maybe getCurrentTime return mendtime
       (mapM_ putStrLn . formatTaskResult (isJust mendtime) tz) (task {mtaskEndTime = Just time})
-      buildlogSize mgr (taskId task)
+      buildlogSize tail' mgr (taskId task)
 
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
@@ -291,8 +291,8 @@ parseTaskState s =
     _ -> error' $! "unknown task state: " ++ s
 #endif
 
-buildlogSize :: Manager -> Int -> IO ()
-buildlogSize mgr taskid = do
+buildlogSize :: Bool -> Manager -> Int -> IO ()
+buildlogSize tail' mgr taskid = do
   exists <- httpExists mgr buildlog
   when exists $ do
     putStr $ buildlog ++ " "
@@ -302,7 +302,9 @@ buildlogSize mgr taskid = do
       (T.putStr . kiloBytes) size
       putStrLn ")"
       -- FIXME if too small show root.log url instead
-      putStrLn logtail
+      if tail'
+        then cmd_ "curl" [logtail]
+        else putStrLn logtail
   where
     tid = show taskid
 
