@@ -43,7 +43,7 @@ main = do
       <*> some (strArg "PKG|NVR|TASKID...")
 
     , Subcommand "query"
-      "Query Koji tasks (by default lists your tasks today)" $
+      "Query Koji tasks (by default lists your most recent tasks)" $
       queryCmd
       <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
       <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
