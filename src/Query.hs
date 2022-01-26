@@ -133,8 +133,8 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
             case muser of
               Just user -> return user
               Nothing -> do
-                haveKlist <- optionalProgram "klist"
-                if haveKlist
+                mKlist <- findExecutable "klist"
+                if isJust mKlist
                   then do
                   mkls <- fmap words <$> cmdMaybe "klist" ["-l"]
                   case mkls of
@@ -352,9 +352,6 @@ kojiMethods =
    "livemedia",
    "createLiveMedia"]
 
-optionalProgram :: String -> IO Bool
-optionalProgram c =
-  isJust <$> findExecutable c
 
 displayLog :: String -> IO ()
 displayLog url = do
