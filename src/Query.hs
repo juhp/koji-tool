@@ -293,8 +293,26 @@ parseTaskState s =
     _ -> error' $! "unknown task state: " ++ s
 #endif
 
+data LastLog = WholeBuild | BuildTail | RootLog
+  deriving Eq
+
+logUrl :: Int -> LastLog -> String
+logUrl taskid lastlog =
+  if lastlog == BuildTail
+  then "https://koji.fedoraproject.org/koji/getfile?taskID=" ++ tid ++ "&name=build.log&offset=-4000"
+  else "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> logName <.> "log"
+  where
+    tid = show taskid
+
+    lastFew =
+      let few = dropWhile (== '0') $ takeEnd 4 tid
+      in if null few then "0" else few
+
+    logName = if lastlog == RootLog then "root" else "build"
+
 buildlogSize :: Bool -> Manager -> Int -> IO ()
 buildlogSize tail' mgr taskid = do
+  let buildlog = logUrl taskid WholeBuild
   exists <- httpExists mgr buildlog
   when exists $ do
     putStr $ buildlog ++ " "
@@ -303,22 +321,18 @@ buildlogSize tail' mgr taskid = do
       putStr "("
       (T.putStr . kiloBytes) size
       putStrLn ")"
-      -- FIXME if too small show root.log url instead
+      -- FIXME maybe timestamp better
+      lastlog <-
+        if size < 1300
+        then do
+          putStrLn $ logUrl taskid RootLog
+          return RootLog
+        else return BuildTail
       if tail'
-        then displayLog logtail
-        else putStrLn logtail
+        then displayLog taskid lastlog
+        else putStrLn $ logUrl taskid lastlog
   where
-    tid = show taskid
-
-    buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> "build.log"
-
-    lastFew =
-      let few = dropWhile (== '0') $ drop 4 tid in
-        if null few then "0" else few
-
     kiloBytes s = prettyI (Just ',') (fromInteger s `div` 1000) <> T.pack "kB"
-
-    logtail = "https://koji.fedoraproject.org/koji/getfile?taskID=" ++ tid ++ "&name=build.log&offset=-4000"
 
 kojiMethods :: [String]
 kojiMethods =
@@ -353,15 +367,24 @@ kojiMethods =
    "createLiveMedia"]
 
 
-displayLog :: String -> IO ()
-displayLog url = do
-  req <- parseRequest url
+displayLog :: Int -> LastLog -> IO ()
+displayLog tid lastlog = do
+  req <- parseRequest $ logUrl tid lastlog
   resp <- httpLBS req
   let out = U.toString $ getResponseBody resp
       ls = lines out
-  if last ls == "Child return code was: 0"
+  putStrLn ""
+  if lastlog == RootLog
+    then
+    let excluded = ["Executing command:", "Child return code was: 0",
+                    "child environment: None", "ensuring that dir exists:",
+                    "touching file:", "creating dir:", "kill orphans"]
+    in putStr $ unlines $ map (dropPrefix "DEBUG ") $ takeEnd 30 $
+       filter (\l -> not (any (`isInfixOf` l) excluded)) ls
+    else
+    if last ls == "Child return code was: 0"
     then putStr out
     else do
-    let err = "Child return code was: 1"
-    putStr $ unlines $ takeWhile (err /=) ls
-    putStrLn err
+      let err = "Child return code was: 1"
+      putStr $ unlines $ takeWhile (err /=) ls
+      putStrLn err
