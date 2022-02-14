@@ -128,7 +128,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
             ("parent", ValueInt parent) : commonParams
         TaskQuery -> do
           date <- cmd "date" ["+%F %T%z", "--date=" ++ dateString mdate]
-          putStrLn $ "completed " ++ maybe "" (++ " ") mmethod ++ maybe "before" show mdate ++ " " ++ date
+          putStrLn $ maybe "" (++ " tasks ") mmethod ++ maybe "before" show mdate ++ " " ++ date
           user <-
             case muser of
               Just user -> return user
