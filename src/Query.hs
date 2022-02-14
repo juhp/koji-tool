@@ -364,7 +364,8 @@ kojiMethods =
    "indirectionimage",
    "createImage",
    "livemedia",
-   "createLiveMedia"]
+   "createLiveMedia",
+   "buildContainer"]
 
 
 displayLog :: Int -> LastLog -> IO ()
