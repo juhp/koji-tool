@@ -43,7 +43,7 @@ main = do
       <*> some (strArg "PKG|NVR|TASKID...")
 
     , Subcommand "query"
-      "Query Koji tasks (by default lists your most recent tasks)" $
+      "Query Koji tasks (by default lists your most recent buildArch tasks)" $
       queryCmd
       <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
       <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
@@ -58,7 +58,7 @@ main = do
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate")
-      <*> (normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" "Select tasks by method: [build,buildarch,etc] or 'any' (default 'buildArch')"))
+      <*> (normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" ("Select tasks by method (default 'buildArch'): " ++ intercalate "," kojiMethods)))
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       -- FIXME error if integer (eg mistakenly taskid)
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
@@ -95,7 +95,6 @@ main = do
 
     normalizeMethod :: Maybe String -> Maybe String
     normalizeMethod Nothing = normalizeMethod (Just "buildarch")
-    normalizeMethod (Just "any") = Nothing
     normalizeMethod (Just m) =
       case elemIndex (lower m) (map lower kojiMethods) of
         Just i -> Just $ kojiMethods !! i
