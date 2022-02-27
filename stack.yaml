@@ -1,3 +1,1 @@
-resolver: lts-18.20
-extra-deps:
-  - http-directory-0.1.9
+resolver: lts-18.27
