@@ -2,11 +2,11 @@
 
 -- SPDX-License-Identifier: BSD-3-Clause
 
-module Query (
+module Tasks (
   TaskFilter(..),
   TaskReq(..),
   BeforeAfter(..),
-  queryCmd,
+  tasksCmd,
   parseTaskState,
   kojiMethods,
   fedoraKojiHub
@@ -57,10 +57,10 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
-queryCmd :: String -> Maybe String -> Int -> TaskReq -> [TaskState]
+tasksCmd :: String -> Maybe String -> Int -> TaskReq -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
          -> Maybe TaskFilter -> Bool -> IO ()
-queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' tail' = do
+tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' tail' = do
   tz <- getCurrentTimeZone
   mgr <- httpManager
   case taskreq of
@@ -78,7 +78,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
                 else kojiGetBuildTaskID server bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        queryCmd server muser limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+        tasksCmd server muser limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     Package pkg -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --package together with timedate or filter"
@@ -93,7 +93,7 @@ queryCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
             [bld] -> do
               case lookupStruct "task_id" bld of
                 Just taskid ->
-                  queryCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+                  tasksCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
                 Nothing -> error' "task id not found"
             _ -> do
               mapM_ putStrLn $ mapMaybe buildResult blds

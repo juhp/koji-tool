@@ -12,7 +12,7 @@ import BuildlogSizes
 import Install
 import qualified Paths_koji_tool
 import Progress
-import Query
+import Tasks
 
 main :: IO ()
 main = do
@@ -42,9 +42,9 @@ main = do
            <|> flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
       <*> some (strArg "PKG|NVR|TASKID...")
 
-    , Subcommand "query"
+    , Subcommand "tasks"
       "Query Koji tasks (by default lists your most recent buildArch tasks)" $
-      queryCmd
+      tasksCmd
       <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
       <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
       <*> (flagWith' 1 'L' "latest" "Latest build or task" <|>

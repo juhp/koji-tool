@@ -35,7 +35,7 @@ executable koji-tool
                        DownloadDir
                        Install
                        Progress
-                       Query
+                       Tasks
   hs-source-dirs:      src
   build-depends:       base < 5,
                        directory,
