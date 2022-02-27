@@ -146,18 +146,12 @@ buildsCmd server muser limit buildreq states mdate mtype debug = do
       buildid <- lookupStruct "build_id" st
       taskid <- lookupStruct "task_id" st
       state <- getBuildState st
-      -- source <- lookupStruct "source" st
       nvr <- lookupStruct "nvr" st >>= maybeNVR
       return $
         BuildResult nvr state buildid taskid start_time mend_time
       where
         readTime' :: String -> UTCTime
         readTime' = read . replace "+00:00" "Z"
-
-        -- showValue :: Value -> String
-        -- showValue (ValueString cs) = cs
-        -- showValue (ValueInt i) = show i
-        -- showValue val = show val
 
     printBuild :: TimeZone -> BuildResult -> IO ()
     printBuild tz task = do
@@ -192,10 +186,6 @@ formatBuildResult ended tz (BuildResult nvr state buildid taskid start mendtime)
       let dur = diffUTCTime end start
       in [(if not ended then "current " else "") ++ "duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur]
 #endif
-  -- where
-  --   showPackage :: Either String NVR -> String
-  --   showPackage (Left p) = p
-  --   showPackage (Right nvr) = showNVR nvr
 
 -- FIXME
 data BuildResult =
