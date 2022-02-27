@@ -8,6 +8,7 @@ import Data.List.Extra
 import SimpleCmd
 import SimpleCmdArgs
 
+import Builds
 import BuildlogSizes
 import Install
 import qualified Paths_koji_tool
@@ -41,6 +42,22 @@ main = do
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
            <|> flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
       <*> some (strArg "PKG|NVR|TASKID...")
+
+    , Subcommand "builds"
+      "Query Koji builds (by default lists your most recent builds)" $
+      buildsCmd
+      <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
+      <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
+      <*> (flagWith' 1 'L' "latest" "Latest build" <|>
+           optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 10]" 10)
+      <*> (BuildBuild <$> strOptionWith 'b' "build" "BUILD" "Show build details"
+           <|> BuildPackage <$> strOptionWith 'p' "package" "PKG" "Builds of package"
+           <|> pure BuildQuery)
+      <*> many (parseBuildState <$> strOptionWith 's' "state" "STATE" "Filter builds by state (FIXME list)")
+      <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
+                    After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
+      <*> optional (strOptionWith 't' "type" "TYPE" "Select builds by type")
+      <*> switchWith 'D' "debug" "Pretty-print raw XML result"
 
     , Subcommand "tasks"
       "Query Koji tasks (by default lists your most recent buildArch tasks)" $
