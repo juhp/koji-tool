@@ -57,6 +57,7 @@ main = do
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
       <*> optional (strOptionWith 't' "type" "TYPE" "Select builds by type")
+      <*> switchWith 'd' "details" "Show more details of builds"
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       <*> optional (strArg "NVRPATTERN")
 

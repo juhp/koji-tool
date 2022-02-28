@@ -43,9 +43,9 @@ capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
 buildsCmd :: String -> Maybe String -> Int -> BuildReq -> [BuildState]
-          -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Maybe String
-          -> IO ()
-buildsCmd server muser limit buildreq states mdate mtype debug mpat = do
+          -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
+          -> Maybe String -> IO ()
+buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
   when (isJust mpat && buildreq /= BuildQuery) $
     error' "cannot use pattern with --build or --package"
   tz <- getCurrentTimeZone
@@ -70,7 +70,10 @@ buildsCmd server muser limit buildreq states mdate mtype debug mpat = do
           options <- setupQuery
           blds <- listBuilds server $
                   ("packageID", ValueInt pkgid):options
-          mapM_ putStrLn $ mapMaybe buildResult blds
+          if details
+            then mapM_ (printBuild tz) $ mapMaybe maybeBuildResult blds
+            else
+            mapM_ putStrLn $ mapMaybe shortBuildResult blds
     _ -> do
       query <- setupQuery
       results <- listBuilds server (query <>
@@ -79,8 +82,8 @@ buildsCmd server muser limit buildreq states mdate mtype debug mpat = do
       when debug $ mapM_ pPrintCompact results
       (mapM_ (printBuild tz) . mapMaybe maybeBuildResult) results
   where
-    buildResult :: Struct -> Maybe String
-    buildResult bld = do
+    shortBuildResult :: Struct -> Maybe String
+    shortBuildResult bld = do
       nvr <- lookupStruct "nvr" bld
       state <- readBuildState <$> lookupStruct "state" bld
       date <- lookupStruct "completion_time" bld
