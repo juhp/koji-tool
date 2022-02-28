@@ -14,7 +14,6 @@ module Tasks (
 where
 
 import Control.Monad.Extra
-
 import qualified Data.ByteString.Lazy.UTF8 as U
 import Data.Char (isDigit, toUpper)
 import Data.List.Extra
@@ -118,33 +117,40 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
           return $
             ("parent", ValueInt parent) : commonParams
         TaskQuery -> do
-          date <- cmd "date" ["+%F %T%z", "--date=" ++ dateString mdate]
-          when (isJust mdate) $
-            putStrLn $ maybe "" (++ " tasks ") mmethod ++ maybe "before" show mdate ++ " " ++ date
-          user <-
-            case muser of
-              Just user -> return user
-              Nothing -> do
-                mKlist <- findExecutable "klist"
-                if isJust mKlist
-                  then do
-                  mkls <- fmap words <$> cmdMaybe "klist" ["-l"]
-                  case mkls of
-                    Nothing -> error "klist failed"
-                    Just kls ->
-                      case find ("@FEDORAPROJECT.ORG" `isSuffixOf`) kls of
-                        Nothing -> error' "Could not determine FAS id from klist"
-                        Just principal ->
-                          return $ dropSuffix "@FEDORAPROJECT.ORG" principal
-                  else error' "Please specify koji user"
-          mowner <- kojiGetUserID fedoraKojiHub user
-          case mowner of
-            Nothing -> error "No owner found"
-            Just owner ->
-              return $
-                [("owner", ValueInt (getID owner)),
-                 ("complete" ++ maybe "Before" (capitalize . show) mdate, ValueString date)]
-                ++ commonParams
+          mdatestring <-
+            case mdate of
+              Nothing -> return Nothing
+              Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
+          when (isNothing mmethod) $ warning "buildArch tasks"
+          whenJust mdatestring $ \date ->
+            warning $ maybe "" show mdate +-+ date
+          mowner <-
+            if isNothing muser && isJust mmethod
+            then return Nothing
+            else do
+              user <-
+                case muser of
+                  Just user -> return user
+                  Nothing -> do
+                    mKlist <- findExecutable "klist"
+                    if isJust mKlist
+                      then do
+                      mkls <- fmap words <$> cmdMaybe "klist" ["-l"]
+                      case mkls of
+                        Nothing -> error "klist failed"
+                        Just kls ->
+                          case find ("@FEDORAPROJECT.ORG" `isSuffixOf`) kls of
+                            Nothing -> error' "Could not determine FAS id from klist"
+                            Just principal ->
+                              return $ dropSuffix "@FEDORAPROJECT.ORG" principal
+                      else error' "Please specify koji user"
+              putStrLn $ "user" +-+ user
+              maybe (error' "No owner found") Just <$>
+                kojiGetUserID fedoraKojiHub user
+          return $
+            [("owner", ValueInt (getID owner)) | Just owner <- [mowner]] ++
+            [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]] ++
+            commonParams
         where
           commonParams =
             [("decode", ValueBool True)]
@@ -157,10 +163,9 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
           kojiArch "armv7hl" = "armhfp"
           kojiArch a = a
 
-    dateString :: Maybe BeforeAfter -> String
-    dateString Nothing = "now"
+    dateString :: BeforeAfter -> String
     -- make time refer to past not future
-    dateString (Just beforeAfter) =
+    dateString beforeAfter =
       let timedate = getTimedate beforeAfter
       in case words timedate of
            [t] | t `elem` ["hour", "day", "week", "month", "year"] ->
@@ -175,8 +180,8 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
     maybeTaskResult :: Struct -> Maybe TaskResult
     maybeTaskResult st = do
       arch <- lookupStruct "arch" st
-      start_time <- readTime' <$> lookupStruct "start_time" st
-      let mend_time = readTime' <$> lookupStruct "completion_time" st
+      let mstart_time = readTime' <$> lookupStruct "start_time" st
+          mend_time = readTime' <$> lookupStruct "completion_time" st
       taskid <- lookupStruct "id" st
       method <- lookupStruct "method" st
       hostid <- lookupStruct "host_id" st
@@ -192,7 +197,7 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
                    else Left $ takeBaseName file
           mparent' = lookupStruct "parent" st :: Maybe Int
       return $
-        TaskResult package arch method hostid state mparent' taskid start_time mend_time
+        TaskResult package arch method hostid state mparent' taskid mstart_time mend_time
       where
         readTime' :: String -> UTCTime
         readTime' = read . replace "+00:00" "Z"
@@ -221,8 +226,10 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
     printTask mgr tz task = do
       putStrLn ""
       let mendtime = mtaskEndTime task
-      time <- maybe getCurrentTime return mendtime
-      (mapM_ putStrLn . formatTaskResult (isJust mendtime) tz) (task {mtaskEndTime = Just time})
+      mtime <- if isNothing  mendtime
+                 then Just <$> getCurrentTime
+                 else return Nothing
+      (mapM_ putStrLn . formatTaskResult mtime tz) task
       buildlogSize tail' mgr (taskId task)
 
     pPrintCompact =
@@ -233,21 +240,20 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
       pPrint
 #endif
 
-formatTaskResult :: Bool -> TimeZone -> TaskResult -> [String]
-formatTaskResult ended tz (TaskResult pkg arch method _hostid state mparent taskid start mendtime) =
+formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
+formatTaskResult mtime tz (TaskResult pkg arch method _hostid state mparent taskid mstart mend) =
   [ showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+ show state
-  , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent
-  , formatTime defaultTimeLocale "Start: %c" (utcToLocalTime tz start)
-  ]
-  ++
-  case mendtime of
-    Nothing -> []
-    Just end ->
-      [formatTime defaultTimeLocale "End:   %c" (utcToLocalTime tz end) | ended]
+  , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
+  [formatTime defaultTimeLocale "Start: %c" (utcToLocalTime tz start) | Just start <- [mstart]] ++
+  [formatTime defaultTimeLocale "End:   %c" (utcToLocalTime tz end) | Just end <- [mend]]
 #if MIN_VERSION_time(1,9,1)
       ++
-      let dur = diffUTCTime end start
-      in [(if not ended then "current " else "") ++ "duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur]
+    case mtime of
+      Just now ->
+        ["current duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur | Just start <- [mstart],  let dur = diffUTCTime now start]
+      Nothing ->
+        ["duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start]
+
 #endif
   where
     showPackage :: Either String NVR -> String
@@ -262,7 +268,7 @@ data TaskResult =
               _taskState :: TaskState,
               _mtaskParent :: Maybe Int,
               taskId :: Int,
-              _taskStartTime :: UTCTime,
+              _mtaskStartTime :: Maybe UTCTime,
               mtaskEndTime :: Maybe UTCTime
              }
 
@@ -320,9 +326,8 @@ buildlogSize tail' mgr taskid = do
           putStrLn $ logUrl taskid RootLog
           return RootLog
         else return BuildTail
-      if tail'
-        then displayLog taskid lastlog
-        else putStrLn $ logUrl taskid lastlog
+      when tail' $
+        displayLog taskid lastlog
   where
     kiloBytes s = prettyI (Just ',') (fromInteger s `div` 1000) <> T.pack "kB"
 

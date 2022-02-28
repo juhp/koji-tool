@@ -113,6 +113,8 @@ and can use an NVR glob pattern to select builds.
 
 By default it lists your 10 most recent Fedora builds.
 
+If you specify a package, build/pattern, or build type, the results are not limited only to your builds.
+
 ```shellsession
 $ koji-tool builds --help
 Usage: koji-tool builds [-S|--server URL] [-u|--user USER]
@@ -167,6 +169,9 @@ and can filter task results by package or nvr prefix.
 
 By default it lists your 10 most recent Fedora Koji buildArch tasks.
 
+Specify a package, build, task, or method (like the default "buildarch")
+to not limit results to your own tasks.
+
 ```shellsession
 $ koji-tool tasks --help
 Usage: koji-tool tasks [-S|--server URL] [-u|--user USER]
@@ -212,14 +217,12 @@ lists your arm64 tasks that failed in the last week.
 
 List kojira tasks from the last hour:
 ```shellsession
-$ koji-tool tasks --from hour -u kojira
-completed after 2022-01-13 09:14:41+0800
+$ koji-tool tasks --method newrepo --latest
 
-epel7-infra-mailman newRepo TaskFailed
-https://koji.fedoraproject.org/koji/taskinfo?taskID=81172651
-Start: Thu Jan 13 10:12:09  2022
-End:   Thu Jan 13 10:14:09  2022
-duration: 0h 2m 0s
+f37-build-side-51181 newRepo TaskOpen
+https://koji.fedoraproject.org/koji/taskinfo?taskID=83464506
+Start: Mon Feb 28 23:13:01  2022
+current duration: 0h 2m 5s
 ```
 
 List package build tasks:
