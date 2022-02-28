@@ -98,8 +98,9 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
               tasksCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     _ -> do
       query <- setupQuery
-      results <- listTasks server query
-                 [("limit",ValueInt limit), ("order", ValueString "-id")]
+      let queryopts = [("limit",ValueInt limit), ("order", ValueString "-id")]
+      when debug $ print $ query ++ queryopts
+      results <- listTasks server query queryopts
       when debug $ mapM_ pPrintCompact results
       (mapM_ (printTask mgr tz) . filterResults . mapMaybe maybeTaskResult) results
   where

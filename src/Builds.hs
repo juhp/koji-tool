@@ -68,19 +68,24 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
           options <- setupQuery
-          blds <- listBuilds server $
-                  ("packageID", ValueInt pkgid):options
+          let fullquery = ("packageID", ValueInt pkgid):options
+          when debug $ print fullquery
+          blds <- listBuilds server fullquery
+          when debug $ mapM_ pPrintCompact blds
           if details
             then mapM_ (printBuild tz) $ mapMaybe maybeBuildResult blds
             else
             mapM_ putStrLn $ mapMaybe shortBuildResult blds
     _ -> do
       query <- setupQuery
-      results <- listBuilds server (query <>
-                 [("queryOpts", ValueStruct [("limit",ValueInt limit),
-                                             ("order", ValueString "-build_id")])])
-      when debug $ mapM_ pPrintCompact results
-      (mapM_ (printBuild tz) . mapMaybe maybeBuildResult) results
+      let fullquery =
+            query <>
+            [("queryOpts", ValueStruct [("limit",ValueInt limit),
+                                        ("order", ValueString "-build_id")])]
+      when debug $ print fullquery
+      blds <- listBuilds server fullquery
+      when debug $ mapM_ pPrintCompact blds
+      (mapM_ (printBuild tz) . mapMaybe maybeBuildResult) blds
   where
     shortBuildResult :: Struct -> Maybe String
     shortBuildResult bld = do
