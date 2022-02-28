@@ -6,7 +6,8 @@ module Builds (
   BuildReq(..),
   buildsCmd,
   parseBuildState,
-  fedoraKojiHub
+  fedoraKojiHub,
+  kojiBuildTypes
   )
 where
 
@@ -229,3 +230,6 @@ data LastLog = WholeBuild | BuildTail | RootLog
 
 getBuildState :: Struct -> Maybe BuildState
 getBuildState st = readBuildState <$> lookup "state" st
+
+kojiBuildTypes :: [String]
+kojiBuildTypes = ["all", "image", "maven", "module", "rpm", "win"]

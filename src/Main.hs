@@ -56,7 +56,7 @@ main = do
       <*> many (parseBuildState <$> strOptionWith 's' "state" "STATE" "Filter builds by state (FIXME list)")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
-      <*> optional (strOptionWith 't' "type" "TYPE" "Select builds by type")
+      <*> (fmap normalizeBuildType <$> optional (strOptionWith 't' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
       <*> switchWith 'd' "details" "Show more details of builds"
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       <*> optional (strArg "NVRPATTERN")
@@ -118,3 +118,9 @@ main = do
       case elemIndex (lower m) (map lower kojiMethods) of
         Just i -> Just $ kojiMethods !! i
         Nothing -> error' $! "unknown method: " ++ m
+
+    normalizeBuildType :: String -> String
+    normalizeBuildType m =
+      case elemIndex (lower m) (map lower kojiBuildTypes) of
+        Just i -> kojiBuildTypes !! i
+        Nothing -> error' $! "unknown build type: " ++ m
