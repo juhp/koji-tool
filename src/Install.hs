@@ -98,8 +98,7 @@ installCmd dryrun debug mhuburl mpkgsurl listmode latest mode disttag request pk
       nvrs <- kojiBuildOSBuilds debug huburl listmode latest disttag request pkgbld
       if listmode
         then if mode /= PkgsReq [] []
-                -- FIXME:
-             then error' "modes not supported for listing build"
+             then error' "modes not supported for listing build"  -- FIXME
              else case nvrs of
                     [nvr] -> ([nvr,""] ++) . map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
                     _ -> return nvrs

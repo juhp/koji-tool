@@ -105,7 +105,7 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
   where
     setupQuery = do
       case taskreq of
-        -- FIXME!
+        -- FIXME dummy cases!
         Task _ -> error' "unreachable task request"
         Build _ -> error' "unreachable build request"
         Package _ ->
@@ -312,7 +312,7 @@ buildlogSize tail' mgr taskid = do
       putStr "("
       (T.putStr . kiloBytes) size
       putStrLn ")"
-      -- FIXME maybe timestamp better
+      -- FIXME check if short build.log ends with srpm
       lastlog <-
         if size < 1500
         then do

@@ -13,6 +13,7 @@
 - different hubs put builds in different locations
 - html output
 - list builds of package
+- grep buildlog
 
 # buildlog-sizes/progress
 - combine
