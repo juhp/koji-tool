@@ -1,5 +1,13 @@
 # Version history of koji-tool
 
+# 0.8 (2022-02-28)
+- rename 'query' to 'tasks'
+- 'tasks': new '--tail' option to fetch and display tail of build.log
+   and show root.log if build.log is too small
+- 'tasks': expand methods list and list in --method help
+- new 'builds' query command (replaces 'tasks' builds listing)
+- only print "before <date>" when date given
+
 # 0.7 (2022-01-25)
 - query: new options: '--package' to search recent builds and '--latest'
 - query --method: now defaults to buildArch (use 'any' to include all)
