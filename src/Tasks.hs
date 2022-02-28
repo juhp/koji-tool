@@ -183,8 +183,8 @@ tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail
     maybeTaskResult :: Struct -> Maybe TaskResult
     maybeTaskResult st = do
       arch <- lookupStruct "arch" st
-      let mstart_time = readTime' <$> lookupStruct "start_time" st
-          mend_time = readTime' <$> lookupStruct "completion_time" st
+      let mstart_time = readTime' <$> lookupStruct "start_ts" st
+          mend_time = readTime' <$> lookupStruct "completion_ts" st
       taskid <- lookupStruct "id" st
       method <- lookupStruct "method" st
       state <- getTaskState st
@@ -201,9 +201,6 @@ tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail
       return $
         TaskResult package arch method state mparent' taskid mstart_time mend_time
       where
-        readTime' :: String -> UTCTime
-        readTime' = read . replace "+00:00" "Z"
-
         showValue :: Value -> String
         showValue (ValueString cs) = cs
         showValue (ValueInt i) = show i

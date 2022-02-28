@@ -161,17 +161,14 @@ buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
 
     maybeBuildResult :: Struct -> Maybe BuildResult
     maybeBuildResult st = do
-      start_time <- readTime' <$> lookupStruct "start_time" st
-      let mend_time = readTime' <$> lookupStruct "completion_time" st
+      start_time <- readTime' <$> lookupStruct "start_ts" st
+      let mend_time = readTime' <$> lookupStruct "completion_ts" st
       buildid <- lookupStruct "build_id" st
       taskid <- lookupStruct "task_id" st
       state <- getBuildState st
       nvr <- lookupStruct "nvr" st >>= maybeNVR
       return $
         BuildResult nvr state buildid taskid start_time mend_time
-      where
-        readTime' :: String -> UTCTime
-        readTime' = read . replace "+00:00" "Z"
 
     printBuild :: String -> TimeZone -> BuildResult -> IO ()
     printBuild server tz task = do
