@@ -97,7 +97,8 @@ buildsCmd server muser limit buildreq states mdate mtype debug mpat = do
                                             ("order",ValueString "-build_id")])]
         BuildQuery -> do
           date <- cmd "date" ["+%F %T%z", "--date=" ++ dateString mdate]
-          putStrLn $ maybe "" (++ " builds ") mtype ++ maybe "before" show mdate ++ " " ++ date
+          when (isJust mdate) $
+            putStrLn $ maybe "" (++ " builds ") mtype ++ maybe "before" show mdate ++ " " ++ date
           user <-
             case muser of
               Just user -> return user
