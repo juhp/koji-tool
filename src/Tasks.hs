@@ -150,7 +150,7 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
             [("decode", ValueBool True)]
             ++ [("state", ValueArray (map taskStateToValue states)) | notNull states]
             ++ [("arch", ValueArray (map (ValueString . kojiArch) archs)) | notNull archs]
-            ++ [("method", ValueString method) | Just method <- [mmethod]]
+            ++ [("method", ValueString method) | let method = fromMaybe "buildArch" mmethod]
 
           kojiArch :: String -> String
           kojiArch "i686" = "i386"
