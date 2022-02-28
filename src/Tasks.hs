@@ -326,7 +326,7 @@ buildlogSize tail' mgr taskid = do
       putStrLn ")"
       -- FIXME maybe timestamp better
       lastlog <-
-        if size < 1300
+        if size < 1500
         then do
           putStrLn $ logUrl taskid RootLog
           return RootLog
