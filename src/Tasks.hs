@@ -57,6 +57,7 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
+-- FIXME short output summary
 tasksCmd :: String -> Maybe String -> Int -> TaskReq -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
          -> Maybe TaskFilter -> Bool -> IO ()
@@ -91,23 +92,10 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
           options <- setupQuery
           blds <- listBuilds server $
                   ("packageID", ValueInt pkgid):options
-          case blds of
-            [bld] -> do
-              case lookupStruct "task_id" bld of
-                Just taskid ->
-                  tasksCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
-                Nothing -> error' "task id not found"
-            _ -> do
-              mapM_ putStrLn $ mapMaybe buildResult blds
-              where
-                buildResult :: Struct -> Maybe String
-                buildResult bld = do
-                  nvr <- lookupStruct "nvr" bld
-                  state <- readBuildState <$> lookupStruct "state" bld
-                  date <- lookupStruct "completion_time" bld
-                  return $ nvr ++
-                    " (" ++ takeWhile (/= '.') date ++ ")" ++
-                    (if state == BuildComplete then "" else " " ++ show state)
+          forM_ blds $ \bld -> do
+            let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
+            whenJust mtaskid $ \(TaskId taskid) ->
+              tasksCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     _ -> do
       query <- setupQuery
       results <- listTasks server query
