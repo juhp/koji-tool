@@ -184,7 +184,6 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
           mend_time = readTime' <$> lookupStruct "completion_time" st
       taskid <- lookupStruct "id" st
       method <- lookupStruct "method" st
-      hostid <- lookupStruct "host_id" st
       state <- getTaskState st
       request <- lookupStruct "request" st
       let package =
@@ -197,7 +196,7 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
                    else Left $ takeBaseName file
           mparent' = lookupStruct "parent" st :: Maybe Int
       return $
-        TaskResult package arch method hostid state mparent' taskid mstart_time mend_time
+        TaskResult package arch method state mparent' taskid mstart_time mend_time
       where
         readTime' :: String -> UTCTime
         readTime' = read . replace "+00:00" "Z"
@@ -241,7 +240,7 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
 #endif
 
 formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
-formatTaskResult mtime tz (TaskResult pkg arch method _hostid state mparent taskid mstart mend) =
+formatTaskResult mtime tz (TaskResult pkg arch method state mparent taskid mstart mend) =
   [ showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+ show state
   , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
   [formatTime defaultTimeLocale "Start: %c" (utcToLocalTime tz start) | Just start <- [mstart]] ++
@@ -264,7 +263,6 @@ data TaskResult =
   TaskResult {taskPackage :: Either String NVR,
               _taskArch :: String,
               _taskMethod :: String,
-              _taskHostId :: Int,
               _taskState :: TaskState,
               _mtaskParent :: Maybe Int,
               taskId :: Int,
