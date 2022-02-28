@@ -80,6 +80,8 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
       whenJust mtaskid $ \(TaskId taskid) ->
         tasksCmd server muser limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     Package pkg -> do
+      when (head pkg == '-') $
+        error' $ "bad combination: not a package " ++ pkg
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --package together with timedate or filter"
       mpkgid <- getPackageID server pkg
