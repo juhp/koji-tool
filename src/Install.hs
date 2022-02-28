@@ -24,23 +24,8 @@ import System.FilePath
 import System.FilePath.Glob
 import System.IO
 
+import Common
 import DownloadDir
-
--- mbox kojihub is locked
-knownHubs :: [String]
-knownHubs = ["fedora","stream","rpmfusion", "or URL"]
-
-hubURL :: String -> String
-hubURL "fedora" = fedoraKojiHub
--- later use centosKojiHub
-hubURL "stream" = "https://kojihub.stream.centos.org/kojihub"
---hubURL "mbox" = "https://koji.mbox.centos.org/kojihub"
-hubURL "rpmfusion" = "https://koji.rpmfusion.org/kojihub"
-hubURL "fusion" = "https://koji.rpmfusion.org/kojihub"
-hubURL hub =
-  if "http" `isPrefixOf` hub
-  then hub
-  else error' $ "unknown hub: try " ++ show knownHubs
 
 defaultPkgsURL :: String -> String
 defaultPkgsURL url =

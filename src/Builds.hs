@@ -29,6 +29,7 @@ import SimpleCmd
 import System.Directory (findExecutable)
 import Text.Pretty.Simple
 
+import Common
 import qualified Tasks
 
 data BuildReq = BuildBuild String | BuildPackage String
@@ -43,10 +44,11 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
-buildsCmd :: String -> Maybe String -> Int -> BuildReq -> [BuildState]
+buildsCmd :: Maybe String -> Maybe String -> Int -> BuildReq -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
           -> Maybe String -> IO ()
-buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
+buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
+  let server = maybe fedoraKojiHub hubURL mhub
   when (isJust mpat && buildreq /= BuildQuery) $
     error' "cannot use pattern with --build or --package"
   tz <- getCurrentTimeZone
@@ -58,7 +60,7 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
                     then InfoID (read bld)
                     else InfoString bld
       mbld <- getBuild server bldinfo
-      whenJust (mbld >>= maybeBuildResult) $ printBuild tz
+      whenJust (mbld >>= maybeBuildResult) $ printBuild server tz
     BuildPackage pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package: " ++ pkg
@@ -68,17 +70,17 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          options <- setupQuery
+          options <- setupQuery server
           let fullquery = ("packageID", ValueInt pkgid):options
           when debug $ print fullquery
           blds <- listBuilds server fullquery
           when debug $ mapM_ pPrintCompact blds
           if details
-            then mapM_ (printBuild tz) $ mapMaybe maybeBuildResult blds
+            then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult blds
             else
             mapM_ putStrLn $ mapMaybe shortBuildResult blds
     _ -> do
-      query <- setupQuery
+      query <- setupQuery server
       let fullquery =
             query <>
             [("queryOpts", ValueStruct [("limit",ValueInt limit),
@@ -86,7 +88,7 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
       when debug $ print fullquery
       blds <- listBuilds server fullquery
       when debug $ mapM_ pPrintCompact blds
-      (mapM_ (printBuild tz) . mapMaybe maybeBuildResult) blds
+      (mapM_ (printBuild server tz) . mapMaybe maybeBuildResult) blds
   where
     shortBuildResult :: Struct -> Maybe String
     shortBuildResult bld = do
@@ -97,7 +99,7 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
         " (" ++ takeWhile (/= '.') date ++ ")" ++
         (if state == BuildComplete then "" else " " ++ show state)
 
-    setupQuery = do
+    setupQuery server = do
       case buildreq of
         -- FIXME dummy cases!
         BuildBuild _ -> error' "unreachable build request"
@@ -133,8 +135,9 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
                               return $ dropSuffix "@FEDORAPROJECT.ORG" principal
                       else error' "Please specify koji user"
               putStrLn $ "user" +-+ user
-              maybe (error' "No owner found") Just <$>
-                kojiGetUserID fedoraKojiHub user
+              muserid <- kojiGetUserID server user
+              when (isNothing muserid) $ warning "userid not found"
+              return muserid
           return $
             [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]]
             ++ [("userID", ValueInt (getID owner)) | Just owner <- [mowner]]
@@ -170,12 +173,12 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
         readTime' :: String -> UTCTime
         readTime' = read . replace "+00:00" "Z"
 
-    printBuild :: TimeZone -> BuildResult -> IO ()
-    printBuild tz task = do
+    printBuild :: String -> TimeZone -> BuildResult -> IO ()
+    printBuild server tz task = do
       putStrLn ""
       let mendtime = mbuildEndTime task
       time <- maybe getCurrentTime return mendtime
-      (mapM_ putStrLn . formatBuildResult (isJust mendtime) tz) (task {mbuildEndTime = Just time})
+      (mapM_ putStrLn . formatBuildResult server (isJust mendtime) tz) (task {mbuildEndTime = Just time})
 
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
@@ -186,11 +189,13 @@ buildsCmd server muser limit buildreq states mdate mtype details debug mpat = do
 #endif
 
 -- FIXME server
-formatBuildResult :: Bool -> TimeZone -> BuildResult -> [String]
-formatBuildResult ended tz (BuildResult nvr state buildid taskid start mendtime) =
+formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
+formatBuildResult server ended tz (BuildResult nvr state buildid taskid start mendtime) =
+  let weburl = dropSuffix "hub" server
+  in
   [ showNVR nvr +-+ show state
-  , "https://koji.fedoraproject.org/koji/buildinfo?buildID=" ++ show buildid
-  , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid
+  , weburl ++ "/buildinfo?buildID=" ++ show buildid
+  , weburl ++ "/taskinfo?taskID=" ++ show taskid
   , formatTime defaultTimeLocale "Start: %c" (utcToLocalTime tz start)
   ]
   ++

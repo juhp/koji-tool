@@ -33,6 +33,7 @@ executable koji-tool
   other-modules:       Paths_koji_tool
                        Builds
                        BuildlogSizes
+                       Common
                        DownloadDir
                        Install
                        Progress

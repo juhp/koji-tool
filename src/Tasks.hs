@@ -37,6 +37,8 @@ import System.Directory (findExecutable)
 import System.FilePath
 import Text.Pretty.Simple
 
+import Common
+
 data TaskReq = Task Int | Parent Int | Build String | Package String
              | TaskQuery
 
@@ -57,10 +59,11 @@ capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
 -- FIXME short output summary
-tasksCmd :: String -> Maybe String -> Int -> TaskReq -> [TaskState]
+tasksCmd :: Maybe String -> Maybe String -> Int -> TaskReq -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
          -> Maybe TaskFilter -> Bool -> IO ()
-tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' tail' = do
+tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail' = do
+  let server = maybe fedoraKojiHub hubURL mhub
   tz <- getCurrentTimeZone
   mgr <- httpManager
   case taskreq of
@@ -78,7 +81,7 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
                 else kojiGetBuildTaskID server bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd server muser limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+        tasksCmd (Just server) muser limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     Package pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package " ++ pkg
@@ -94,7 +97,7 @@ tasksCmd server muser limit taskreq states archs mdate mmethod debug mfilter' ta
           forM_ blds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd server muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+              tasksCmd (Just server) muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     _ -> do
       query <- setupQuery
       let queryopts = [("limit",ValueInt limit), ("order", ValueString "-id")]

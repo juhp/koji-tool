@@ -29,10 +29,7 @@ main = do
       installCmd
       <$> switchWith 'n' "dry-run" "Don't actually download anything"
       <*> switchWith 'D' "debug" "More detailed output"
-      <*> optional (strOptionWith 'H' "hub" "HUB"
-                    ("KojiHub shortname or url (HUB = " ++
-                     intercalate ", " knownHubs ++
-                     ") [default: fedora]"))
+      <*> hubOpt
       <*> optional (strOptionWith 'P' "packages-url" "URL"
                     "KojiFiles packages url [default: Fedora]")
       <*> switchWith 'l' "list" "List builds"
@@ -46,7 +43,7 @@ main = do
     , Subcommand "builds"
       "Query Koji builds (by default lists your most recent builds)" $
       buildsCmd
-      <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
+      <$> hubOpt
       <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
       <*> (flagWith' 1 'L' "latest" "Latest build" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 10]" 10)
@@ -64,7 +61,7 @@ main = do
     , Subcommand "tasks"
       "Query Koji tasks (by default lists your most recent buildArch tasks)" $
       tasksCmd
-      <$> strOptionalWith 'S' "server" "URL" "Koji Hub [default: Fedora]" fedoraKojiHub
+      <$> hubOpt
       <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
       <*> (flagWith' 1 'L' "latest" "Latest build or task" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 10]" 10)
@@ -95,6 +92,10 @@ main = do
       buildlogSizesCmd <$> strArg "NVRPATTERN"
     ]
   where
+    hubOpt = optional (strOptionWith 'H' "hub" "HUB"
+                       ("KojiHub shortname or url (HUB = " ++
+                        intercalate ", " knownHubs ++
+                        ") [default: fedora]"))
     modeOpt :: Parser Mode
     modeOpt =
       flagWith' All 'a' "all" "all subpackages" <|>
