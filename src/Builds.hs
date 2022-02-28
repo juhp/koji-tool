@@ -32,6 +32,7 @@ import qualified Tasks
 
 data BuildReq = BuildBuild String | BuildPackage String
               | BuildQuery
+  deriving Eq
 
 getTimedate :: Tasks.BeforeAfter -> String
 getTimedate (Tasks.Before s) = s
@@ -42,9 +43,11 @@ capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
 buildsCmd :: String -> Maybe String -> Int -> BuildReq -> [BuildState]
-          -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool
+          -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Maybe String
           -> IO ()
-buildsCmd server muser limit buildreq states mdate mtype debug = do
+buildsCmd server muser limit buildreq states mdate mtype debug mpat = do
+  when (isJust mpat && buildreq /= BuildQuery) $
+    error' "cannot use pattern with --build or --package"
   tz <- getCurrentTimeZone
   case buildreq of
     BuildBuild bld -> do
@@ -118,11 +121,9 @@ buildsCmd server muser limit buildreq states mdate mtype debug = do
               return $
                 [("userID", ValueInt (getID owner)),
                  ("complete" ++ maybe "Before" (capitalize . show) mdate, ValueString date)]
-                ++ commonParams
-        where
-          commonParams =
-            [("state", ValueArray (map buildStateToValue states)) | notNull states]
-            ++ [("type", ValueString typ) | Just typ <- [mtype]]
+                ++ [("state", ValueArray (map buildStateToValue states)) | notNull states]
+                ++ [("type", ValueString typ) | Just typ <- [mtype]]
+                ++ [("pattern", ValueString pat) | Just pat <- [mpat]]
 
     dateString :: Maybe Tasks.BeforeAfter -> String
     dateString Nothing = "now"

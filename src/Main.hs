@@ -58,6 +58,7 @@ main = do
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
       <*> optional (strOptionWith 't' "type" "TYPE" "Select builds by type")
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
+      <*> optional (strArg "NVRPATTERN")
 
     , Subcommand "tasks"
       "Query Koji tasks (by default lists your most recent buildArch tasks)" $
