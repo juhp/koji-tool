@@ -49,6 +49,8 @@ buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> BuildReq -> [BuildState]
           -> Maybe String -> IO ()
 buildsCmd mhub museropt limit buildreq states mdate mtype details debug mpat = do
   let server = maybe fedoraKojiHub hubURL mhub
+  when (server /= fedoraKojiHub && museropt == Just UserSelf) $
+    error' "--mine currently only works with Fedora Koji"
   when (isJust mpat && buildreq /= BuildQuery) $
     error' "cannot use pattern with --build or --package"
   tz <- getCurrentTimeZone

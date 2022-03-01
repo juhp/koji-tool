@@ -12,6 +12,7 @@ import System.Directory (findExecutable)
 import SimpleCmd
 
 data UserOpt = User String | UserSelf
+  deriving Eq
 
 maybeGetKojiUser :: String -> Maybe UserOpt -> IO (Maybe UserID)
 maybeGetKojiUser _server Nothing = return Nothing
