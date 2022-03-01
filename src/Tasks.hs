@@ -65,7 +65,6 @@ tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> TaskReq -> [TaskState]
 tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' tail' = do
   let server = maybe fedoraKojiHub hubURL mhub
   tz <- getCurrentTimeZone
-  mgr <- httpManager
   case taskreq of
     Task taskid -> do
       when (isJust museropt || isJust mdate || isJust mfilter') $
@@ -73,7 +72,7 @@ tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' t
       mtask <- kojiGetTaskInfo server (TaskId taskid)
       whenJust mtask$ \task -> do
         when debug $ pPrintCompact task
-        whenJust (maybeTaskResult task) $ printTask mgr tz
+        whenJust (maybeTaskResult task) $ printTask tz
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --build together with timedate or filter"
@@ -104,7 +103,7 @@ tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' t
       when debug $ print $ query ++ queryopts
       results <- listTasks server query queryopts
       when debug $ mapM_ pPrintCompact results
-      (mapM_ (printTask mgr tz) . filterResults . mapMaybe maybeTaskResult) results
+      (mapM_ (printTask tz) . filterResults . mapMaybe maybeTaskResult) results
   where
     setupQuery server = do
       case taskreq of
@@ -199,15 +198,15 @@ tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' t
         isNVR _ (Left _) = False
         isNVR nvr (Right nvr') = nvr `isPrefixOf` showNVR nvr'
 
-    printTask :: Manager -> TimeZone -> TaskResult -> IO ()
-    printTask mgr tz task = do
+    printTask :: TimeZone -> TaskResult -> IO ()
+    printTask tz task = do
       putStrLn ""
       let mendtime = mtaskEndTime task
       mtime <- if isNothing  mendtime
                  then Just <$> getCurrentTime
                  else return Nothing
       (mapM_ putStrLn . formatTaskResult mtime tz) task
-      buildlogSize tail' mgr (taskId task)
+      buildlogSize tail' (taskId task)
 
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
@@ -284,13 +283,13 @@ logUrl taskid lastlog =
 
     logName = if lastlog == RootLog then "root" else "build"
 
-buildlogSize :: Bool -> Manager -> Int -> IO ()
-buildlogSize tail' mgr taskid = do
+buildlogSize :: Bool -> Int -> IO ()
+buildlogSize tail' taskid = do
   let buildlog = logUrl taskid WholeBuild
-  exists <- httpExists mgr buildlog
+  exists <- httpExists' buildlog
   when exists $ do
     putStr $ buildlog ++ " "
-    msize <- httpFileSize mgr buildlog
+    msize <- httpFileSize' buildlog
     whenJust msize $ \size -> do
       putStr "("
       (T.putStr . kiloBytes) size

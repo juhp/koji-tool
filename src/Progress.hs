@@ -47,8 +47,7 @@ progressCmd waitdelay modules tids = do
     else return tids
   when (null tasks) $ error' "no build tasks found"
   btasks <- mapM kojiTaskinfoRecursive tasks
-  mgr <- httpManager
-  loopBuildTasks waitdelay mgr btasks
+  loopBuildTasks waitdelay btasks
 
 kojiTaskinfoRecursive :: TaskID -> IO BuildTask
 kojiTaskinfoRecursive tid = do
@@ -77,14 +76,14 @@ type BuildTask = (TaskID, [TaskInfoSize])
 type TaskInfoSize = (Struct,Maybe Int)
 type TaskInfoSizes = (Struct,(Maybe Int,Maybe Int))
 
-loopBuildTasks :: Int -> Manager -> [BuildTask] -> IO ()
-loopBuildTasks _ _ [] = return ()
-loopBuildTasks waitdelay mgr bts = do
+loopBuildTasks :: Int -> [BuildTask] -> IO ()
+loopBuildTasks _ [] = return ()
+loopBuildTasks waitdelay bts = do
   curs <- filter tasksOpen <$> mapM runProgress bts
   unless (null curs) $ do
     threadDelayMinutes waitdelay
     news <- mapM updateBuildTask curs
-    loopBuildTasks waitdelay mgr news
+    loopBuildTasks waitdelay news
   where
     threadDelayMinutes :: Int -> IO ()
     threadDelayMinutes m =
@@ -108,7 +107,7 @@ loopBuildTasks waitdelay mgr bts = do
                       maybeVal "failed to read src rpm" getString srpm
                     _ -> error "No src rpm found"
         logMsg $ nvr ++ " (" ++ displayID tid ++ ")"
-        sizes <- mapM (buildlogSize mgr) tasks
+        sizes <- mapM buildlogSize tasks
         printLogSizes waitdelay sizes
         let news = map (\(t,(s,_)) -> (t,s)) sizes
             open = filter (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
@@ -130,11 +129,11 @@ loopBuildTasks waitdelay mgr bts = do
         Nothing -> error' $ "TaskInfo not found for " ++ displayID tid
         Just new -> return (new,size)
 
-buildlogSize :: Manager -> TaskInfoSize -> IO TaskInfoSizes
-buildlogSize mgr (task, old) = do
+buildlogSize :: TaskInfoSize -> IO TaskInfoSizes
+buildlogSize (task, old) = do
   exists <- if isJust old then return True
-            else httpExists mgr buildlog
-  size <- if exists then httpFileSize mgr buildlog else return Nothing
+            else httpExists' buildlog
+  size <- if exists then httpFileSize' buildlog else return Nothing
   return (task,(fromInteger <$> size,old))
   where
     tid = show $ fromJust (readID' task)

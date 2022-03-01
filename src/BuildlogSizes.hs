@@ -38,23 +38,21 @@ buildlogSizesCmd :: String -> IO ()
 buildlogSizesCmd nvrpat = do
   if all isDigit nvrpat -- check if taskid (not buildid)
     then do
-    mgr <- httpManager
-    buildlogSizes mgr (read nvrpat)
+    buildlogSizes (read nvrpat)
     else do -- find builds
     results <- listBuilds fedoraKojiHub
                [("pattern", ValueString nvrpat),
                 ("queryOpts",ValueStruct [("limit",ValueInt 5),
                                           ("order",ValueString "-build_id")])]
-    mgr <- httpManager
-    mapM_ (getResult mgr) results
+    mapM_ getResult results
   where
-    getResult :: Manager -> Struct -> IO ()
-    getResult mgr bld = do
+    getResult :: Struct -> IO ()
+    getResult bld = do
       putStrLn ""
       case lookupStruct "nvr" bld of
         Just nvr -> do
           putStrLn nvr
-          nvrBuildlogSizes mgr nvr
+          nvrBuildlogSizes nvr
         Nothing -> do
           let mextra = lookupStruct "extra" bld
               mtid =
@@ -62,39 +60,39 @@ buildlogSizesCmd nvrpat = do
                 (mextra >>= lookupStruct "task_id")
           case mtid :: Maybe Int of
             Nothing -> error "no taskid found!"
-            Just tid -> buildlogSizes mgr tid
+            Just tid -> buildlogSizes tid
 
-nvrBuildlogSizes :: Manager -> String -> IO ()
-nvrBuildlogSizes mgr bld = do
+nvrBuildlogSizes :: String -> IO ()
+nvrBuildlogSizes bld = do
   let (NVR n (VerRel v r)) = readNVR bld
       logsdir = "https://kojipkgs.fedoraproject.org/packages" +/+ n  +/+ v +/+ r +/+ "data/logs/"
-  archs <- map (T.unpack . noTrailingSlash) <$> httpDirectory mgr logsdir
+  archs <- map (T.unpack . noTrailingSlash) <$> httpDirectory' logsdir
   forM_ archs $ \arch ->
-    doGetBuildlogSize mgr (logsdir +/+ arch +/+ "build.log") arch
+    doGetBuildlogSize (logsdir +/+ arch +/+ "build.log") arch
 
-buildlogSizes :: Manager -> Int -> IO ()
-buildlogSizes mgr tid = do
+buildlogSizes :: Int -> IO ()
+buildlogSizes tid = do
   children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
               getTaskChildren fedoraKojiHub tid True
-  mapM_ (buildlogSize mgr) children
+  mapM_ buildlogSize children
 
-buildlogSize :: Manager -> Struct -> IO ()
-buildlogSize mgr child = do
+buildlogSize :: Struct -> IO ()
+buildlogSize child = do
   case lookupStruct "id" child :: Maybe Int of
     Nothing -> error "child taskid not found"
     Just tid -> do
       whenJust (lookupStruct "arch" child) $
-        doGetBuildlogSize mgr buildlog
+        doGetBuildlogSize buildlog
       where
         buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" +/+ lastFew +/+ show tid +/+ "build.log"
         lastFew =
           let few = dropWhile (== '0') $ drop 4 (show tid) in
             if null few then "0" else few
 
-doGetBuildlogSize :: Manager -> String -> String -> IO ()
-doGetBuildlogSize mgr buildlog arch = do
-  exists <- httpExists mgr buildlog
-  msize <- if exists then httpFileSize mgr buildlog else return Nothing
+doGetBuildlogSize :: String -> String -> IO ()
+doGetBuildlogSize buildlog arch = do
+  exists <- httpExists' buildlog
+  msize <- if exists then httpFileSize' buildlog else return Nothing
   whenJust msize $ \ size -> do
     let kb = kiloBytes size
     putStrLn $ arch ++ replicate (16 - length arch - length kb) ' ' ++ kb
