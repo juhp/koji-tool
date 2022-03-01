@@ -51,7 +51,7 @@ main = do
       <*> (BuildBuild <$> strOptionWith 'b' "build" "BUILD" "Show build details"
            <|> BuildPackage <$> strOptionWith 'p' "package" "PKG" "Builds of package"
            <|> pure BuildQuery)
-      <*> many (parseBuildState <$> strOptionWith 's' "state" "STATE" "Filter builds by state (FIXME list)")
+      <*> many (parseBuildState <$> strOptionWith 's' "state" "STATE" "Filter builds by state (building,complete,deleted,fail(ed),cancel(ed)")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
       <*> (fmap normalizeBuildType <$> optional (strOptionWith 't' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
@@ -71,7 +71,7 @@ main = do
            <|> Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
            <|> Package <$> strOptionWith 'p' "package" "PKG" "Build tasks of package"
            <|> pure TaskQuery)
-      <*> many (parseTaskState <$> strOptionWith 's' "state" "STATE" "Filter tasks by state (open, close(d), cancel(ed), fail(ed), assigned, free)")
+      <*> many (parseTaskState <$> strOptionWith 's' "state" "STATE" "Filter tasks by state (open,close(d),cancel(ed),fail(ed),assigned,free)")
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate")
