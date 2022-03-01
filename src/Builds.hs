@@ -135,7 +135,8 @@ buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
                             Just principal ->
                               return $ dropSuffix "@FEDORAPROJECT.ORG" principal
                       else error' "Please specify koji user"
-              putStrLn $ "user" +-+ user
+              when (isNothing muser) $
+                putStrLn $ "user" +-+ user
               muserid <- kojiGetUserID server user
               when (isNothing muserid) $ warning "userid not found"
               return muserid

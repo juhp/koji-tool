@@ -147,7 +147,8 @@ tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail
                             Just principal ->
                               return $ dropSuffix "@FEDORAPROJECT.ORG" principal
                       else error' "Please specify koji user"
-              putStrLn $ "user" +-+ user
+              when (isNothing muser) $
+                putStrLn $ "user" +-+ user
               maybe (error' "No owner found") Just <$>
                 kojiGetUserID fedoraKojiHub user
           return $
