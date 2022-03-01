@@ -3,8 +3,12 @@ import System.IO
 
 program :: ([String], [[String]]) -> IO ()
 program (c, argsv) =
-  putStrLn "" >>
-  mapM_ (cmdLog "koji-tool" . (c ++)) argsv
+  putStrLn ("\n# " ++ head c) >>
+  mapM_ run argsv
+  where
+    run args = do
+      putStrLn ""
+      cmdLog "koji-tool" (c ++ args)
 
 tests :: Bool -> [([String], [[String]])]
 tests havedist =
