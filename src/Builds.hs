@@ -26,11 +26,11 @@ import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
 import SimpleCmd
-import System.Directory (findExecutable)
 import Text.Pretty.Simple
 
 import Common
 import qualified Tasks
+import User
 
 data BuildReq = BuildBuild String | BuildPackage String
               | BuildQuery
@@ -44,10 +44,10 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
-buildsCmd :: Maybe String -> Maybe String -> Int -> BuildReq -> [BuildState]
+buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> BuildReq -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
           -> Maybe String -> IO ()
-buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
+buildsCmd mhub museropt limit buildreq states mdate mtype details debug mpat = do
   let server = maybe fedoraKojiHub hubURL mhub
   when (isJust mpat && buildreq /= BuildQuery) $
     error' "cannot use pattern with --build or --package"
@@ -95,10 +95,12 @@ buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
     shortBuildResult bld = do
       nvr <- lookupStruct "nvr" bld
       state <- readBuildState <$> lookupStruct "state" bld
-      date <- lookupStruct "completion_time" bld
-      return $ nvr ++
-        " (" ++ takeWhile (/= '.') date ++ ")" ++
-        (if state == BuildComplete then "" else " " ++ show state)
+      let date =
+            case readTime' <$> lookupStruct "completion_ts" bld of
+              Nothing -> ""
+              Just t -> "(" ++ show t ++ ")"
+      return $ nvr +-+
+        if state == BuildComplete then date else show state
 
     setupQuery server = do
       case buildreq of
@@ -115,31 +117,7 @@ buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
           -- FIXME better output including user
           whenJust mdatestring $ \date ->
             putStrLn $ maybe "" show mdate +-+ date
-          mowner <-
-            if isNothing muser && (isJust mpat || isJust mtype)
-            then return Nothing
-            else do
-              user <-
-                case muser of
-                  Just user -> return user
-                  Nothing -> do
-                    mKlist <- findExecutable "klist"
-                    if isJust mKlist
-                      then do
-                      mkls <- fmap words <$> cmdMaybe "klist" ["-l"]
-                      case mkls of
-                        Nothing -> error "klist failed"
-                        Just kls ->
-                          case find ("@FEDORAPROJECT.ORG" `isSuffixOf`) kls of
-                            Nothing -> error' "Could not determine FAS id from klist"
-                            Just principal ->
-                              return $ dropSuffix "@FEDORAPROJECT.ORG" principal
-                      else error' "Please specify koji user"
-              when (isNothing muser) $
-                putStrLn $ "user" +-+ user
-              muserid <- kojiGetUserID server user
-              when (isNothing muserid) $ warning "userid not found"
-              return muserid
+          mowner <- maybeGetKojiUser server museropt
           return $
             [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]]
             ++ [("userID", ValueInt (getID owner)) | Just owner <- [mowner]]

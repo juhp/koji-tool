@@ -38,6 +38,7 @@ executable koji-tool
                        Install
                        Progress
                        Tasks
+                       User
   hs-source-dirs:      src
   build-depends:       base < 5,
                        directory,

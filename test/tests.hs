@@ -19,15 +19,15 @@ tests havedist =
      ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
      ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist])
   ,
-    (["tasks"],
-     [["-L"]
-     ,["-l", "3"]
-     ,["-L", "-p", "rpm-ostree"]])
-  ,
     (["builds"],
      [["-L", "-p", "rust"]
      ,["-l", "3"]
      ,["-L", "rpm-ostree*.fc36"]])
+  ,
+    (["tasks"],
+     [["-L"]
+     ,["-l", "3"]
+     ,["-L", "-p", "rpm-ostree"]])
   ]
   where
     sysdist = if havedist then [] else ["-d", "fc35"]

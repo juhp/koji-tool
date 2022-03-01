@@ -10,6 +10,7 @@ import SimpleCmdArgs
 
 import Builds
 import BuildlogSizes
+import User
 import Install
 import qualified Paths_koji_tool
 import Progress
@@ -44,7 +45,7 @@ main = do
       "Query Koji builds (by default lists your most recent builds)" $
       buildsCmd
       <$> hubOpt
-      <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
+      <*> optional userOpt
       <*> (flagWith' 1 'L' "latest" "Latest build" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 10]" 10)
       <*> (BuildBuild <$> strOptionWith 'b' "build" "BUILD" "Show build details"
@@ -62,7 +63,7 @@ main = do
       "Query Koji tasks (by default lists your most recent buildArch tasks)" $
       tasksCmd
       <$> hubOpt
-      <*> optional (strOptionWith 'u' "user" "USER" "Koji user [default: fasid]")
+      <*> optional userOpt
       <*> (flagWith' 1 'L' "latest" "Latest build or task" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 10]" 10)
       <*> (Task <$> optionWith auto 't' "task" "TASKID" "Show task"
@@ -96,6 +97,12 @@ main = do
                        ("KojiHub shortname or url (HUB = " ++
                         intercalate ", " knownHubs ++
                         ") [default: fedora]"))
+
+    userOpt :: Parser UserOpt
+    userOpt =
+      User <$> strOptionWith 'u' "user" "USER" "Koji user"
+      <|> flagWith' UserSelf 'M' "mine" "Your tasks (krb fasid)"
+
     modeOpt :: Parser Mode
     modeOpt =
       flagWith' All 'a' "all" "all subpackages" <|>

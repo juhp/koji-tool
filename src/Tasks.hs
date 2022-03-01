@@ -33,11 +33,11 @@ import Distribution.Koji.API
 import Network.HTTP.Directory
 import Network.HTTP.Simple
 import SimpleCmd
-import System.Directory (findExecutable)
 import System.FilePath
 import Text.Pretty.Simple
 
 import Common
+import User
 
 data TaskReq = Task Int | Parent Int | Build String | Package String
              | TaskQuery
@@ -59,16 +59,16 @@ capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
 -- FIXME short output summary
-tasksCmd :: Maybe String -> Maybe String -> Int -> TaskReq -> [TaskState]
+tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> TaskReq -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
          -> Maybe TaskFilter -> Bool -> IO ()
-tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail' = do
+tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' tail' = do
   let server = maybe fedoraKojiHub hubURL mhub
   tz <- getCurrentTimeZone
   mgr <- httpManager
   case taskreq of
     Task taskid -> do
-      when (isJust muser || isJust mdate || isJust mfilter') $
+      when (isJust museropt || isJust mdate || isJust mfilter') $
         error' "cannot use --task together with --user, timedate, or filter"
       mtask <- kojiGetTaskInfo server (TaskId taskid)
       whenJust mtask$ \task -> do
@@ -81,7 +81,7 @@ tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
                 else kojiGetBuildTaskID server bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd (Just server) muser limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+        tasksCmd (Just server) museropt limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     Package pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package " ++ pkg
@@ -91,22 +91,22 @@ tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          options <- setupQuery
+          options <- setupQuery server
           blds <- listBuilds server $
                   ("packageID", ValueInt pkgid):options
           forM_ blds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd (Just server) muser 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+              tasksCmd (Just server) museropt 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
     _ -> do
-      query <- setupQuery
+      query <- setupQuery server
       let queryopts = [("limit",ValueInt limit), ("order", ValueString "-id")]
       when debug $ print $ query ++ queryopts
       results <- listTasks server query queryopts
       when debug $ mapM_ pPrintCompact results
       (mapM_ (printTask mgr tz) . filterResults . mapMaybe maybeTaskResult) results
   where
-    setupQuery = do
+    setupQuery server = do
       case taskreq of
         -- FIXME dummy cases!
         Task _ -> error' "unreachable task request"
@@ -115,7 +115,7 @@ tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail
           return [("queryOpts",ValueStruct [("limit",ValueInt limit),
                                             ("order",ValueString "-build_id")])]
         Parent parent -> do
-          when (isJust muser || isJust mdate || isJust mfilter') $
+          when (isJust museropt || isJust mdate || isJust mfilter') $
             error' "cannot use --parent together with --user, timedate, or filter"
           return $
             ("parent", ValueInt parent) : commonParams
@@ -127,30 +127,7 @@ tasksCmd mhub muser limit taskreq states archs mdate mmethod debug mfilter' tail
           when (isNothing mmethod) $ warning "buildArch tasks"
           whenJust mdatestring $ \date ->
             warning $ maybe "" show mdate +-+ date
-          mowner <-
-            if isNothing muser && isJust mmethod
-            then return Nothing
-            else do
-              user <-
-                case muser of
-                  Just user -> return user
-                  Nothing -> do
-                    mKlist <- findExecutable "klist"
-                    if isJust mKlist
-                      then do
-                      mkls <- fmap words <$> cmdMaybe "klist" ["-l"]
-                      case mkls of
-                        Nothing -> error "klist failed"
-                        Just kls ->
-                          case find ("@FEDORAPROJECT.ORG" `isSuffixOf`) kls of
-                            Nothing -> error' "Could not determine FAS id from klist"
-                            Just principal ->
-                              return $ dropSuffix "@FEDORAPROJECT.ORG" principal
-                      else error' "Please specify koji user"
-              when (isNothing muser) $
-                putStrLn $ "user" +-+ user
-              maybe (error' "No owner found") Just <$>
-                kojiGetUserID fedoraKojiHub user
+          mowner <- maybeGetKojiUser server museropt
           return $
             [("owner", ValueInt (getID owner)) | Just owner <- [mowner]] ++
             [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]] ++

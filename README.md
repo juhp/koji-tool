@@ -111,7 +111,7 @@ and can use an NVR glob pattern to select builds.
 
 ### Usage
 
-By default it lists your 10 most recent Fedora builds.
+By default lists up to 10 Fedora Koji builds.
 
 If you specify a package, build/pattern, or build type, the results are not limited only to your builds.
 
@@ -160,14 +160,14 @@ redhat-rpm-config-214-1.fc37 (2022-02-10 15:47:32)
 
 Query Koji for tasks.
 
-Somewhat like `koji list-tasks --mine --quiet --all ...`,
+Somewhat like `koji list-tasks --quiet --all ...`,
 but it shows duration, kojiweb urls and build.log size,
 and it uses `date` to parse a specified date string
 and can filter task results by package or nvr prefix.
 
 ### Usage
 
-By default it lists your 10 most recent Fedora Koji buildArch tasks.
+By default it lists 10 most recent Fedora Koji buildArch tasks.
 
 Specify a package, build, task, or method (like the default "buildarch")
 to not limit results to your own tasks.
