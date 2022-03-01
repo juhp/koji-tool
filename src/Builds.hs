@@ -77,8 +77,7 @@ buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
           when debug $ mapM_ pPrintCompact blds
           if details
             then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult blds
-            else
-            mapM_ putStrLn $ mapMaybe shortBuildResult blds
+            else mapM_ putStrLn $ mapMaybe shortBuildResult blds
     _ -> do
       query <- setupQuery server
       let fullquery =
@@ -88,7 +87,9 @@ buildsCmd mhub muser limit buildreq states mdate mtype details debug mpat = do
       when debug $ print fullquery
       blds <- listBuilds server fullquery
       when debug $ mapM_ pPrintCompact blds
-      (mapM_ (printBuild server tz) . mapMaybe maybeBuildResult) blds
+      if details
+        then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult blds
+        else mapM_ putStrLn $ mapMaybe shortBuildResult blds
   where
     shortBuildResult :: Struct -> Maybe String
     shortBuildResult bld = do
