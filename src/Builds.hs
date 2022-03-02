@@ -76,7 +76,7 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
           when debug $ mapM_ pPrintCompact blds
           if details
             then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult blds
-            else mapM_ putStrLn $ mapMaybe shortBuildResult blds
+            else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) blds
     _ -> do
       query <- setupQuery server
       let fullquery = query <> commonQueryOpts
@@ -85,16 +85,16 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       when debug $ mapM_ pPrintCompact blds
       if details
         then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult blds
-        else mapM_ putStrLn $ mapMaybe shortBuildResult blds
+        else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) blds
   where
-    shortBuildResult :: Struct -> Maybe String
-    shortBuildResult bld = do
+    shortBuildResult :: TimeZone -> Struct -> Maybe String
+    shortBuildResult tz bld = do
       nvr <- lookupStruct "nvr" bld
       state <- readBuildState <$> lookupStruct "state" bld
       let date =
             case readTime' <$> lookupStruct "completion_ts" bld of
               Nothing -> ""
-              Just t -> "(" ++ show t ++ ")"
+              Just t -> "(" ++ (compactZonedTime . utcToZonedTime tz) t ++ ")"
       return $ nvr +-+
         if state == BuildComplete then date else show state
 
@@ -168,13 +168,13 @@ formatBuildResult server ended tz (BuildResult nvr state buildid taskid start me
   [ showNVR nvr +-+ show state
   , weburl ++ "/buildinfo?buildID=" ++ show buildid
   , weburl ++ "/taskinfo?taskID=" ++ show taskid
-  , formatTime defaultTimeLocale "Start: %c" (utcToLocalTime tz start)
+  , formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start)
   ]
   ++
   case mendtime of
     Nothing -> []
     Just end ->
-      [formatTime defaultTimeLocale "End:   %c" (utcToLocalTime tz end) | ended]
+      [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | ended]
 #if MIN_VERSION_time(1,9,1)
       ++
       let dur = diffUTCTime end start

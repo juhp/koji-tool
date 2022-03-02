@@ -1,13 +1,16 @@
 module Common (
   knownHubs,
   hubURL,
-  readTime'
+  readTime',
+  compactZonedTime
   )
 where
 
 import Data.List (isPrefixOf)
 import Data.Time.Clock
 import Data.Time.Clock.System
+import Data.Time.Format
+import Data.Time.LocalTime
 import Distribution.Koji (fedoraKojiHub)
 import SimpleCmd (error')
 
@@ -31,3 +34,7 @@ readTime' :: Double -> UTCTime
 readTime' =
   let mkSystemTime t = MkSystemTime t 0
   in systemToUTCTime . mkSystemTime .truncate
+
+compactZonedTime :: ZonedTime -> String
+compactZonedTime =
+  formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z"

@@ -228,15 +228,17 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
 
 compactTaskResult :: TimeZone -> TaskResult -> String
 compactTaskResult tz (TaskResult pkg arch method state _mparent taskid _mstart mend) =
-  showPackage pkg +-+ "(" ++ show taskid ++ ")" +-+ (if method == "buildArch" then arch else method) +-+ show state +-+ maybe "" (formatTime defaultTimeLocale "%c" . utcToLocalTime tz) mend
+  showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+
+  "(" ++ show taskid ++ ")" +-+ show state +-+
+  maybe "" (compactZonedTime . utcToZonedTime tz) mend
 
 -- FIXME show task owner
 formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
 formatTaskResult mtime tz (TaskResult pkg arch method state mparent taskid mstart mend) =
   [ showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+ show state
   , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
-  [formatTime defaultTimeLocale "Start: %c" (utcToLocalTime tz start) | Just start <- [mstart]] ++
-  [formatTime defaultTimeLocale "End:   %c" (utcToLocalTime tz end) | Just end <- [mend]]
+  [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start) | Just start <- [mstart]] ++
+  [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | Just end <- [mend]]
 #if MIN_VERSION_time(1,9,1)
       ++
     case mtime of
