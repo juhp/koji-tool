@@ -92,16 +92,18 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          blds <- listBuilds server $
+          builds <- listBuilds server $
                   ("packageID", ValueInt pkgid):buildQueryOpts
-          forM_ blds $ \bld -> do
+          forM_ builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
               tasksCmd (Just server) museropt 10 states archs mdate mmethod debug mfilter' tail' (Parent taskid)
     Pattern pat -> do
-      blds <- listBuilds server $
-              ("pattern", ValueString pat):buildQueryOpts
-      forM_ blds $ \bld -> do
+      let buildquery = ("pattern", ValueString pat):buildQueryOpts
+      when debug $ print buildquery
+      builds <- listBuilds server buildquery
+      when debug $ print builds
+      forM_ builds $ \bld -> do
         let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
         whenJust mtaskid $ \(TaskId taskid) ->
           tasksCmd (Just server) museropt 10 states archs mdate mmethod debug mfilter' tail' (Parent taskid)
