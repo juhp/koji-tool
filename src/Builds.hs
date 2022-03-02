@@ -74,7 +74,7 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
           when debug $ print fullquery
           builds <- listBuilds server fullquery
           when debug $ mapM_ pPrintCompact builds
-          if details
+          if details || length builds == 1
             then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult builds
             else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
@@ -83,7 +83,7 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       when debug $ print fullquery
       builds <- listBuilds server fullquery
       when debug $ mapM_ pPrintCompact builds
-      if details
+      if details || length builds == 1
         then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult builds
         else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
   where
