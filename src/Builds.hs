@@ -141,11 +141,12 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       start_time <- readTime' <$> lookupStruct "start_ts" st
       let mend_time = readTime' <$> lookupStruct "completion_ts" st
       buildid <- lookupStruct "build_id" st
-      taskid <- lookupStruct "task_id" st
+      -- buildContainer has no task_id
+      let mtaskid = lookupStruct "task_id" st
       state <- getBuildState st
       nvr <- lookupStruct "nvr" st >>= maybeNVR
       return $
-        BuildResult nvr state buildid taskid start_time mend_time
+        BuildResult nvr state buildid mtaskid start_time mend_time
 
     printBuild :: String -> TimeZone -> BuildResult -> IO ()
     printBuild server tz task = do
@@ -162,16 +163,15 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       pPrint
 #endif
 
--- FIXME server
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
-formatBuildResult server ended tz (BuildResult nvr state buildid taskid start mendtime) =
+formatBuildResult server ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
+  -- FIXME any better way?
   let weburl = dropSuffix "hub" server
   in
   [ showNVR nvr +-+ show state
-  , weburl ++ "/buildinfo?buildID=" ++ show buildid
-  , weburl ++ "/taskinfo?taskID=" ++ show taskid
-  , formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start)
-  ]
+  , weburl ++ "/buildinfo?buildID=" ++ show buildid]
+  ++ [weburl ++ "/taskinfo?taskID=" ++ show taskid | Just taskid <- [mtaskid]]
+  ++ [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start)]
   ++
   case mendtime of
     Nothing -> []
@@ -188,7 +188,7 @@ data BuildResult =
   BuildResult {_buildNVR :: NVR,
                _buildState :: BuildState,
                _buildId :: Int,
-               _taskId :: Int,
+               _mtaskId :: Maybe Int,
                _buildStartTime :: UTCTime,
                mbuildEndTime :: Maybe UTCTime
               }
