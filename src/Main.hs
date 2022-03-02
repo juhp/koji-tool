@@ -60,17 +60,12 @@ main = do
            <|> pure BuildQuery)
 
     , Subcommand "tasks"
-      "Query Koji tasks (by default lists your most recent buildArch tasks)" $
+      "Query Koji tasks (by default lists most recent buildArch tasks)" $
       tasksCmd
       <$> hubOpt
       <*> optional userOpt
       <*> (flagWith' 1 'L' "latest" "Latest build or task" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 10]" 10)
-      <*> (Task <$> optionWith auto 't' "task" "TASKID" "Show task"
-           <|> Parent <$> optionWith auto 'c' "children" "TASKID" "List child tasks of parent"
-           <|> Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
-           <|> Package <$> strOptionWith 'p' "package" "PKG" "Build tasks of package"
-           <|> pure TaskQuery)
       <*> many (parseTaskState <$> strOptionWith 's' "state" "STATE" "Filter tasks by state (open,close(d),cancel(ed),fail(ed),assigned,free)")
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
@@ -81,6 +76,12 @@ main = do
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
+      <*> (Task <$> optionWith auto 't' "task" "TASKID" "Show task"
+           <|> Parent <$> optionWith auto 'c' "children" "TASKID" "List child tasks of parent"
+           <|> Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
+           <|> Package <$> strOptionWith 'p' "package" "PKG" "Build tasks of package"
+           <|> Pattern <$> strArg "NVRPATTERN"
+           <|> pure TaskQuery)
 
     , Subcommand "progress"
       "Track running Koji tasks by buildlog size" $

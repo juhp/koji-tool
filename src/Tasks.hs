@@ -40,7 +40,7 @@ import Common
 import User
 
 data TaskReq = Task Int | Parent Int | Build String | Package String
-             | TaskQuery
+             | TaskQuery | Pattern String
 
 data TaskFilter = TaskPackage String | TaskNVR String
 
@@ -59,10 +59,10 @@ capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
 -- FIXME short output summary
-tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> TaskReq -> [TaskState]
+tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
-         -> Maybe TaskFilter -> Bool -> IO ()
-tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' tail' = do
+         -> Maybe TaskFilter -> Bool -> TaskReq -> IO ()
+tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' taskreq = do
   let server = maybe fedoraKojiHub hubURL mhub
   when (server /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji"
@@ -82,7 +82,7 @@ tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' t
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
                 else kojiGetBuildTaskID server bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd (Just server) museropt limit (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+        tasksCmd (Just server) museropt limit states archs mdate mmethod debug mfilter' tail' (Parent taskid)
     Package pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package " ++ pkg
@@ -92,13 +92,19 @@ tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' t
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          options <- setupQuery server
           blds <- listBuilds server $
-                  ("packageID", ValueInt pkgid):options
+                  ("packageID", ValueInt pkgid):buildQueryOpts
           forM_ blds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd (Just server) museropt 10 (Parent taskid) states archs mdate mmethod debug mfilter' tail'
+              tasksCmd (Just server) museropt 10 states archs mdate mmethod debug mfilter' tail' (Parent taskid)
+    Pattern pat -> do
+      blds <- listBuilds server $
+              ("pattern", ValueString pat):buildQueryOpts
+      forM_ blds $ \bld -> do
+        let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
+        whenJust mtaskid $ \(TaskId taskid) ->
+          tasksCmd (Just server) museropt 10 states archs mdate mmethod debug mfilter' tail' (Parent taskid)
     _ -> do
       query <- setupQuery server
       let queryopts = [("limit",ValueInt limit), ("order", ValueString "-id")]
@@ -107,20 +113,15 @@ tasksCmd mhub museropt limit taskreq states archs mdate mmethod debug mfilter' t
       when debug $ mapM_ pPrintCompact results
       (mapM_ (printTask tz) . filterResults . mapMaybe maybeTaskResult) results
   where
+    buildQueryOpts =
+      [("queryOpts",ValueStruct [("limit",ValueInt limit),
+                                 ("order",ValueString "-build_id")])]
+
     setupQuery server = do
       case taskreq of
-        -- FIXME dummy cases!
-        Task _ -> error' "unreachable task request"
-        Build _ -> error' "unreachable build request"
-        Package _ ->
-          return [("queryOpts",ValueStruct [("limit",ValueInt limit),
-                                            ("order",ValueString "-build_id")])]
-        Parent parent -> do
-          when (isJust museropt || isJust mdate || isJust mfilter') $
-            error' "cannot use --parent together with --user, timedate, or filter"
-          return $
-            ("parent", ValueInt parent) : commonParams
-        TaskQuery -> do
+        Parent parent ->
+          return $ ("parent", ValueInt parent) : commonParams
+        _ -> do
           mdatestring <-
             case mdate of
               Nothing -> return Nothing
