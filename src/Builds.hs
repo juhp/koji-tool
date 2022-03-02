@@ -72,20 +72,20 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
         Just pkgid -> do
           let fullquery = ("packageID", ValueInt pkgid):commonQueryOpts
           when debug $ print fullquery
-          blds <- listBuilds server fullquery
-          when debug $ mapM_ pPrintCompact blds
+          builds <- listBuilds server fullquery
+          when debug $ mapM_ pPrintCompact builds
           if details
-            then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult blds
-            else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) blds
+            then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult builds
+            else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
       query <- setupQuery server
       let fullquery = query <> commonQueryOpts
       when debug $ print fullquery
-      blds <- listBuilds server fullquery
-      when debug $ mapM_ pPrintCompact blds
+      builds <- listBuilds server fullquery
+      when debug $ mapM_ pPrintCompact builds
       if details
-        then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult blds
-        else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) blds
+        then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult builds
+        else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
   where
     shortBuildResult :: TimeZone -> Struct -> Maybe String
     shortBuildResult tz bld = do
