@@ -227,10 +227,14 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
 #endif
 
 compactTaskResult :: TimeZone -> TaskResult -> String
-compactTaskResult tz (TaskResult pkg arch method state _mparent taskid _mstart mend) =
-  showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+
-  "(" ++ show taskid ++ ")" +-+ show state +-+
-  maybe "" (compactZonedTime . utcToZonedTime tz) mend
+compactTaskResult tz (TaskResult pkg arch method state _mparent taskid mstart mend) =
+  let time =
+        case mend of
+          Just end -> (compactZonedTime . utcToZonedTime tz) end
+          Nothing -> maybe "" (compactZonedTime . utcToZonedTime tz) mstart
+  in
+    showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+
+    "(" ++ show taskid ++ ")" +-+ show state +-+ time
 
 -- FIXME show task owner
 formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
