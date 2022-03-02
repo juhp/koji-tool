@@ -42,22 +42,22 @@ main = do
       <*> some (strArg "PKG|NVR|TASKID...")
 
     , Subcommand "builds"
-      "Query Koji builds (by default lists your most recent builds)" $
+      "Query Koji builds (by default lists most recent builds)" $
       buildsCmd
       <$> hubOpt
       <*> optional userOpt
       <*> (flagWith' 1 'L' "latest" "Latest build" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 10]" 10)
-      <*> (BuildBuild <$> strOptionWith 'b' "build" "BUILD" "Show build details"
-           <|> BuildPackage <$> strOptionWith 'p' "package" "PKG" "Builds of package"
-           <|> pure BuildQuery)
       <*> many (parseBuildState <$> strOptionWith 's' "state" "STATE" "Filter builds by state (building,complete,deleted,fail(ed),cancel(ed)")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
       <*> (fmap normalizeBuildType <$> optional (strOptionWith 't' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
       <*> switchWith 'd' "details" "Show more details of builds"
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
-      <*> optional (strArg "NVRPATTERN")
+      <*> (BuildBuild <$> strOptionWith 'b' "build" "BUILD" "Show build details"
+           <|> BuildPackage <$> strOptionWith 'p' "package" "PKG" "Builds of package"
+           <|> BuildPattern <$> strArg "NVRPATTERN"
+           <|> pure BuildQuery)
 
     , Subcommand "tasks"
       "Query Koji tasks (by default lists your most recent buildArch tasks)" $

@@ -33,7 +33,7 @@ import qualified Tasks
 import User
 
 data BuildReq = BuildBuild String | BuildPackage String
-              | BuildQuery
+              | BuildQuery | BuildPattern String
   deriving Eq
 
 getTimedate :: Tasks.BeforeAfter -> String
@@ -44,15 +44,13 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
-buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> BuildReq -> [BuildState]
+buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
-          -> Maybe String -> IO ()
-buildsCmd mhub museropt limit buildreq states mdate mtype details debug mpat = do
+          -> BuildReq -> IO ()
+buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
   let server = maybe fedoraKojiHub hubURL mhub
   when (server /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji"
-  when (isJust mpat && buildreq /= BuildQuery) $
-    error' "cannot use pattern with --build or --package"
   tz <- getCurrentTimeZone
   case buildreq of
     BuildBuild bld -> do
@@ -72,8 +70,7 @@ buildsCmd mhub museropt limit buildreq states mdate mtype details debug mpat = d
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          options <- setupQuery server
-          let fullquery = ("packageID", ValueInt pkgid):options
+          let fullquery = ("packageID", ValueInt pkgid):commonQueryOpts
           when debug $ print fullquery
           blds <- listBuilds server fullquery
           when debug $ mapM_ pPrintCompact blds
@@ -82,10 +79,7 @@ buildsCmd mhub museropt limit buildreq states mdate mtype details debug mpat = d
             else mapM_ putStrLn $ mapMaybe shortBuildResult blds
     _ -> do
       query <- setupQuery server
-      let fullquery =
-            query <>
-            [("queryOpts", ValueStruct [("limit",ValueInt limit),
-                                        ("order", ValueString "-build_id")])]
+      let fullquery = query <> commonQueryOpts
       when debug $ print fullquery
       blds <- listBuilds server fullquery
       when debug $ mapM_ pPrintCompact blds
@@ -104,28 +98,27 @@ buildsCmd mhub museropt limit buildreq states mdate mtype details debug mpat = d
       return $ nvr +-+
         if state == BuildComplete then date else show state
 
+    commonQueryOpts =
+      [("queryOpts", ValueStruct [("limit",ValueInt limit),
+                                  ("order",ValueString "-build_id")])]
+
     setupQuery server = do
-      case buildreq of
-        -- FIXME dummy cases!
-        BuildBuild _ -> error' "unreachable build request"
-        BuildPackage _ ->
-          return [("queryOpts",ValueStruct [("limit",ValueInt limit),
-                                            ("order",ValueString "-build_id")])]
-        BuildQuery -> do
-          mdatestring <-
-            case mdate of
-              Nothing -> return Nothing
-              Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
-          -- FIXME better output including user
-          whenJust mdatestring $ \date ->
-            putStrLn $ maybe "" show mdate +-+ date
-          mowner <- maybeGetKojiUser server museropt
-          return $
-            [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]]
-            ++ [("userID", ValueInt (getID owner)) | Just owner <- [mowner]]
-            ++ [("state", ValueArray (map buildStateToValue states)) | notNull states]
-            ++ [("type", ValueString typ) | Just typ <- [mtype]]
-            ++ [("pattern", ValueString pat) | Just pat <- [mpat]]
+      mdatestring <-
+        case mdate of
+          Nothing -> return Nothing
+          Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
+      -- FIXME better output including user
+      whenJust mdatestring $ \date ->
+        putStrLn $ maybe "" show mdate +-+ date
+      mowner <- maybeGetKojiUser server museropt
+      return $
+        [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]]
+        ++ [("userID", ValueInt (getID owner)) | Just owner <- [mowner]]
+        ++ [("state", ValueArray (map buildStateToValue states)) | notNull states]
+        ++ [("type", ValueString typ) | Just typ <- [mtype]]
+        ++ case buildreq of
+             BuildPattern pat -> [("pattern", ValueString pat)]
+             _ -> []
 
     dateString :: Tasks.BeforeAfter -> String
     -- make time refer to past not future
