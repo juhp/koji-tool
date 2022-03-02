@@ -111,9 +111,10 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       query <- setupQuery server
       let queryopts = [("limit",ValueInt limit), ("order", ValueString "-id")]
       when debug $ print $ query ++ queryopts
-      results <- listTasks server query queryopts
-      when debug $ mapM_ pPrintCompact results
-      (mapM_ (printTask details tz) . filterResults . mapMaybe maybeTaskResult) results
+      tasks <- listTasks server query queryopts
+      when debug $ mapM_ pPrintCompact tasks
+      let detailed = details || length tasks == 1
+      (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
   where
     buildQueryOpts =
       [("queryOpts",ValueStruct [("limit",ValueInt limit),
