@@ -22,82 +22,13 @@ Available options:
   --version                Show version
 
 Available commands:
-  install                  Install rpm packages directly from a Koji build task
-  builds                   Query Koji builds (by default lists your most recent
+  builds                   Query Koji builds (by default lists most recent
                            builds)
-  tasks                    Query Koji tasks (by default lists your most recent
+  tasks                    Query Koji tasks (by default lists most recent
                            buildArch tasks)
+  install                  Install rpm packages directly from a Koji build task
   progress                 Track running Koji tasks by buildlog size
   buildlog-sizes           Show buildlog sizes for nvr patterns
-```
-
-## koji-tool install
-
-Download and install rpms from a Koji build or task.
-
-By default it only downloads binaries of already-installed subpackages,
-but there are options to list and select or exclude specific subpackages.
-
-Note this command is intended for development and testing purposes
-and should not be necessary/used normally on production systems,
-but it can be very helpful for quickly testing an specific package build or
-update.
-
-### Usage
-
-```
-$ koji-tool install podman
-```
-will download the latest build for your Fedora version,
-and try to install it.
-Use `--disttag` suffix to select a different Fedora version.
-
-```
-$ koji-tool install TASKID --exclude "*-devel"
-```
-will install all the non-devel subpackages from the task.
-
-One can use `--hub` to specify a different Koji hub build service.
-
-#### Selecting subpackages
-
-By default only installed subpackages are downloaded and updated,
-but the following options change the behavior:
-
-`--package`: select subpackages by name or glob pattern (this doesn't work currently on multiple builds/tasks)
-
-`--exclude`: exclude subpackages by name or glob pattern
-
-`--all`: install all subpackages
-
-`--ask`: ask about each subpackage
-
-### Help
-```shellsession
-$ koji-tool install --help
-Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
-                         [-P|--packages-url URL] [-l|--list] [-L|--latest]
-                         [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
-                           [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
-                         [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
-  Install rpm packages directly from a Koji build task
-
-Available options:
-  -n,--dry-run             Don't actually download anything
-  -D,--debug               More detailed output
-  -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
-                           rpmfusion, or URL) [default: fedora]
-  -P,--packages-url URL    KojiFiles packages url [default: Fedora]
-  -l,--list                List builds
-  -L,--latest              Latest build
-  -a,--all                 all subpackages
-  -A,--ask                 ask for each subpackge [default if not installed]
-  -p,--package SUBPKG      Subpackage (glob) to install
-  -x,--exclude SUBPKG      Subpackage (glob) not to install
-  -d,--disttag DISTTAG     Use a different disttag [default: .fc35]
-  -R,--nvr                 Give an N-V-R instead of package name
-  -V,--nv                  Give an N-V instead of package name
-  -h,--help                Show this help text
 ```
 
 ## koji-tool builds
@@ -234,6 +165,75 @@ https://koji.fedoraproject.org/koji/taskinfo?taskID=82667980 (parent: 82667916)
 Start: Fri Feb 11 15:08:30  2022
 End:   Fri Feb 11 15:10:09  2022
 duration: 0h 1m 38s
+```
+
+## koji-tool install
+
+Download and install rpms from a Koji build or task.
+
+By default it only downloads binaries of already-installed subpackages,
+but there are options to list and select or exclude specific subpackages.
+
+Note this command is intended for development and testing purposes
+and should not be necessary/used normally on production systems,
+but it can be very helpful for quickly testing an specific package build or
+update.
+
+### Usage
+
+```
+$ koji-tool install podman
+```
+will download the latest build for your Fedora version,
+and try to install it.
+Use `--disttag` suffix to select a different Fedora version.
+
+```
+$ koji-tool install TASKID --exclude "*-devel"
+```
+will install all the non-devel subpackages from the task.
+
+One can use `--hub` to specify a different Koji hub build service.
+
+#### Selecting subpackages
+
+By default only installed subpackages are downloaded and updated,
+but the following options change the behavior:
+
+`--package`: select subpackages by name or glob pattern (this doesn't work currently for multiple builds/tasks)
+
+`--exclude`: exclude subpackages by name or glob pattern
+
+`--all`: install all subpackages
+
+`--ask`: ask about each subpackage
+
+### Help
+```shellsession
+$ koji-tool install --help
+Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
+                         [-P|--packages-url URL] [-l|--list] [-L|--latest]
+                         [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
+                           [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
+                         [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
+  Install rpm packages directly from a Koji build task
+
+Available options:
+  -n,--dry-run             Don't actually download anything
+  -D,--debug               More detailed output
+  -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
+                           rpmfusion, or URL) [default: fedora]
+  -P,--packages-url URL    KojiFiles packages url [default: Fedora]
+  -l,--list                List builds
+  -L,--latest              Latest build
+  -a,--all                 all subpackages
+  -A,--ask                 ask for each subpackge [default if not installed]
+  -p,--package SUBPKG      Subpackage (glob) to install
+  -x,--exclude SUBPKG      Subpackage (glob) not to install
+  -d,--disttag DISTTAG     Use a different disttag [default: .fc35]
+  -R,--nvr                 Give an N-V-R instead of package name
+  -V,--nv                  Give an N-V instead of package name
+  -h,--help                Show this help text
 ```
 
 ## koji-tool progress

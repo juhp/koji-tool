@@ -25,23 +25,7 @@ main = do
     "Query and track Koji tasks, and install rpms from Koji."
     "see https://github.com/juhp/koji-tool#readme" $
     subcommands
-    [ Subcommand "install"
-      "Install rpm packages directly from a Koji build task" $
-      installCmd
-      <$> switchWith 'n' "dry-run" "Don't actually download anything"
-      <*> switchWith 'D' "debug" "More detailed output"
-      <*> hubOpt
-      <*> optional (strOptionWith 'P' "packages-url" "URL"
-                    "KojiFiles packages url [default: Fedora]")
-      <*> switchWith 'l' "list" "List builds"
-      <*> switchWith 'L' "latest" "Latest build"
-      <*> modeOpt
-      <*> disttagOpt sysdisttag
-      <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
-           <|> flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
-      <*> some (strArg "PKG|NVR|TASKID...")
-
-    , Subcommand "builds"
+    [ Subcommand "builds"
       "Query Koji builds (by default lists most recent builds)" $
       buildsCmd
       <$> hubOpt
@@ -83,6 +67,22 @@ main = do
            <|> Package <$> strOptionWith 'p' "package" "PKG" "Build tasks of package"
            <|> Pattern <$> strArg "NVRPATTERN"
            <|> pure TaskQuery)
+
+    , Subcommand "install"
+      "Install rpm packages directly from a Koji build task" $
+      installCmd
+      <$> switchWith 'n' "dry-run" "Don't actually download anything"
+      <*> switchWith 'D' "debug" "More detailed output"
+      <*> hubOpt
+      <*> optional (strOptionWith 'P' "packages-url" "URL"
+                    "KojiFiles packages url [default: Fedora]")
+      <*> switchWith 'l' "list" "List builds"
+      <*> switchWith 'L' "latest" "Latest build"
+      <*> modeOpt
+      <*> disttagOpt sysdisttag
+      <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
+           <|> flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
+      <*> some (strArg "PKG|NVR|TASKID...")
 
     , Subcommand "progress"
       "Track running Koji tasks by buildlog size" $
