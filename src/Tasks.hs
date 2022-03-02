@@ -230,8 +230,8 @@ compactTaskResult :: TimeZone -> TaskResult -> String
 compactTaskResult tz (TaskResult pkg arch method state _mparent taskid mstart mend) =
   let time =
         case mend of
-          Just end -> (compactZonedTime . utcToZonedTime tz) end
-          Nothing -> maybe "" (compactZonedTime . utcToZonedTime tz) mstart
+          Just end -> compactZonedTime tz end
+          Nothing -> maybe "" (compactZonedTime tz) mstart
   in
     showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+
     "(" ++ show taskid ++ ")" +-+ show state +-+ time

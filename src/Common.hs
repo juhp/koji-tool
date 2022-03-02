@@ -35,6 +35,6 @@ readTime' =
   let mkSystemTime t = MkSystemTime t 0
   in systemToUTCTime . mkSystemTime .truncate
 
-compactZonedTime :: ZonedTime -> String
-compactZonedTime =
-  formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z"
+compactZonedTime :: TimeZone -> UTCTime -> String
+compactZonedTime tz =
+  formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z" . utcToZonedTime tz

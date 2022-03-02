@@ -94,7 +94,7 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       let date =
             case readTime' <$> lookupStruct "completion_ts" bld of
               Nothing -> ""
-              Just t -> "(" ++ (compactZonedTime . utcToZonedTime tz) t ++ ")"
+              Just t -> "(" ++ compactZonedTime tz t ++ ")"
       return $ nvr +-+
         if state == BuildComplete then date else show state
 
