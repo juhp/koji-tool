@@ -93,10 +93,12 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       state <- readBuildState <$> lookupStruct "state" bld
       let date =
             case readTime' <$> lookupStruct "completion_ts" bld of
-              Nothing -> ""
-              Just t -> "(" ++ compactZonedTime tz t ++ ")"
-      return $ nvr +-+
-        if state == BuildComplete then date else show state
+              Just t -> compactZonedTime tz t
+              Nothing ->
+                case readTime' <$> lookupStruct "start_ts" bld of
+                  Just t -> compactZonedTime tz t
+                  Nothing -> ""
+      return $ nvr +-+ show state +-+ date
 
     commonQueryOpts =
       [("queryOpts", ValueStruct [("limit",ValueInt limit),
