@@ -5,15 +5,21 @@
 - --srpm
 - --exclude vs --except
 - tags
+- exclude garbage collected builds
 
-# query
-- rename to 'list'?
+# tasks
 - determine username for non-Fedora
 - build pattern
 - different hubs put builds in different locations
 - html output
-- list builds of package
 - grep buildlog
+
+# builds
+- support latest-build for tag
+
+# query
+- default to the last year? for speed
+- --short option
 
 # buildlog-sizes/progress
 - combine
@@ -36,3 +42,6 @@
 - pick up user's new builds
 
 - screen mode inplace tui
+
+# quickCmd
+`quick my last build fail`

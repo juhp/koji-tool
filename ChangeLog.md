@@ -1,12 +1,18 @@
 # Version history of koji-tool
 
-# 0.8 (2022-02-28)
+# 0.8 (2022-03-02)
 - rename 'query' to 'tasks'
 - 'tasks': new '--tail' option to fetch and display tail of build.log
-   and show root.log if build.log is too small
-- 'tasks': expand methods list and list in --method help
+  (shows root.log instead if build.log is too small)
+- 'tasks': extend list of methods and list them in --method help
 - new 'builds' query command (replaces 'tasks' builds listing)
-- only print "before <date>" when date given
+- only query print date when option given by user
+- --debug now displays query options
+- 'tasks' and 'builds' now use --hub like 'install'
+- new --mine (self-user) option (instead of defaulting to mine)
+- 'tasks' and 'builds' support build NVR pattern search (requires Koji 1.24+)
+- 'tasks' and 'builds' have --details option otherwise output is compact
+  (unless there is a single result)
 
 # 0.7 (2022-01-25)
 - query: new options: '--package' to search recent builds and '--latest'
