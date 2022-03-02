@@ -71,6 +71,7 @@ main = do
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate")
       <*> (fmap normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" ("Select tasks by method (default 'buildArch'): " ++ intercalate "," kojiMethods)))
+      <*> switchWith 'd' "details" "Show more details of builds"
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       -- FIXME error if integer (eg mistakenly taskid)
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"

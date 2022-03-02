@@ -60,9 +60,9 @@ capitalize (h:t) = toUpper h : t
 
 -- FIXME short output summary
 tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
-         -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool
+         -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
          -> Maybe TaskFilter -> Bool -> TaskReq -> IO ()
-tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' taskreq = do
+tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' tail' taskreq = do
   let server = maybe fedoraKojiHub hubURL mhub
   when (server /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji"
@@ -74,7 +74,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
       mtask <- kojiGetTaskInfo server (TaskId taskid)
       whenJust mtask$ \task -> do
         when debug $ pPrintCompact task
-        whenJust (maybeTaskResult task) $ printTask tz
+        whenJust (maybeTaskResult task) $ printTask True tz
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --build together with timedate or filter"
@@ -82,7 +82,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
                 else kojiGetBuildTaskID server bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd (Just server) museropt limit states archs mdate mmethod debug mfilter' tail' (Parent taskid)
+        tasksCmd (Just server) museropt limit states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     Package pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package " ++ pkg
@@ -97,7 +97,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
           forM_ builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd (Just server) museropt 10 states archs mdate mmethod debug mfilter' tail' (Parent taskid)
+              tasksCmd (Just server) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     Pattern pat -> do
       let buildquery = ("pattern", ValueString pat):buildQueryOpts
       when debug $ print buildquery
@@ -106,14 +106,14 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
       forM_ builds $ \bld -> do
         let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
         whenJust mtaskid $ \(TaskId taskid) ->
-          tasksCmd (Just server) museropt 10 states archs mdate mmethod debug mfilter' tail' (Parent taskid)
+          tasksCmd (Just server) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     _ -> do
       query <- setupQuery server
       let queryopts = [("limit",ValueInt limit), ("order", ValueString "-id")]
       when debug $ print $ query ++ queryopts
       results <- listTasks server query queryopts
       when debug $ mapM_ pPrintCompact results
-      (mapM_ (printTask tz) . filterResults . mapMaybe maybeTaskResult) results
+      (mapM_ (printTask details tz) . filterResults . mapMaybe maybeTaskResult) results
   where
     buildQueryOpts =
       [("queryOpts",ValueStruct [("limit",ValueInt limit),
@@ -128,7 +128,8 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
             case mdate of
               Nothing -> return Nothing
               Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
-          when (isNothing mmethod) $ warning "buildArch tasks"
+          when (isNothing mmethod) $
+            warning $ "buildArch tasks" ++ if details then "" else "\n"
           whenJust mdatestring $ \date ->
             warning $ maybe "" show mdate +-+ date
           mowner <- maybeGetKojiUser server museropt
@@ -203,15 +204,19 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
         isNVR _ (Left _) = False
         isNVR nvr (Right nvr') = nvr `isPrefixOf` showNVR nvr'
 
-    printTask :: TimeZone -> TaskResult -> IO ()
-    printTask tz task = do
-      putStrLn ""
+    printTask :: Bool -> TimeZone -> TaskResult -> IO ()
+    printTask detailed tz task = do
       let mendtime = mtaskEndTime task
       mtime <- if isNothing  mendtime
                  then Just <$> getCurrentTime
                  else return Nothing
-      (mapM_ putStrLn . formatTaskResult mtime tz) task
-      buildlogSize tail' (taskId task)
+      if detailed
+        then do
+        putStrLn ""
+        (mapM_ putStrLn . formatTaskResult mtime tz) task
+        buildlogSize tail' (taskId task)
+        else
+        (putStrLn . compactTaskResult tz) task
 
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
@@ -221,6 +226,11 @@ tasksCmd mhub museropt limit states archs mdate mmethod debug mfilter' tail' tas
       pPrint
 #endif
 
+compactTaskResult :: TimeZone -> TaskResult -> String
+compactTaskResult tz (TaskResult pkg arch method state _mparent taskid _mstart mend) =
+  showPackage pkg +-+ "(" ++ show taskid ++ ")" +-+ (if method == "buildArch" then arch else method) +-+ show state +-+ maybe "" (formatTime defaultTimeLocale "%c" . utcToLocalTime tz) mend
+
+-- FIXME show task owner
 formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
 formatTaskResult mtime tz (TaskResult pkg arch method state mparent taskid mstart mend) =
   [ showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+ show state
@@ -236,10 +246,10 @@ formatTaskResult mtime tz (TaskResult pkg arch method state mparent taskid mstar
         ["duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start]
 
 #endif
-  where
-    showPackage :: Either String NVR -> String
-    showPackage (Left p) = p
-    showPackage (Right nvr) = showNVR nvr
+
+showPackage :: Either String NVR -> String
+showPackage (Left p) = p
+showPackage (Right nvr) = showNVR nvr
 
 data TaskResult =
   TaskResult {taskPackage :: Either String NVR,
