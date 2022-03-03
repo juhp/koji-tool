@@ -92,14 +92,16 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          builds <- listBuilds server $
-                  ("packageID", ValueInt pkgid):buildQueryOpts
+          builds <- listBuilds server
+                    [("packageID", ValueInt pkgid),
+                     commonBuildQueryOptions limit]
           forM_ builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
               tasksCmd (Just server) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     Pattern pat -> do
-      let buildquery = ("pattern", ValueString pat):buildQueryOpts
+      let buildquery = [("pattern", ValueString pat),
+                        commonBuildQueryOptions limit]
       when debug $ print buildquery
       builds <- listBuilds server buildquery
       when debug $ print builds
@@ -109,17 +111,13 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
           tasksCmd (Just server) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     _ -> do
       query <- setupQuery server
-      let queryopts = [("limit",ValueInt limit), ("order", ValueString "-id")]
+      let queryopts = commonQueryOptions limit
       when debug $ print $ query ++ queryopts
       tasks <- listTasks server query queryopts
       when debug $ mapM_ pPrintCompact tasks
       let detailed = details || length tasks == 1
       (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
   where
-    buildQueryOpts =
-      [("queryOpts",ValueStruct [("limit",ValueInt limit),
-                                 ("order",ValueString "-build_id")])]
-
     setupQuery server = do
       case taskreq of
         Parent parent ->

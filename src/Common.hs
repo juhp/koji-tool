@@ -2,7 +2,9 @@ module Common (
   knownHubs,
   hubURL,
   readTime',
-  compactZonedTime
+  compactZonedTime,
+  commonQueryOptions,
+  commonBuildQueryOptions
   )
 where
 
@@ -11,7 +13,7 @@ import Data.Time.Clock
 import Data.Time.Clock.System
 import Data.Time.Format
 import Data.Time.LocalTime
-import Distribution.Koji (fedoraKojiHub)
+import Distribution.Koji (fedoraKojiHub, Value(..))
 import SimpleCmd (error')
 
 -- mbox kojihub is locked
@@ -38,3 +40,12 @@ readTime' =
 compactZonedTime :: TimeZone -> UTCTime -> String
 compactZonedTime tz =
   formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z" . utcToZonedTime tz
+
+commonQueryOptions :: Int -> [(String, Value)]
+commonQueryOptions limit =
+  [("limit",ValueInt limit),
+   ("order",ValueString "-completion_time")]
+
+commonBuildQueryOptions :: Int -> (String, Value)
+commonBuildQueryOptions limit =
+  ("queryOpts", ValueStruct (commonQueryOptions limit))

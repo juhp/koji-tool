@@ -30,8 +30,9 @@ import Network.HTTP.Client (Manager)
 import Network.HTTP.Directory
 
 import Data.Text.Format.Numbers
-
 import SimpleCmdArgs
+
+import Common (commonBuildQueryOptions)
 
 -- FIXME split off arch suffix
 buildlogSizesCmd :: String -> IO ()
@@ -42,8 +43,7 @@ buildlogSizesCmd nvrpat = do
     else do -- find builds
     results <- listBuilds fedoraKojiHub
                [("pattern", ValueString nvrpat),
-                ("queryOpts",ValueStruct [("limit",ValueInt 5),
-                                          ("order",ValueString "-build_id")])]
+                commonBuildQueryOptions 5]
     mapM_ getResult results
   where
     getResult :: Struct -> IO ()

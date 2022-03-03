@@ -16,9 +16,6 @@ import Control.Monad.Extra
 import Data.Char (isDigit, toUpper)
 import Data.List.Extra
 import Data.Maybe
-#if !MIN_VERSION_base(4,11,0)
-import Data.Monoid ((<>))
-#endif
 import Data.RPM.NVR
 import Data.Time.Clock
 import Data.Time.Format
@@ -70,7 +67,8 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          let fullquery = ("packageID", ValueInt pkgid):commonQueryOpts
+          let fullquery = [("packageID", ValueInt pkgid),
+                          commonBuildQueryOptions limit]
           when debug $ print fullquery
           builds <- listBuilds server fullquery
           when debug $ mapM_ pPrintCompact builds
@@ -79,7 +77,7 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
             else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
       query <- setupQuery server
-      let fullquery = query <> commonQueryOpts
+      let fullquery = query ++ [commonBuildQueryOptions limit]
       when debug $ print fullquery
       builds <- listBuilds server fullquery
       when debug $ mapM_ pPrintCompact builds
@@ -99,10 +97,6 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
                   Just t -> compactZonedTime tz t
                   Nothing -> ""
       return $ nvr +-+ show state +-+ date
-
-    commonQueryOpts =
-      [("queryOpts", ValueStruct [("limit",ValueInt limit),
-                                  ("order",ValueString "-build_id")])]
 
     setupQuery server = do
       mdatestring <-
