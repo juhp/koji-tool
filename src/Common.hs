@@ -41,11 +41,11 @@ compactZonedTime :: TimeZone -> UTCTime -> String
 compactZonedTime tz =
   formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z" . utcToZonedTime tz
 
-commonQueryOptions :: Int -> [(String, Value)]
-commonQueryOptions limit =
+commonQueryOptions :: Int -> String -> [(String, Value)]
+commonQueryOptions limit order =
   [("limit",ValueInt limit),
-   ("order",ValueString "-completion_time")]
+   ("order",ValueString order)]
 
 commonBuildQueryOptions :: Int -> (String, Value)
 commonBuildQueryOptions limit =
-  ("queryOpts", ValueStruct (commonQueryOptions limit))
+  ("queryOpts", ValueStruct (commonQueryOptions limit "-build_id"))

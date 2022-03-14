@@ -111,7 +111,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
           tasksCmd (Just server) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     _ -> do
       query <- setupQuery server
-      let queryopts = commonQueryOptions limit
+      let queryopts = commonQueryOptions limit "-id"
       when debug $ print $ query ++ queryopts
       tasks <- listTasks server query queryopts
       when debug $ mapM_ pPrintCompact tasks
