@@ -226,6 +226,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       pPrint
 #endif
 
+-- FIXME option to hide url (take terminal width into consideration?)
 compactTaskResult :: TimeZone -> TaskResult -> String
 compactTaskResult tz (TaskResult pkg arch method state _mparent taskid mstart mend) =
   let time =
@@ -233,13 +234,14 @@ compactTaskResult tz (TaskResult pkg arch method state _mparent taskid mstart me
           Just end -> compactZonedTime tz end
           Nothing -> maybe "" (compactZonedTime tz) mstart
   in
-    showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+
-    "(" ++ show taskid ++ ")" +-+ show state +-+ time
+    showPackage pkg ++ (if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method) +-+
+    show state +-+ time +-+
+    "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid
 
 -- FIXME show task owner
 formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
 formatTaskResult mtime tz (TaskResult pkg arch method state mparent taskid mstart mend) =
-  [ showPackage pkg +-+ (if method == "buildArch" then arch else method) +-+ show state
+  [ showPackage pkg ++ (if method == "buildArch" then '.' : arch else ' ' : method) +-+ show state
   , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
   [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start) | Just start <- [mstart]] ++
   [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | Just end <- [mend]]
