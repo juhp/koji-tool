@@ -214,7 +214,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
         then do
         putStrLn ""
         (mapM_ putStrLn . formatTaskResult mtime tz) task
-        buildlogSize tail' (taskId task)
+        buildlogSize tail' $ taskId task
         else
         (putStrLn . compactTaskResult tz) task
 
@@ -312,7 +312,7 @@ buildlogSize tail' taskid = do
     putStr $ buildlog ++ " "
     msize <- httpFileSize' buildlog
     whenJust msize $ \size -> do
-      putStr "("
+      putChar '('
       (T.putStr . kiloBytes) size
       putStrLn ")"
       -- FIXME check if short build.log ends with srpm
