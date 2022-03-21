@@ -226,7 +226,7 @@ but the following options change the behavior:
 ### Help
 ```shellsession
 $ koji-tool install --help
-Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
+Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
                          [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
                            [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
@@ -236,6 +236,8 @@ Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-H|--hub HUB]
 Available options:
   -n,--dry-run             Don't actually download anything
   -D,--debug               More detailed output
+  -y,--yes                 Assume yes to questions (implies --all if not
+                           installed)
   -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
                            rpmfusion, or URL) [default: fedora]
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]

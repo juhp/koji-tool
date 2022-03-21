@@ -73,6 +73,7 @@ main = do
       installCmd
       <$> switchWith 'n' "dry-run" "Don't actually download anything"
       <*> switchWith 'D' "debug" "More detailed output"
+      <*> flagWith No Yes 'y' "yes" "Assume yes to questions (implies --all if not installed)"
       <*> hubOpt
       <*> optional (strOptionWith 'P' "packages-url" "URL"
                     "KojiFiles packages url [default: Fedora]")
@@ -80,8 +81,8 @@ main = do
       <*> switchWith 'L' "latest" "Latest build"
       <*> modeOpt
       <*> disttagOpt sysdisttag
-      <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name"
-           <|> flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
+      <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name" <|>
+           flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
       <*> some (strArg "PKG|NVR|TASKID...")
 
     , Subcommand "progress"

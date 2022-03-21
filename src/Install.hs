@@ -6,7 +6,8 @@ module Install (
   Mode(..),
   Request(..),
   installCmd,
-  knownHubs
+  knownHubs,
+  Yes(..)
   )
 where
 
@@ -39,6 +40,9 @@ defaultPkgsURL url =
       then replace "kojihub" "kojifiles" url +/+ "packages"
       else error' $ "use --files-url to specify kojifiles url for " ++ url
 
+data Yes = No | Yes
+  deriving Eq
+
 data Mode = All
           | Ask
           -- distinguish except and exclude
@@ -48,16 +52,15 @@ data Mode = All
 data Request = ReqName | ReqNV | ReqNVR
   deriving Eq
 
-
 -- FIXME --include devel, --exclude *
 -- FIXME specify tag or task
 -- FIXME support enterprise builds
 -- FIXME --arch (including src)
 -- FIXME --debuginfo
 -- FIXME --delete after installing
-installCmd :: Bool -> Bool -> Maybe String -> Maybe String -> Bool -> Bool
-           -> Mode -> String -> Request -> [String] -> IO ()
-installCmd dryrun debug mhuburl mpkgsurl listmode latest mode disttag request pkgbldtsks = do
+installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
+           -> Bool -> Mode -> String -> Request -> [String] -> IO ()
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest mode disttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -70,12 +73,12 @@ installCmd dryrun debug mhuburl mpkgsurl listmode latest mode disttag request pk
   mapM (kojiRPMs huburl pkgsurl dlDir) pkgbldtsks
     >>= if listmode
         then mapM_ putStrLn . mconcat
-        else installRPMs dryrun . mconcat
+        else installRPMs dryrun yes . mconcat
   where
     kojiRPMs :: String -> String -> String -> String -> IO [String] -- ([String],String)
     kojiRPMs huburl pkgsurl dlDir bldtask =
       if all isDigit bldtask
-      then kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir bldtask
+      then kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mode dlDir bldtask
       else kojiBuildRPMs huburl pkgsurl dlDir bldtask
 
     kojiBuildRPMs :: String -> String -> String -> String -> IO [String]
@@ -94,7 +97,7 @@ installCmd dryrun debug mhuburl mpkgsurl listmode latest mode disttag request pk
             putStrLn $ nvr ++ "\n"
             allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
             when debug $ print allRpms
-            dlRpms <- decideRpms listmode mode (maybeNVRName nvr) allRpms
+            dlRpms <- decideRpms yes listmode mode (maybeNVRName nvr) allRpms
             when debug $ print dlRpms
             unless (dryrun || null dlRpms) $ do
               downloadRpms debug (buildURL (readNVR nvr)) dlRpms
@@ -112,9 +115,9 @@ installCmd dryrun debug mhuburl mpkgsurl listmode latest mode disttag request pk
           debugPkg :: String -> Bool
           debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
-kojiTaskRPMs :: Bool -> Bool -> String -> String -> Bool -> Mode -> String
-             -> String -> IO [String]
-kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
+kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Mode
+             -> String -> String -> IO [String]
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mode dlDir task = do
   let taskid = read task
   if listmode
     then do
@@ -126,13 +129,13 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
           then do
           children <- Koji.getTaskChildren huburl taskid False
           return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
-          else getTaskRPMs taskid >>= decideRpms listmode mode Nothing
+          else getTaskRPMs taskid >>= decideRpms yes listmode mode Nothing
       Nothing -> error' "failed to get taskinfo"
     else do
     rpms <- getTaskRPMs taskid
     if null rpms
       then do
-      kojiTaskRPMs dryrun debug huburl pkgsurl True mode dlDir task >>= mapM_ putStrLn
+      kojiTaskRPMs dryrun debug yes huburl pkgsurl True mode dlDir task >>= mapM_ putStrLn
       return []
       else do
       when debug $ print rpms
@@ -141,7 +144,7 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
               [src] -> src
               _ -> error' "could not determine nvr from any srpm"
           nvr = dropSuffix ".src.rpm" srpm
-      dlRpms <- decideRpms listmode mode (maybeNVRName nvr) $ rpms \\ [srpm]
+      dlRpms <- decideRpms yes listmode mode (maybeNVRName nvr) $ rpms \\ [srpm]
       when debug $ print dlRpms
       unless (dryrun || null dlRpms) $ do
         downloadRpms debug (taskRPMURL task) dlRpms
@@ -163,8 +166,8 @@ kojiTaskRPMs dryrun debug huburl pkgsurl listmode mode dlDir task = do
 maybeNVRName :: String -> Maybe String
 maybeNVRName = fmap nvrName . maybeNVR
 
-decideRpms :: Bool -> Mode -> Maybe String -> [String] -> IO [String]
-decideRpms listmode mode mbase allRpms =
+decideRpms :: Yes -> Bool -> Mode -> Maybe String -> [String] -> IO [String]
+decideRpms yes listmode mode mbase allRpms =
   case mode of
     All -> if listmode
            then error' "cannot use --list and --all together"
@@ -178,8 +181,8 @@ decideRpms listmode mode mbase allRpms =
       else do
       rpms <- filterM (isInstalled . nvraName) $
               filter isBinaryRpm allRpms
-      if null rpms
-        then decideRpms listmode Ask mbase allRpms
+      if null rpms && yes /= Yes
+        then decideRpms yes listmode Ask mbase allRpms
         else return rpms
     PkgsReq subpkgs exclpkgs ->
       return $ selectRPMs mbase (subpkgs,exclpkgs) allRpms
@@ -318,19 +321,19 @@ setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
-installRPMs :: Bool -> [FilePath] -> IO ()
-installRPMs _ [] = return ()
-installRPMs dryrun rpms = do
+installRPMs :: Bool -> Yes -> [FilePath] -> IO ()
+installRPMs _ _ [] = return ()
+installRPMs dryrun yes rpms = do
   installed <- filterM (isInstalled . dropExtension) rpms
   unless (null installed) $
     if dryrun
     then mapM_ putStrLn $ "would update:" : installed
-    else sudo_ "dnf" ("reinstall" : installed)
+    else sudo_ "dnf" $ "reinstall" : installed ++ ["--assumeyes" | yes == Yes]
   let rest = rpms \\ installed
   unless (null rest) $
     if dryrun
     then mapM_ putStrLn $ "would install:" : rest
-    else sudo_ "dnf" ("localinstall" : rest)
+    else sudo_ "dnf" $ "localinstall" : rest ++ ["--assumeyes" | yes == Yes]
 
 downloadRpms :: Bool -> (String -> String) -> [String] -> IO ()
 downloadRpms debug urlOf rpms = do
