@@ -38,10 +38,10 @@ main = do
       <*> (fmap normalizeBuildType <$> optional (strOptionWith 't' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
       <*> switchWith 'd' "details" "Show more details of builds"
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
-      <*> (BuildBuild <$> strOptionWith 'b' "build" "BUILD" "Show build details"
-           <|> BuildPackage <$> strOptionWith 'p' "package" "PKG" "Builds of package"
-           <|> BuildPattern <$> strArg "NVRPATTERN"
-           <|> pure BuildQuery)
+      <*> (BuildBuild <$> strOptionWith 'b' "build" "NVR/BUILDID" "Show build" <|>
+           BuildPattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Builds matching glob pattern" <|>
+           BuildPackage <$> strArg "PACKAGE" <|>
+           pure BuildQuery)
 
     , Subcommand "tasks"
       "Query Koji tasks (by default lists most recent buildArch tasks)" $
@@ -64,8 +64,8 @@ main = do
       <*> (Task <$> optionWith auto 't' "task" "TASKID" "Show task"
            <|> Parent <$> optionWith auto 'c' "children" "TASKID" "List child tasks of parent"
            <|> Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
-           <|> Package <$> strOptionWith 'p' "package" "PKG" "Build tasks of package"
-           <|> Pattern <$> strArg "NVRPATTERN"
+           <|> Pattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Build tasks of matching pattern"
+           <|> Package <$> strArg "PACKAGE"
            <|> pure TaskQuery)
 
     , Subcommand "install"
