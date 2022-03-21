@@ -242,6 +242,7 @@ kojiBuildOSBuilds debug hub listmode latest disttag request pkgpat = do
   when debug $ putStrLn pkgpat
   let (pkg,full) = packageOfPattern request pkgpat
       oldkoji = "rpmfusion" `isInfixOf` hub
+  when debug $ print (pkg,full)
   when debug $ putStrLn pkg
   when (latest && request == ReqNVR) $
     error' "cannot use --latest with --nvr"

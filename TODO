@@ -1,3 +1,6 @@
+# general ideas
+- use formatting or fmt (instead of format-numbers)
+
 # install
 - autodetect nvr
 - --nodeps
@@ -16,10 +19,12 @@
 
 # builds
 - support latest-build for tag
+- --show-tags
 
 # query
 - default to the last year? for speed
 - --short option
+- --active or state filter
 
 # buildlog-sizes/progress
 - combine

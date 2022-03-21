@@ -60,7 +60,8 @@ Usage: koji-tool builds [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                         [(-L|--latest) | (-l|--limit INT)] [-s|--state STATE]
                         [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
                         [-t|--type TYPE] [-d|--details] [-D|--debug]
-                        [(-b|--build BUILD) | (-p|--package PKG) | NVRPATTERN]
+                        [(-b|--build NVR/BUILDID) | (-p|--pattern NVRPAT) |
+                          PACKAGE]
   Query Koji builds (by default lists most recent builds)
 
 Available options:
@@ -77,8 +78,8 @@ Available options:
   -t,--type TYPE           Select builds by type: all,image,maven,module,rpm,win
   -d,--details             Show more details of builds
   -D,--debug               Pretty-print raw XML result
-  -b,--build BUILD         Show build details
-  -p,--package PKG         Builds of package
+  -b,--build NVR/BUILDID   Show build
+  -p,--pattern NVRPAT      Builds matching glob pattern
   -h,--help                Show this help text
 ```
 
@@ -124,7 +125,7 @@ Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                        [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)]
                        [-T|--tail]
                        [(-t|--task TASKID) | (-c|--children TASKID) |
-                         (-b|--build BUILD) | (-p|--package PKG) | NVRPATTERN]
+                         (-b|--build BUILD) | (-p|--pattern NVRPAT) | PACKAGE]
   Query Koji tasks (by default lists most recent buildArch tasks)
 
 Available options:
@@ -149,7 +150,7 @@ Available options:
   -t,--task TASKID         Show task
   -c,--children TASKID     List child tasks of parent
   -b,--build BUILD         List child tasks of build
-  -p,--package PKG         Build tasks of package
+  -p,--pattern NVRPAT      Build tasks of matching pattern
   -h,--help                Show this help text
 ```
 
@@ -278,7 +279,7 @@ The `buildlog-sizes` command is similar but runs once over nvr patterns.
 Builds for fedora are available in [copr](https://copr.fedorainfracloud.org/coprs/petersen/koji-tool/monitor/detailed).
 
 ## Build
-`cabal-rpm builddep && cabal install` or `stack install`.
+`cabal-rpm builddep && cabal install || stack install`
 
 ## History
 The query, install, progress, buildlog-sizes were originally separate programs

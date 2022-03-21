@@ -1,5 +1,10 @@
 # Version history of koji-tool
 
+# 0.8.1 (2022-03-21)
+- query results ordered by taskid or buildid for speed
+- 'builds', 'tasks': argument is now a package otherwise use --pattern (replaces --package)
+- print archs appended with '.' prefix
+
 # 0.8 (2022-03-02)
 - rename 'query' to 'tasks'
 - 'tasks': new '--tail' option to fetch and display tail of build.log
