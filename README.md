@@ -16,7 +16,7 @@ shows details of your last buildArch failure and the tail of the build.log.
 
 `koji-tool install systemd`: will try to install or update to the newest rpm packages from koji.
 
-`koji-tool builds --package firefox -L -s complete`:
+`koji-tool builds -L -s complete firefox`:
 shows the last successful build with a url and other details.
 
 ## Commands
@@ -92,7 +92,7 @@ lists your builds that failed in the last week.
 
 List builds of a package:
 ```shellsession
-$ koji-tool builds redhat-rpm-config*.fc37 --latest
+$ koji-tool builds --pattern redhat-rpm-config*.fc37 --latest
 
 redhat-rpm-config-214-1.fc37 BuildComplete
 https://koji.fedoraproject.org/koji/buildinfo?buildID=1915968
@@ -173,7 +173,7 @@ current duration: 0h 0m 16s
 
 List package build tasks:
 ```shellsession
-$ koji-tool tasks --package redhat-rpm-config --latest
+$ koji-tool tasks --latest redhat-rpm-config
 
 redhat-rpm-config-214-1.eln114 noarch TaskClosed
 https://koji.fedoraproject.org/koji/taskinfo?taskID=82667980 (parent: 82667916)

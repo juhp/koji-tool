@@ -24,14 +24,14 @@ tests havedist =
      ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist])
   ,
     (["builds"],
-     [["-L", "-p", "rust"]
+     [["-L", "rust"]
      ,["-l", "3"]
-     ,["-L", "rpm-ostree*.fc36"]])
+     ,["-L", "-p", "rpm-ostree*.fc36"]])
   ,
     (["tasks"],
      [["-L"]
      ,["-l", "3"]
-     ,["-L", "-p", "rpm-ostree"]])
+     ,["-L", "rpm-ostree"]])
   ]
   where
     sysdist = if havedist then [] else ["-d", "fc35"]
