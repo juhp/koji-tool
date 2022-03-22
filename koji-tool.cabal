@@ -45,7 +45,7 @@ executable koji-tool
                        directory,
                        extra,
                        filepath,
-                       format-numbers,
+                       formatting >= 7,
                        Glob,
                        http-conduit,
                        http-directory >= 0.1.9,

@@ -3,3 +3,4 @@ extra-deps:
   - koji-0.0.2
   - rpm-nvr-0.1.1
   - http-directory-0.1.9
+  - formatting-7.1.3

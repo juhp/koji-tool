@@ -24,12 +24,13 @@ import qualified Data.Text as T
 import Distribution.Koji (fedoraKojiHub)
 import Distribution.Koji.API --(listBuilds)
 
+import Formatting
+
 #if !MIN_VERSION_http_directory(0,1,5)
 import Network.HTTP.Client (Manager)
 #endif
 import Network.HTTP.Directory
 
-import Data.Text.Format.Numbers
 import SimpleCmdArgs
 
 import Common (commonBuildQueryOptions)
@@ -93,13 +94,8 @@ doGetBuildlogSize :: String -> String -> IO ()
 doGetBuildlogSize buildlog arch = do
   exists <- httpExists' buildlog
   msize <- if exists then httpFileSize' buildlog else return Nothing
-  whenJust msize $ \ size -> do
-    let kb = kiloBytes size
-    putStrLn $ arch ++ replicate (16 - length arch - length kb) ' ' ++ kb
-
-kiloBytes :: Integer -> String
-kiloBytes size =
-  T.unpack $ prettyI (Just ',') (fromInteger size `div` 1000) <> "kB"
+  whenJust msize $ \ size ->
+    fprintLn (right 8 ' ' % lpadded 7 ' ' commas % "kB") arch (size `div` 1000)
 
 #if !MIN_VERSION_http_directory(0,1,9)
 infixr 5 +/+

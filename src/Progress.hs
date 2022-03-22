@@ -13,6 +13,8 @@ import Control.Applicative ((<$>), (<*>))
 #endif
 import Control.Monad
 
+import Formatting
+
 #if !MIN_VERSION_http_directory(0,1,5)
 import Network.HTTP.Client (Manager)
 #endif
@@ -21,6 +23,7 @@ import Network.HTTP.Directory
 import Control.Concurrent (threadDelay)
 
 import Data.Fixed
+import Data.Int (Int64)
 import Data.List.Extra
 import Data.Maybe
 #if !MIN_VERSION_base(4,11,0)
@@ -28,8 +31,6 @@ import Data.Monoid ((<>))
 #endif
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import Data.Text.Format.Numbers
 
 import Distribution.Koji
 
@@ -37,8 +38,8 @@ import SimpleCmd
 
 import System.FilePath (takeBaseName, (</>))
 
-progressCmd :: Int -> Bool -> [TaskID] -> IO ()
-progressCmd waitdelay modules tids = do
+progressCmd :: Bool -> Int -> Bool -> [TaskID] -> IO ()
+progressCmd debug waitdelay modules tids = do
   when (waitdelay < 1) $ error' "minimum interval is 1 min"
   when (modules && not (null tids)) $ error' "cannot combine --modules with tasks"
   tasks <-
@@ -47,7 +48,7 @@ progressCmd waitdelay modules tids = do
     else return tids
   when (null tasks) $ error' "no build tasks found"
   btasks <- mapM kojiTaskinfoRecursive tasks
-  loopBuildTasks waitdelay btasks
+  loopBuildTasks debug waitdelay btasks
 
 kojiTaskinfoRecursive :: TaskID -> IO BuildTask
 kojiTaskinfoRecursive tid = do
@@ -76,14 +77,14 @@ type BuildTask = (TaskID, [TaskInfoSize])
 type TaskInfoSize = (Struct,Maybe Int)
 type TaskInfoSizes = (Struct,(Maybe Int,Maybe Int))
 
-loopBuildTasks :: Int -> [BuildTask] -> IO ()
-loopBuildTasks _ [] = return ()
-loopBuildTasks waitdelay bts = do
+loopBuildTasks :: Bool -> Int -> [BuildTask] -> IO ()
+loopBuildTasks _ _ [] = return ()
+loopBuildTasks debug waitdelay bts = do
   curs <- filter tasksOpen <$> mapM runProgress bts
   unless (null curs) $ do
     threadDelayMinutes waitdelay
     news <- mapM updateBuildTask curs
-    loopBuildTasks waitdelay news
+    loopBuildTasks debug waitdelay news
   where
     threadDelayMinutes :: Int -> IO ()
     threadDelayMinutes m =
@@ -92,26 +93,28 @@ loopBuildTasks waitdelay bts = do
 
     runProgress :: BuildTask -> IO BuildTask
     runProgress (tid,tasks) =
-      if null tasks then do
-        state <- kojiGetTaskState fedoraKojiHub tid
-        if state `elem` map Just openTaskStates then do
-          threadDelayMinutes waitdelay
-          kojiTaskinfoRecursive tid
-          else return (tid,[])
-      else do
-        putStrLn ""
-        let request = lookupStruct "request" $ fst (head tasks) :: Maybe [Value]
-            nvr = case request of
-                    Just (srpm:_) ->
-                      (takeBaseName . takeBaseName) $
-                      maybeVal "failed to read src rpm" getString srpm
-                    _ -> error "No src rpm found"
-        logMsg $ nvr ++ " (" ++ displayID tid ++ ")"
-        sizes <- mapM buildlogSize tasks
-        printLogSizes waitdelay sizes
-        let news = map (\(t,(s,_)) -> (t,s)) sizes
-            open = filter (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
-        return (tid, open)
+      case tasks of
+        [] -> do
+          state <- kojiGetTaskState fedoraKojiHub tid
+          if state `elem` map Just openTaskStates then do
+            threadDelayMinutes waitdelay
+            kojiTaskinfoRecursive tid
+            else return (tid,[])
+        ((task,_):_) -> do
+          putStrLn ""
+          when debug $ print task
+          let request = lookupStruct "request" task :: Maybe [Value]
+          when debug $ print request
+          let mnvr = case request of
+                       Just (srpm:_) ->
+                         takeBaseName . takeBaseName <$> getString srpm
+                       _ -> Nothing
+          logMsg $ fromMaybe "<unknown>" mnvr ++ " (" ++ displayID tid ++ ")"
+          sizes <- mapM buildlogSize tasks
+          printLogSizes waitdelay sizes
+          let news = map (\(t,(s,_)) -> (t,s)) sizes
+              open = filter (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
+          return (tid, open)
 
     tasksOpen :: BuildTask -> Bool
     tasksOpen (_,ts) = not (null ts)
@@ -142,49 +145,41 @@ buildlogSize (task, old) = do
       let few = dropWhile (== '0') $ takeEnd 4 tid in
         if null few then "0" else few
 
-data TaskOutput = TaskOut {_outArch :: Text, outSize :: Text, outSpeed :: Text, _outState :: Text, _method :: Text}
+data TaskOutput = TaskOut {_outArch :: Text, moutSize :: Maybe Int, moutSpeed :: Maybe Int, _outState :: Text, _method :: Text}
 
 printLogSizes :: Int -> [TaskInfoSizes] -> IO ()
 printLogSizes waitdelay tss =
-  mapM_ (T.putStrLn . taskOutList) $ (formatSize . map logSize) tss
+  let (mxsi, mxsp, taskoutputs) = (formatSize . map taskOutput) tss
+  in mapM_ (printTaskOut mxsi mxsp) taskoutputs
   where
-    taskOutList :: TaskOutput -> Text
-    taskOutList (TaskOut a si sp st mth) = T.unwords [a, si, sp, st, mth]
+    printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
+    printTaskOut mxsi mxsp (TaskOut a msi msp st mth) =
+      fprintLn (rpadded 8 ' ' stext % lpadded mxsi ' ' (optioned commas) % "kB" % optioned ("[" % lpadded mxsp ' ' commas % " B/min]") % " " % stext % " " % stext) a ((`div` 1000) <$> msi) ((`div` waitdelay) <$> msp) st (abridgeMethod mth)
 
-    formatSize :: [TaskOutput] -> [TaskOutput]
+    formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
     formatSize ts =
-      let maxsi = maximum $ 6 : map (T.length . outSize) ts
-                  -- "198,689"
-          maxsp = maximum $ 7 : map (T.length . outSpeed) ts
-      in map (justifyBytes maxsi maxsp) ts
+      let maxsi = maximum $ 0 : mapMaybe moutSize ts
+                  -- was "198,689"
+          maxsp = maximum $ 0 : mapMaybe moutSpeed ts
+      in (decimalLength maxsi, decimalLength maxsp, ts)
+      where
+        decimalLength = fromIntegral . length . show
 
-    justifyBytes :: Int -> Int -> TaskOutput -> TaskOutput
-    justifyBytes maxsi maxsp (TaskOut a si sp st mth) =
-      TaskOut
-      (a  <> T.replicate (7 - T.length a) " ")
-      (T.replicate (maxsi - T.length si) " " <> si <> "kB")
-      (case sp of
-         "" -> ""
-         _ -> "[" <> T.replicate (maxsp - T.length sp) " " <> sp <> " B/min" <> "]")
-      st
-      (case mth of
-         "buildArch" -> ""
-         "buildSRPMFromSCM" -> "SRPM"
-         _ -> mth)
+    abridgeMethod :: Text -> Text
+    abridgeMethod mth =
+      case mth of
+        "buildArch" -> ""
+        "buildSRPMFromSCM" -> "SRPM"
+        _ -> mth
 
-    logSize :: TaskInfoSizes -> TaskOutput
-    logSize (task, (size,old)) =
+    taskOutput :: TaskInfoSizes -> TaskOutput
+    taskOutput (task, (size,old)) =
       let method = maybeVal "method not found" (lookupStruct "method") task :: Text
           arch = maybeVal "arch not found" (lookupStruct "arch") task :: Text
           diff = (-) <$> size <*> old
           state = maybeVal "No state found" getTaskState task
           state' = if state == TaskOpen then "" else T.pack (show state)
-        in TaskOut arch (maybe "" kiloBytes size) (maybe "" speed diff) state' method
-      where
-        kiloBytes s = prettyI (Just ',') (s `div` 1000)
-
-        speed :: Int -> Text
-        speed s = prettyI (Just ',') (s `div` waitdelay)
+        in TaskOut arch size diff state' method
 
 kojiListBuildTasks :: Maybe String -> IO [TaskID]
 kojiListBuildTasks muser = do

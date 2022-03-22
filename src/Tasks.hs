@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
 
 -- SPDX-License-Identifier: BSD-3-Clause
 
@@ -22,14 +22,12 @@ import Data.Maybe
 import Data.Monoid ((<>))
 #endif
 import Data.RPM.NVR
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import Data.Text.Format.Numbers
 import Data.Time.Clock
 import Data.Time.Format
 import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
+import Formatting hiding (now)
 import Network.HTTP.Directory
 import Network.HTTP.Simple
 import SimpleCmd
@@ -313,9 +311,7 @@ buildlogSize tail' taskid = do
     putStr $ buildlog ++ " "
     msize <- httpFileSize' buildlog
     whenJust msize $ \size -> do
-      putChar '('
-      (T.putStr . kiloBytes) size
-      putStrLn ")"
+      fprintLn ("(" % commas % "kB)") (size `div` 1000)
       -- FIXME check if short build.log ends with srpm
       lastlog <-
         if size < 1500
@@ -325,8 +321,6 @@ buildlogSize tail' taskid = do
         else return BuildTail
       when tail' $
         displayLog taskid lastlog
-  where
-    kiloBytes s = prettyI (Just ',') (fromInteger s `div` 1000) <> T.pack "kB"
 
 kojiMethods :: [String]
 kojiMethods =

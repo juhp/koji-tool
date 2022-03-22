@@ -1,6 +1,3 @@
-# general ideas
-- use formatting or fmt (instead of format-numbers)
-
 # install
 - autodetect nvr
 - --nodeps

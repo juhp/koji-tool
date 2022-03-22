@@ -8,3 +8,4 @@ extra-deps:
   - xdg-userdirs-0.1.0.2
   - rpm-nvr-0.1.1
   - http-directory-0.1.9
+  - formatting-7.1.3

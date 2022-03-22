@@ -1,5 +1,5 @@
 [versions]
-# no koji
+# koji
 newest = lts-19
-# lts-10 http-date
-oldest = lts-11
+# formatting => Cabal 2.4
+oldest = lts-13
