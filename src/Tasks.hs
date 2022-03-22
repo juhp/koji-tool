@@ -128,7 +128,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
               Nothing -> return Nothing
               Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
           when (isNothing mmethod) $
-            warning $ "buildArch tasks"
+            warning "buildArch tasks"
           whenJust mdatestring $ \date ->
             warning $ maybe "" show mdate +-+ date
           mowner <- maybeGetKojiUser server museropt
