@@ -154,7 +154,7 @@ printLogSizes waitdelay tss =
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
     printTaskOut mxsi mxsp (TaskOut a msi msp st mth) =
-      fprintLn (rpadded 8 ' ' stext % lpadded mxsi ' ' (optioned commas) % "kB" % optioned ("[" % lpadded mxsp ' ' commas % " B/min]") % " " % stext % " " % stext) a ((`div` 1000) <$> msi) ((`div` waitdelay) <$> msp) st (abridgeMethod mth)
+      fprintLn (rpadded 8 ' ' stext % lpadded mxsi ' ' (optioned commas) % "kB" % " " % optioned ("[" % lpadded mxsp ' ' commas % " B/min]") % " " % stext % " " % stext) a ((`div` 1000) <$> msi) ((`div` waitdelay) <$> msp) st (abridgeMethod mth)
 
     formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
     formatSize ts =
