@@ -3,6 +3,7 @@
 # 0.8.1 (2022-03-21)
 - query results ordered by taskid or buildid for speed
 - 'builds', 'tasks': argument is now a package otherwise use --pattern (replaces --package)
+- 'install': add a --yes option to avoid questions (#2)
 - print archs appended with '.' prefix
 
 # 0.8 (2022-03-02)
