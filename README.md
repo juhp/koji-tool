@@ -50,6 +50,8 @@ but it shows duration, and kojiweb urls.
 It uses `date` to parse a specified date string
 and can use an NVR glob pattern to select builds.
 
+Note results are ordered by build_id (not time) for speed.
+
 ### Usage
 
 By default lists up to 10 Fedora Koji builds.
@@ -86,11 +88,11 @@ Available options:
 Examples:
 
 ```shellsession
-$ koji-tool builds --from "last week" -s fail
+$ koji-tool builds -M -s fail
 ```
-lists your builds that failed in the last week.
+lists your recent builds that failed.
 
-List builds of a package:
+List latest build of a package:
 ```shellsession
 $ koji-tool builds --pattern redhat-rpm-config*.fc37 --latest
 
@@ -110,6 +112,8 @@ Somewhat like `koji list-tasks --quiet --all ...`,
 but it shows duration, kojiweb urls and build.log size,
 and it uses `date` to parse a specified date string
 and can filter task results by package or nvr prefix.
+
+Note results are ordered by task id (not time) for speed.
 
 ### Usage
 
@@ -157,25 +161,26 @@ Available options:
 Examples:
 
 ```shellsession
-$ koji-tool tasks -a aarch64 --from "last week" -s fail
+$ koji-tool tasks -M -a aarch64 -s fail
 ```
-lists your arm64 tasks that failed in the last week.
+lists your recent arm64 tasks that failed.
 
 Show latest newRepo task:
 ```shellsession
 $ koji-tool tasks --method newrepo --latest
 
-module-perl-IO-Socket-SSL-2 newRepo TaskOpen
-https://koji.fedoraproject.org/koji/taskinfo?taskID=83561635
-Start: Thu Mar  3 00:57:43 +08 2022
-current duration: 0h 0m 16s
+f37-build-side-52128 newRepo TaskClosed
+https://koji.fedoraproject.org/koji/taskinfo?taskID=84527460
+Start: Tue Mar 22 08:11:46 +08 2022
+End:   Tue Mar 22 08:15:23 +08 2022
+duration: 0h 3m 37s
 ```
 
-List package build tasks:
+List latest package build's tasks:
 ```shellsession
 $ koji-tool tasks --latest redhat-rpm-config
 
-redhat-rpm-config-214-1.eln114 noarch TaskClosed
+redhat-rpm-config-214-1.eln114.noarch TaskClosed
 https://koji.fedoraproject.org/koji/taskinfo?taskID=82667980 (parent: 82667916)
 Start: Fri Feb 11 15:08:30 +08 2022
 End:   Fri Feb 11 15:10:09 +08 2022
@@ -196,14 +201,14 @@ update.
 
 ### Usage
 
-```
+```shellsession
 $ koji-tool install podman
 ```
 will download the latest build for your Fedora version,
 and try to install it.
 Use `--disttag` suffix to select a different Fedora version.
 
-```
+```shellsession
 $ koji-tool install TASKID --exclude "*-devel"
 ```
 will install all the non-devel subpackages from the task.
