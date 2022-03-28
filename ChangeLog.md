@@ -1,5 +1,8 @@
 # Version history of koji-tool
 
+# 0.8.2 (2022-03-28)
+- use the formatting library for rendering aligned output
+
 # 0.8.1 (2022-03-21)
 - query results ordered by taskid or buildid for speed
 - 'builds', 'tasks': argument is now a package otherwise use --pattern (replaces --package)
