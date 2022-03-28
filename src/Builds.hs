@@ -204,9 +204,6 @@ parseBuildState s =
     _ -> error' $! "unknown task state: " ++ s
 #endif
 
-data LastLog = WholeBuild | BuildTail | RootLog
-  deriving Eq
-
 getBuildState :: Struct -> Maybe BuildState
 getBuildState st = readBuildState <$> lookup "state" st
 
