@@ -1,5 +1,4 @@
 [versions]
 # koji
-newest = lts-19
 # formatting => Cabal 2.4
 oldest = lts-13
