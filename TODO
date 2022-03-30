@@ -7,21 +7,21 @@
 - tags
 - exclude garbage collected builds
 
-# tasks
+# Queries
+- TUI
+- --short option
+- --active or state filter
+
+## tasks
 - determine username for non-Fedora
 - build pattern
 - different hubs put builds in different locations
 - html output
 - grep buildlog
 
-# builds
+## builds
 - support latest-build for tag
 - --show-tags
-
-# query
-- default to the last year? for speed
-- --short option
-- --active or state filter
 
 # buildlog-sizes/progress
 - combine
@@ -29,6 +29,7 @@
 # progress
 - accept task or build url
 - cache and compare sizes with previous build(s)
+- estimate task/build ETA
 
 - show the build duration
 - support builds as well as tasks
