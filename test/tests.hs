@@ -32,6 +32,9 @@ tests havedist =
      [["-L"]
      ,["-l", "3"]
      ,["-L", "rpm-ostree"]])
+  ,
+    (["latest"],
+     [["rawhide", "ghc"]])
   ]
   where
     sysdist = if havedist then [] else ["-d", "fc35"]

@@ -35,6 +35,7 @@ import System.FilePath
 import Text.Pretty.Simple
 
 import Common
+import Time
 import User
 
 data TaskReq = Task Int | Parent Int | Build String | Package String
@@ -163,8 +164,8 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
     maybeTaskResult :: Struct -> Maybe TaskResult
     maybeTaskResult st = do
       arch <- lookupStruct "arch" st
-      let mstart_time = readTime' <$> lookupStruct "start_ts" st
-          mend_time = readTime' <$> lookupStruct "completion_ts" st
+      let mstart_time = lookupTime "start" st
+          mend_time = lookupTime "completion" st
       taskid <- lookupStruct "id" st
       method <- lookupStruct "method" st
       state <- getTaskState st

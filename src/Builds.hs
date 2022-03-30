@@ -7,7 +7,8 @@ module Builds (
   buildsCmd,
   parseBuildState,
   fedoraKojiHub,
-  kojiBuildTypes
+  kojiBuildTypes,
+  latestCmd
   )
 where
 
@@ -27,6 +28,7 @@ import Text.Pretty.Simple
 
 import Common
 import qualified Tasks
+import Time
 import User
 
 data BuildReq = BuildBuild String | BuildPackage String
@@ -90,10 +92,10 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       nvr <- lookupStruct "nvr" bld
       state <- readBuildState <$> lookupStruct "state" bld
       let date =
-            case readTime' <$> lookupStruct "completion_ts" bld of
+            case lookupTime "completion" bld of
               Just t -> compactZonedTime tz t
               Nothing ->
-                case readTime' <$> lookupStruct "start_ts" bld of
+                case lookupTime "start" bld of
                   Just t -> compactZonedTime tz t
                   Nothing -> ""
       return $ nvr +-+ show state +-+ date
@@ -130,25 +132,6 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
            [n,_unit] | all isDigit n -> timedate ++ " ago"
            _ -> timedate
 
-    maybeBuildResult :: Struct -> Maybe BuildResult
-    maybeBuildResult st = do
-      start_time <- readTime' <$> lookupStruct "start_ts" st
-      let mend_time = readTime' <$> lookupStruct "completion_ts" st
-      buildid <- lookupStruct "build_id" st
-      -- buildContainer has no task_id
-      let mtaskid = lookupStruct "task_id" st
-      state <- getBuildState st
-      nvr <- lookupStruct "nvr" st >>= maybeNVR
-      return $
-        BuildResult nvr state buildid mtaskid start_time mend_time
-
-    printBuild :: String -> TimeZone -> BuildResult -> IO ()
-    printBuild server tz task = do
-      putStrLn ""
-      let mendtime = mbuildEndTime task
-      time <- maybe getCurrentTime return mendtime
-      (mapM_ putStrLn . formatBuildResult server (isJust mendtime) tz) (task {mbuildEndTime = Just time})
-
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
       pPrintOpt CheckColorTty
@@ -156,6 +139,35 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
 #else
       pPrint
 #endif
+
+-- FIXME
+data BuildResult =
+  BuildResult {_buildNVR :: NVR,
+               _buildState :: BuildState,
+               _buildId :: Int,
+               _mtaskId :: Maybe Int,
+               _buildStartTime :: UTCTime,
+               mbuildEndTime :: Maybe UTCTime
+              }
+
+maybeBuildResult :: Struct -> Maybe BuildResult
+maybeBuildResult st = do
+  start_time <- lookupTime "start" st
+  let mend_time = lookupTime "completion" st
+  buildid <- lookupStruct "build_id" st
+  -- buildContainer has no task_id
+  let mtaskid = lookupStruct "task_id" st
+  state <- getBuildState st
+  nvr <- lookupStruct "nvr" st >>= maybeNVR
+  return $
+    BuildResult nvr state buildid mtaskid start_time mend_time
+
+printBuild :: String -> TimeZone -> BuildResult -> IO ()
+printBuild server tz task = do
+  putStrLn ""
+  let mendtime = mbuildEndTime task
+  time <- maybe getCurrentTime return mendtime
+  (mapM_ putStrLn . formatBuildResult server (isJust mendtime) tz) (task {mbuildEndTime = Just time})
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
 formatBuildResult server ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
@@ -176,16 +188,6 @@ formatBuildResult server ended tz (BuildResult nvr state buildid mtaskid start m
       let dur = diffUTCTime end start
       in [(if not ended then "current " else "") ++ "duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur]
 #endif
-
--- FIXME
-data BuildResult =
-  BuildResult {_buildNVR :: NVR,
-               _buildState :: BuildState,
-               _buildId :: Int,
-               _mtaskId :: Maybe Int,
-               _buildStartTime :: UTCTime,
-               mbuildEndTime :: Maybe UTCTime
-              }
 
 #if !MIN_VERSION_koji(0,0,3)
 buildStateToValue :: BuildState -> Value
@@ -209,3 +211,11 @@ getBuildState st = readBuildState <$> lookup "state" st
 
 kojiBuildTypes :: [String]
 kojiBuildTypes = ["all", "image", "maven", "module", "rpm", "win"]
+
+latestCmd :: Maybe String -> Bool -> String -> String -> IO ()
+latestCmd mhub debug tag pkg = do
+  let server = maybe fedoraKojiHub hubURL mhub
+  mbld <- kojiLatestBuild server tag pkg
+  when debug $ print mbld
+  tz <- getCurrentTimeZone
+  whenJust (mbld >>= maybeBuildResult) $ printBuild server tz

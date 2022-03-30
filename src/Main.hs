@@ -43,6 +43,14 @@ main = do
            BuildPackage <$> strArg "PACKAGE" <|>
            pure BuildQuery)
 
+    , Subcommand "latest"
+      "Query latest Koji build for tag" $
+      latestCmd
+      <$> hubOpt
+      <*> switchWith 'D' "debug" "Pretty-print raw XML result"
+      <*> strArg "TAG"
+      <*> strArg "PKG"
+
     , Subcommand "tasks"
       "Query Koji tasks (by default lists most recent buildArch tasks)" $
       tasksCmd

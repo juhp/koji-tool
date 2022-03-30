@@ -20,7 +20,6 @@
 - grep buildlog
 
 ## builds
-- support latest-build for tag
 - --show-tags
 
 # buildlog-sizes/progress
