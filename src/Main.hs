@@ -119,10 +119,7 @@ main = do
     modeOpt =
       flagWith' All 'a' "all" "all subpackages" <|>
       flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
-      pkgsReqOpts
-
-    pkgsReqOpts = PkgsReq
-      <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
+      PkgsReq <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
 
     disttagOpt :: String -> Parser String
     disttagOpt disttag = startingDot <$> strOptionalWith 'd' "disttag" "DISTTAG" ("Use a different disttag [default: " ++ disttag ++ "]") disttag
