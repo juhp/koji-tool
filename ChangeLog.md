@@ -1,5 +1,12 @@
 # Version history of koji-tool
 
+# 0.8.3 (2022-04-23)
+- 'latest': new cmd to list latest package build for tag
+- 'install': use --reinstall-nvrs to reinstall rpms for current nvr
+- 'install': now prompts before proceeding
+- 'install': handle build tasks by finding buildArch
+- 'install': --list now always lists rpms
+
 # 0.8.2 (2022-03-28)
 - use the formatting library for rendering aligned output
 
