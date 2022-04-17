@@ -64,7 +64,7 @@ tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
 tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' tail' taskreq = do
   let server = maybe fedoraKojiHub hubURL mhub
   when (server /= fedoraKojiHub && museropt == Just UserSelf) $
-    error' "--mine currently only works with Fedora Koji"
+    error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
   case taskreq of
     Task taskid -> do
