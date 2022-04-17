@@ -119,25 +119,35 @@ kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool -> Mode
              -> String -> String -> IO [String]
 kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode reinstall mode dlDir task = do
   let taskid = read task
+  mtaskinfo <- Koji.getTaskInfo huburl taskid True
+  tasks <- case mtaskinfo of
+            Nothing -> error' "failed to get taskinfo"
+            Just taskinfo -> do
+              when debug $ mapM_ print taskinfo
+              case lookupStruct "method" taskinfo :: Maybe String of
+                Nothing -> error' $ "no method found for " ++ task
+                Just method ->
+                  case method of
+                    "build" -> Koji.getTaskChildren huburl taskid False
+                    "buildArch" -> return [taskinfo]
+                    _ -> error' $ "unsupport method: " ++ method
+  sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
+  let archtid =
+        case find (\t -> lookupStruct "arch" t == Just sysarch) tasks of
+          Nothing -> error' $ "no " ++ sysarch ++ " task found"
+          Just task' ->
+            case lookupStruct "id" task' of
+              Nothing -> error' "task id not found"
+              Just tid -> tid
+  rpms <- getTaskRPMs archtid
   if listmode
-    then do
-    mtaskinfo <- Koji.getTaskInfo huburl taskid True
-    case mtaskinfo of
-      Just taskinfo -> do
-        when debug $ mapM_ print taskinfo
-        if isNothing (lookupStruct "parent" taskinfo :: Maybe Int)
-          then do
-          children <- Koji.getTaskChildren huburl taskid False
-          return $ fromMaybe "" (showTask taskinfo) : mapMaybe showChildTask children
-          else getTaskRPMs taskid >>= decideRpms yes listmode reinstall mode Nothing
-      Nothing -> error' "failed to get taskinfo"
-    else do
-    rpms <- getTaskRPMs taskid
+    then decideRpms yes listmode reinstall mode Nothing rpms
+    else
     if null rpms
-      then do
+    then do
       kojiTaskRPMs dryrun debug yes huburl pkgsurl True reinstall mode dlDir task >>= mapM_ putStrLn
       return []
-      else do
+    else do
       when debug $ print rpms
       let srpm =
             case filter (".src.rpm" `isExtensionOf`) rpms of
@@ -188,8 +198,11 @@ decideRpms yes listmode reinstall mode mbase allRpms =
           then return rpms
           else do
           mapM_ putStrLn rpms
-          ok <- isJust <$> rpmPrompt "install all"
-          return $ if ok then rpms else []
+          if listmode
+            then return []
+            else do
+            ok <- isJust <$> rpmPrompt "install all"
+            return $ if ok then rpms else []
     PkgsReq subpkgs exclpkgs ->
       return $ selectRPMs mbase (subpkgs,exclpkgs) allRpms
 
@@ -385,22 +398,22 @@ downloadRpms debug urlOf rpms = do
       localsize <- getFileSize file
       return $ remotesize /= Just localsize
 
-showTask :: Struct -> Maybe String
-showTask struct = do
-  state <- getTaskState struct
-  request <- lookupStruct "request" struct
-  method <- lookupStruct "method" struct
-  let mparent = lookupStruct "parent" struct :: Maybe Int
-      showreq = takeWhileEnd (/= '/') . unwords . mapMaybe getString . take 3
-  return $ showreq request +-+ method +-+ (if state == TaskClosed then "" else show state) +-+ maybe "" (\p -> "(" ++ show p ++ ")") mparent
+-- showTask :: Struct -> Maybe String
+-- showTask struct = do
+--   state <- getTaskState struct
+--   request <- lookupStruct "request" struct
+--   method <- lookupStruct "method" struct
+--   let mparent = lookupStruct "parent" struct :: Maybe Int
+--       showreq = takeWhileEnd (/= '/') . unwords . mapMaybe getString . take 3
+--   return $ showreq request +-+ method +-+ (if state == TaskClosed then "" else show state) +-+ maybe "" (\p -> "(" ++ show p ++ ")") mparent
 
-showChildTask :: Struct -> Maybe String
-showChildTask struct = do
-  arch <- lookupStruct "arch" struct
-  state <- getTaskState struct
-  method <- lookupStruct "method" struct
-  taskid <- lookupStruct "id" struct
-  return $ arch ++ replicate (8 - length arch) ' ' +-+ show (taskid :: Int) +-+ method +-+ show state
+-- showChildTask :: Struct -> Maybe String
+-- showChildTask struct = do
+--   arch <- lookupStruct "arch" struct
+--   state <- getTaskState struct
+--   method <- lookupStruct "method" struct
+--   taskid <- lookupStruct "id" struct
+--   return $ arch ++ replicate (8 - length arch) ' ' +-+ show (taskid :: Int) +-+ method +-+ show state
 
 isBinaryRpm :: FilePath -> Bool
 isBinaryRpm file =
