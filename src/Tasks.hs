@@ -58,6 +58,7 @@ capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
 -- FIXME short output summary
+-- --sibling
 tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
          -> Maybe TaskFilter -> Bool -> TaskReq -> IO ()
