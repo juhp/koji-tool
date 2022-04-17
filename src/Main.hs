@@ -87,6 +87,7 @@ main = do
                     "KojiFiles packages url [default: Fedora]")
       <*> switchWith 'l' "list" "List builds"
       <*> switchWith 'L' "latest" "Latest build"
+      <*> switchWith 'r' "reinstall-nvrs" "Reinstall existing NVRs"
       <*> modeOpt
       <*> disttagOpt sysdisttag
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name" <|>
