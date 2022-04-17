@@ -183,7 +183,13 @@ decideRpms yes listmode reinstall mode mbase allRpms =
               filter isBinaryRpm allRpms
       if null rpms && yes /= Yes
         then decideRpms yes listmode reinstall Ask mbase allRpms
-        else return rpms
+        else do
+        if yes == Yes
+          then return rpms
+          else do
+          mapM_ putStrLn rpms
+          ok <- isJust <$> rpmPrompt "install all"
+          return $ if ok then rpms else []
     PkgsReq subpkgs exclpkgs ->
       return $ selectRPMs mbase (subpkgs,exclpkgs) allRpms
 
