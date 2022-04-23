@@ -1,5 +1,6 @@
 # hubs
 - hub configurations
+- determine urls for logs etc by parsing html
 
 # install
 - autodetect nvr

@@ -34,6 +34,7 @@ Available options:
 Available commands:
   builds                   Query Koji builds (by default lists most recent
                            builds)
+  latest                   Query latest Koji build for tag
   tasks                    Query Koji tasks (by default lists most recent
                            buildArch tasks)
   install                  Install rpm packages directly from a Koji build task
@@ -233,6 +234,7 @@ but the following options change the behavior:
 $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
+                         [-r|--reinstall-nvrs]
                          [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
                            [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
                          [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
@@ -248,11 +250,12 @@ Available options:
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
   -l,--list                List builds
   -L,--latest              Latest build
+  -r,--reinstall-nvrs      Reinstall existing NVRs
   -a,--all                 all subpackages
   -A,--ask                 ask for each subpackge [default if not installed]
   -p,--package SUBPKG      Subpackage (glob) to install
   -x,--exclude SUBPKG      Subpackage (glob) not to install
-  -d,--disttag DISTTAG     Use a different disttag [default: .fc35]
+  -d,--disttag DISTTAG     Use a different disttag [default: .fc36]
   -R,--nvr                 Give an N-V-R instead of package name
   -V,--nv                  Give an N-V instead of package name
   -h,--help                Show this help text
