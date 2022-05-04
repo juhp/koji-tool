@@ -11,7 +11,7 @@ import System.Environment.XDG.UserDir (getUserDir)
 import System.FilePath
 
 -- FIXME check writeable
-setDownloadDir :: Bool -> String -> IO FilePath
+setDownloadDir :: Bool -> String -> IO (IO ())
 setDownloadDir dryrun subdir = do
   home <- getHomeDirectory
   dlDir <- getUserDir "DOWNLOAD"
@@ -35,7 +35,10 @@ setDownloadDir dryrun subdir = do
         createDirectoryIfMissing True dlDir
         setCWD dlDir
   let path = makeRelative home dir
-  return $ if isRelative path then "~" </> path else path
+  return $
+    putStrLn $
+    "Packages downloaded to " ++
+    if isRelative path then "~" </> path else path
   where
     setCWD :: FilePath -> IO FilePath
     setCWD dir = do

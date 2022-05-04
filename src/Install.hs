@@ -60,52 +60,57 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME --delete after installing
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
            -> Bool -> Bool -> Mode -> String -> Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest reinstall mode disttag request pkgbldtsks = do
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode disttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
     putStrLn huburl
     putStrLn pkgsurl
   -- FIXME use this location?
-  dlDir <- setDownloadDir dryrun "rpms"
-  when debug $ putStrLn dlDir
+  printDlDir <- setDownloadDir dryrun "rpms"
+  when debug printDlDir
   setNoBuffering
-  mapM (kojiRPMs huburl pkgsurl dlDir) pkgbldtsks
-    >>= if listmode
-        then mapM_ putStrLn . mconcat
-        else installRPMs dryrun reinstall yes . mconcat
+  mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
+    >>= installRPMs dryrun noreinstall yes . mconcat
   where
-    kojiRPMs :: String -> String -> String -> String -> IO [String] -- ([String],String)
-    kojiRPMs huburl pkgsurl dlDir bldtask =
+    kojiRPMs :: String -> String -> IO () -> String -> IO [(Existence,NVRA)]
+    kojiRPMs huburl pkgsurl printDlDir bldtask =
       if all isDigit bldtask
-      then kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode reinstall mode dlDir bldtask
-      else kojiBuildRPMs huburl pkgsurl dlDir bldtask
+      then kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir bldtask
+      else kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
-    kojiBuildRPMs :: String -> String -> String -> String -> IO [String]
-    kojiBuildRPMs huburl pkgsurl dlDir pkgbld = do
-      nvrs <- kojiBuildOSBuilds debug huburl listmode latest disttag request pkgbld
+    kojiBuildRPMs :: String -> String -> IO () -> String
+                  -> IO [(Existence,NVRA)]
+    kojiBuildRPMs huburl pkgsurl printDlDir pkgbld = do
+      nvrs <- map readNVR <$> kojiBuildOSBuilds debug huburl listmode latest disttag request pkgbld
       if listmode
-        then if mode /= PkgsReq [] []
-             then error' "modes not supported for listing build"  -- FIXME
-             else case nvrs of
-                    [nvr] -> ([nvr,""] ++) . map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
-                    _ -> return nvrs
+        then do
+        if mode /= PkgsReq [] []
+          then error' "modes not supported for listing build"  -- FIXME
+          else case nvrs of
+                 [nvr] -> do
+                   putStrLn (showNVR nvr)
+                   putStrLn ""
+                   kojiGetBuildRPMs huburl nvr >>=
+                     mapM_ putStrLn . sort . filter (not . debugPkg)
+                 _ -> mapM_ (putStrLn . showNVR) nvrs
+        return []
         else
         case nvrs of
           [] -> error' $ pkgbld ++ " not found for " ++ disttag
           [nvr] -> do
-            putStrLn $ nvr ++ "\n"
-            allRpms <- map (<.> "rpm") . sort . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
-            when debug $ print allRpms
-            dlRpms <- decideRpms yes listmode reinstall mode (maybeNVRName nvr) allRpms
-            when debug $ print dlRpms
+            putStrLn $ showNVR nvr ++ "\n"
+            nvras <- sort . map readNVRA . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
+            when debug $ mapM_ (putStrLn . showNVRA) nvras
+            dlRpms <- decideRpms yes listmode noreinstall mode (nvrName nvr) nvras
+            when debug $ mapM_ printInstalled dlRpms
             unless (dryrun || null dlRpms) $ do
-              downloadRpms debug (buildURL (readNVR nvr)) dlRpms
+              downloadRpms debug (buildURL nvr) dlRpms
               -- FIXME once we check file size - can skip if no downloads
-              putStrLn $ "Packages downloaded to " ++ dlDir
+              printDlDir
             return dlRpms
           _ -> error $ "multiple build founds for " ++ pkgbld ++ ": " ++
-               unwords nvrs
+               unwords (map showNVR nvrs)
         where
           buildURL :: NVR -> String -> String
           buildURL (NVR n (VerRel v r)) rpm =
@@ -116,8 +121,8 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest reinstall mode dist
           debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
 
 kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool -> Mode
-             -> String -> String -> IO [String]
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode reinstall mode dlDir task = do
+             -> IO () -> String -> IO [(Existence,NVRA)]
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir task = do
   let taskid = read task
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
@@ -139,26 +144,26 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode reinstall mode dlDir task 
             case lookupStruct "id" task' of
               Nothing -> error' "task id not found"
               Just tid -> tid
-  rpms <- getTaskRPMs archtid
+  nvras <- map readNVRA <$> getTaskRPMs archtid
+  let srpm =
+        case filter ((== "src") . rpmArch) nvras of
+          [src] -> src
+          _ -> error' "could not determine nvr from any srpm"
+      nvr = dropArch srpm
   if listmode
-    then decideRpms yes listmode reinstall mode Nothing rpms
+    then decideRpms yes listmode noreinstall mode (nvrName nvr) nvras
     else
-    if null rpms
+    if null nvras
     then do
-      kojiTaskRPMs dryrun debug yes huburl pkgsurl True reinstall mode dlDir task >>= mapM_ putStrLn
+      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mode printDlDir task >>= mapM_ printInstalled
       return []
     else do
-      when debug $ print rpms
-      let srpm =
-            case filter (".src.rpm" `isExtensionOf`) rpms of
-              [src] -> src
-              _ -> error' "could not determine nvr from any srpm"
-          nvr = dropSuffix ".src.rpm" srpm
-      dlRpms <- decideRpms yes listmode reinstall mode (maybeNVRName nvr) $ rpms \\ [srpm]
-      when debug $ print dlRpms
+      when debug $ print $ map showNVRA nvras
+      dlRpms <- decideRpms yes listmode noreinstall mode (nvrName nvr) $ nvras \\ [srpm]
+      when debug $ mapM_ printInstalled dlRpms
       unless (dryrun || null dlRpms) $ do
         downloadRpms debug (taskRPMURL task) dlRpms
-        putStrLn $ "Packages downloaded to " ++ dlDir
+        printDlDir
       return dlRpms
   where
     getTaskRPMs :: Int -> IO [String]
@@ -173,69 +178,70 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode reinstall mode dlDir task 
               if null few then "0" else few
       in dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ taskid +/+ rpm
 
-maybeNVRName :: String -> Maybe String
-maybeNVRName = fmap nvrName . maybeNVR
+data Existence = NotInstalled | NVRInstalled | NVRChanged
+  deriving (Eq, Ord, Show)
 
-decideRpms :: Yes -> Bool -> Bool -> Mode -> Maybe String -> [String] -> IO [String]
-decideRpms yes listmode reinstall mode mbase allRpms =
-  case mode of
-    All -> return allRpms
-    Ask -> if listmode
-           then error' "cannot use --list and --ask together"
-           else mapMaybeM rpmPrompt allRpms
-    PkgsReq [] [] ->
-      if listmode
-      then
-        -- FIXME mark already installed packages
-        return allRpms
-      else do
-      rpms <- filterM (isInstalled reinstall . dropExtension) $
-              filter isBinaryRpm allRpms
-      if null rpms && yes /= Yes
-        then decideRpms yes listmode reinstall Ask mbase allRpms
-        else do
-        if yes == Yes
-          then return rpms
+decideRpms :: Yes -> Bool -> Bool -> Mode -> String -> [NVRA]
+           -> IO [(Existence,NVRA)]
+decideRpms yes listmode noreinstall mode base nvras = do
+  classified <- mapM installExists (filter isBinaryRpm nvras)
+  if listmode
+    then mapM_ printInstalled classified >> return []
+    else
+    case mode of
+      All -> return classified
+      Ask -> mapMaybeM rpmPrompt classified
+      PkgsReq [] [] ->
+        if all ((== NotInstalled) . fst) classified && yes /= Yes
+        then decideRpms yes listmode noreinstall Ask base nvras
+        else
+          let install = filter ((/= NotInstalled) . fst) classified
+          in if yes == Yes
+          then return install
           else do
-          mapM_ putStrLn rpms
-          if listmode
-            then return []
-            else do
-            ok <- isJust <$> rpmPrompt "install all"
-            return $ if ok then rpms else []
-    PkgsReq subpkgs exclpkgs ->
-      return $ selectRPMs mbase (subpkgs,exclpkgs) allRpms
+            mapM_ printInstalled install
+            ok <- prompt "install above"
+            return $ if ok then install else []
+      PkgsReq subpkgs exclpkgs ->
+        return $ selectRPMs base (subpkgs,exclpkgs) classified
+  where
+    installExists :: NVRA -> IO (Existence, NVRA)
+    installExists nvra = do
+      minstalled <- cmdMaybe "rpm" ["-q", rpmName nvra]
+      return
+        (case minstalled of
+           Nothing -> NotInstalled
+           Just installed ->
+             if installed == showNVRA nvra then NVRInstalled else NVRChanged,
+         nvra)
 
-isInstalled :: Bool -> String -> IO Bool
-isInstalled reinstall rpm =
-  if reinstall
-  then cmdBool "rpm" ["--quiet", "-q", rpm]
-  else do
-    minstalled <- cmdMaybe "rpm" ["-q", nvraName rpm]
-    case minstalled of
-      Nothing -> return False
-      Just installed -> return $ installed /= rpm
+renderInstalled :: (Existence, NVRA) -> String
+renderInstalled (exist, nvra) = showNVRA nvra ++ " (" ++ show exist ++ ")"
 
-selectRPMs :: Maybe String -> ([String],[String])  -> [String] -> [String]
-selectRPMs mbase (subpkgs,[]) rpms =
+printInstalled :: (Existence, NVRA) -> IO ()
+printInstalled = putStrLn . renderInstalled
+
+selectRPMs :: String -> ([String],[String]) -> [(Existence,NVRA)]
+           -> [(Existence,NVRA)]
+selectRPMs base (subpkgs,[]) rpms =
   sort . mconcat $
   flip map subpkgs $ \ pkgpat ->
-  case filter (match (compile pkgpat) . nvraName) rpms of
-    [] -> case mbase of
-      Just base | head pkgpat /= '*' ->
-                  selectRPMs Nothing ([base ++ '-' : pkgpat],[]) rpms
-      _ -> error' $ "no subpackage match for " ++ pkgpat
+  case filter (match (compile pkgpat) . rpmName . snd) rpms of
+    [] -> if head pkgpat /= '*'
+          then selectRPMs base ([base ++ '-' : pkgpat],[]) rpms
+          else error' $ "no subpackage match for " ++ pkgpat
     result -> result
-selectRPMs mbase ([], subpkgs) rpms =
+selectRPMs base ([], subpkgs) rpms =
   -- FIXME somehow determine unused excludes
   foldl' (exclude subpkgs) [] rpms
   where
-    rpmnames = map nvraName rpms
+    rpmnames = map (rpmName . snd) rpms
 
-    exclude :: [String] -> [String] -> String -> [String]
+    exclude :: [String] -> [(Existence,NVRA)] -> (Existence,NVRA)
+            -> [(Existence,NVRA)]
     exclude [] acc rpm = acc ++ [rpm]
     exclude (pat:pats) acc rpm =
-        if checkMatch (nvraName rpm)
+        if checkMatch (rpmName (snd rpm))
         then acc
         else exclude pats acc rpm
       where
@@ -245,25 +251,30 @@ selectRPMs mbase ([], subpkgs) rpms =
           in if isLiteral comppat
              then pat == rpmname ||
                   pat `notElem` rpmnames &&
-                  maybe False (\b -> (b ++ '-' : pat) == rpmname) mbase
+                  (base ++ '-' : pat) == rpmname
              else match comppat rpmname
-selectRPMs mbase (subpkgs,exclpkgs) rpms =
-  let needed = selectRPMs mbase (subpkgs,[]) rpms
-      excluded = selectRPMs mbase ([], exclpkgs) rpms
+selectRPMs base (subpkgs,exclpkgs) rpms =
+  let needed = selectRPMs base (subpkgs,[]) rpms
+      excluded = selectRPMs base ([], exclpkgs) rpms
   in nub . sort $ needed ++ excluded
 
-nvraName :: String -> String
-nvraName = rpmName . readNVRA
-
-rpmPrompt :: String -> IO (Maybe String)
-rpmPrompt rpm = do
-  putStr $ rpm ++ " [y/n]: "
+prompt :: String -> IO Bool
+prompt str = do
+  putStr $ str ++ " [y/n]: "
   c <- getChar
-  putStrLn ""
+  unless (c == '\n') $ putStrLn ""
   case toLower c of
-    'y' -> return $ Just rpm
-    'n' -> return Nothing
-    _ -> rpmPrompt rpm
+    'y' -> return True
+    'n' -> return False
+    _ -> prompt str
+
+rpmPrompt :: (Existence,NVRA) -> IO (Maybe (Existence,NVRA))
+rpmPrompt (exist,nvra) = do
+  ok <- prompt $ renderInstalled (exist,nvra)
+  return $
+    if ok
+    then Just (exist,nvra)
+    else Nothing
 
 kojiBuildOSBuilds :: Bool -> String -> Bool -> Bool -> String -> Request
                   -> String -> IO [String]
@@ -316,11 +327,11 @@ packageOfPattern request pat =
       case readNVR pat of
         NVR n _ -> (n, True)
 
-kojiGetBuildRPMs :: String -> String -> IO [String]
+kojiGetBuildRPMs :: String -> NVR -> IO [String]
 kojiGetBuildRPMs huburl nvr = do
-  mbid <- kojiGetBuildID huburl nvr
+  mbid <- kojiGetBuildID huburl (showNVR nvr)
   case mbid of
-    Nothing -> error $ "Build id not found for " ++ nvr
+    Nothing -> error $ "Build id not found for " ++ showNVR nvr
     Just (BuildId bid) -> do
       rpms <- Koji.listBuildRPMs huburl bid
       sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
@@ -330,7 +341,7 @@ kojiGetBuildRPMs huburl nvr = do
      forArch sysarch st =
        case lookupStruct "arch" st of
          Just arch -> arch `elem` [sysarch, "noarch"]
-         Nothing -> error $ "No arch found for rpm for: " ++ nvr
+         Nothing -> error $ "No arch found for rpm for: " ++ showNVR nvr
 
      getNVRA :: Struct -> String
      getNVRA st =
@@ -347,24 +358,39 @@ setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
-installRPMs :: Bool -> Bool -> Yes -> [FilePath] -> IO ()
-installRPMs _ _ _ [] = return ()
-installRPMs dryrun reinstall yes rpms = do
-  installed <- filterM (isInstalled reinstall . dropExtension) rpms
-  unless (null installed) $
-    if dryrun
-    then mapM_ putStrLn $ "would update:" : installed
-    else sudo_ "dnf" $ "reinstall" : installed ++ ["--assumeyes" | yes == Yes]
-  let rest = rpms \\ installed
-  unless (null rest) $
-    if dryrun
-    then mapM_ putStrLn $ "would install:" : rest
-    else sudo_ "dnf" $ "localinstall" : rest ++ ["--assumeyes" | yes == Yes]
+-- data Classify = ChangeNVR | SameNVR
+--   deriving (Eq, Ord)
 
-downloadRpms :: Bool -> (String -> String) -> [String] -> IO ()
+installRPMs :: Bool -> Bool -> Yes -> [(Existence,NVRA)] -> IO ()
+installRPMs _ _ _ [] = return ()
+installRPMs dryrun noreinstall yes classified = do
+  forM_ (groupSort classified) $ \(cl,pkgs) ->
+    unless (null pkgs) $
+    let mdnfcmd =
+          case cl of
+            NVRInstalled -> if noreinstall then Nothing else Just "reinstall"
+            _ -> Just "localinstall"
+    in whenJust mdnfcmd $ \dnfcmd ->
+      if dryrun
+      then mapM_ putStrLn $ ("would " ++ dnfcmd ++ ":") : map showNVRA pkgs
+      else sudo_ "dnf" $ dnfcmd : map showNVRA pkgs ++ ["--assumeyes" | yes == Yes]
+--  where
+    -- classifyInstall :: String -> IO (Classify,String)
+    -- classifyInstall rpm = do
+    --   minstalled <- cmdMaybe "rpm" ["-q", nvraName rpm]
+    --   case minstalled of
+    --       Nothing -> return (ChangeNVR,rpm)
+    --       Just installed -> return
+    --         (if installed == rpm
+    --          then SameNVR
+    --          else ChangeNVR,
+    --          rpm)
+
+downloadRpms :: Bool -> (String -> String) -> [(Existence,NVRA)] -> IO ()
 downloadRpms debug urlOf rpms = do
   urls <- fmap catMaybes <$>
-    forM rpms $ \rpm -> do
+    forM (map snd rpms) $ \nvra -> do
+    let rpm = showNVRA nvra <.> "rpm"
     exists <- doesFileExist rpm
     let url = urlOf rpm
     notfile <-
@@ -415,9 +441,8 @@ downloadRpms debug urlOf rpms = do
 --   taskid <- lookupStruct "id" struct
 --   return $ arch ++ replicate (8 - length arch) ' ' +-+ show (taskid :: Int) +-+ method +-+ show state
 
-isBinaryRpm :: FilePath -> Bool
-isBinaryRpm file =
-  ".rpm" `isExtensionOf` file && not (".src.rpm" `isExtensionOf` file)
+isBinaryRpm :: NVRA -> Bool
+isBinaryRpm = (/= "src") . rpmArch
 
 #if !MIN_VERSION_filepath(1,4,2)
 isExtensionOf :: String -> FilePath -> Bool
