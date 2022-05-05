@@ -29,14 +29,14 @@ import Data.Maybe
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
 #endif
+import Data.RPM.NVR
 import Data.Text (Text)
 import qualified Data.Text as T
-
 import Distribution.Koji
-
 import SimpleCmd
+import System.FilePath ((</>))
 
-import System.FilePath (takeBaseName, (</>))
+import Utils
 
 progressCmd :: Bool -> Int -> Bool -> [TaskID] -> IO ()
 progressCmd debug waitdelay modules tids = do
@@ -103,13 +103,8 @@ loopBuildTasks debug waitdelay bts = do
         ((task,_):_) -> do
           putStrLn ""
           when debug $ print task
-          let request = lookupStruct "request" task :: Maybe [Value]
-          when debug $ print request
-          let mnvr = case request of
-                       Just (srpm:_) ->
-                         takeBaseName . takeBaseName <$> getString srpm
-                       _ -> Nothing
-          logMsg $ fromMaybe "<unknown>" mnvr ++ " (" ++ displayID tid ++ ")"
+          let mnvr = kojiTaskRequestNVR task
+          logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ")"
           sizes <- mapM buildlogSize tasks
           printLogSizes waitdelay sizes
           let news = map (\(t,(s,_)) -> (t,s)) sizes

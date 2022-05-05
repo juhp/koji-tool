@@ -37,6 +37,7 @@ import Text.Pretty.Simple
 import Common
 import Time
 import User
+import Utils
 
 data TaskReq = Task Int | Parent Int | Build String | Package String
              | TaskQuery | Pattern String
@@ -174,23 +175,10 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       taskid <- lookupStruct "id" st
       method <- lookupStruct "method" st
       state <- getTaskState st
-      request <- lookupStruct "request" st
-      let package =
-            case (getString . head) request of
-              Nothing -> Left $ unwords $ map showValue $ take 2 request
-              Just req ->
-                let file = takeFileName req
-                in if ".src.rpm" `isSuffixOf` file
-                   then Right $ readNVR $ removeSuffix ".src.rpm" file
-                   else Left $ takeBaseName file
+      let pkgnvr = kojiTaskRequestPkgNVR st
           mparent' = lookupStruct "parent" st :: Maybe Int
       return $
-        TaskResult package arch method state mparent' taskid mstart_time mend_time
-      where
-        showValue :: Value -> String
-        showValue (ValueString cs) = cs
-        showValue (ValueInt i) = show i
-        showValue val = show val
+        TaskResult pkgnvr arch method state mparent' taskid mstart_time mend_time
 
     filterResults :: [TaskResult] -> [TaskResult]
     filterResults ts =

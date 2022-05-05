@@ -15,7 +15,9 @@ import Control.Monad.Extra
 import Data.Char
 import Data.List.Extra
 import Data.Maybe
-import Data.RPM
+import Data.RPM.NV hiding (name)
+import Data.RPM.NVR
+import Data.RPM.NVRA
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
 import Network.HTTP.Directory (httpFileSize', httpLastModified', (+/+))
@@ -24,9 +26,11 @@ import System.Directory
 import System.FilePath
 import System.FilePath.Glob
 import System.IO
+import Text.Read (readMaybe)
 
 import Common
 import DownloadDir
+import Utils
 
 defaultPkgsURL :: String -> String
 defaultPkgsURL url =
@@ -74,9 +78,9 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode di
   where
     kojiRPMs :: String -> String -> IO () -> String -> IO [(Existence,NVRA)]
     kojiRPMs huburl pkgsurl printDlDir bldtask =
-      if all isDigit bldtask
-      then kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir bldtask
-      else kojiBuildRPMs huburl pkgsurl printDlDir bldtask
+      case readMaybe bldtask of
+        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir taskid
+        Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
     kojiBuildRPMs :: String -> String -> IO () -> String
                   -> IO [(Existence,NVRA)]
@@ -91,7 +95,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode di
                    putStrLn (showNVR nvr)
                    putStrLn ""
                    kojiGetBuildRPMs huburl nvr >>=
-                     mapM_ putStrLn . sort . filter (not . debugPkg)
+                     mapM_ putStrLn . sort . filter notDebugPkg
                  _ -> mapM_ (putStrLn . showNVR) nvrs
         return []
         else
@@ -99,7 +103,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode di
           [] -> error' $ pkgbld ++ " not found for " ++ disttag
           [nvr] -> do
             putStrLn $ showNVR nvr ++ "\n"
-            nvras <- sort . map readNVRA . filter (not . debugPkg) <$> kojiGetBuildRPMs huburl nvr
+            nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr
             when debug $ mapM_ (putStrLn . showNVRA) nvras
             dlRpms <- decideRpms yes listmode noreinstall mode (nvrName nvr) nvras
             when debug $ mapM_ printInstalled dlRpms
@@ -116,66 +120,70 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode di
              let arch = rpmArch (readNVRA rpm)
              in pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
 
-          debugPkg :: String -> Bool
-          debugPkg p = "-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p
+notDebugPkg :: String -> Bool
+notDebugPkg p =
+  not ("-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p)
 
 kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool -> Mode
-             -> IO () -> String -> IO [(Existence,NVRA)]
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir task = do
-  let taskid = read task
+             -> IO () -> Int -> IO [(Existence,NVRA)]
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
             Just taskinfo -> do
               when debug $ mapM_ print taskinfo
               case lookupStruct "method" taskinfo :: Maybe String of
-                Nothing -> error' $ "no method found for " ++ task
+                Nothing -> error' $ "no method found for " ++ show taskid
                 Just method ->
                   case method of
                     "build" -> Koji.getTaskChildren huburl taskid False
                     "buildArch" -> return [taskinfo]
                     _ -> error' $ "unsupport method: " ++ method
   sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
-  let archtid =
+  let (archtid,archtask) =
         case find (\t -> lookupStruct "arch" t == Just sysarch) tasks of
           Nothing -> error' $ "no " ++ sysarch ++ " task found"
           Just task' ->
             case lookupStruct "id" task' of
               Nothing -> error' "task id not found"
-              Just tid -> tid
-  nvras <- map readNVRA <$> getTaskRPMs archtid
-  let srpm =
-        case filter ((== "src") . rpmArch) nvras of
-          [src] -> src
-          _ -> error' "could not determine nvr from any srpm"
-      nvr = dropArch srpm
+              Just tid -> (tid,task')
+  nvras <- getTaskNVRAs archtid
+  name <- case find ((== "src") . rpmArch) nvras of
+               Just src -> return $ rpmName src
+               Nothing ->
+                 return $
+                 either id nvrName $
+                 kojiTaskRequestPkgNVR $
+                 fromMaybe archtask mtaskinfo
   if listmode
-    then decideRpms yes listmode noreinstall mode (nvrName nvr) nvras
+    then decideRpms yes listmode noreinstall mode name nvras
     else
     if null nvras
     then do
-      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mode printDlDir task >>= mapM_ printInstalled
+      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mode printDlDir archtid >>= mapM_ printInstalled
       return []
     else do
       when debug $ print $ map showNVRA nvras
-      dlRpms <- decideRpms yes listmode noreinstall mode (nvrName nvr) $ nvras \\ [srpm]
+      dlRpms <- decideRpms yes listmode noreinstall mode name $
+                filter ((/= "src") . rpmArch) nvras
       when debug $ mapM_ printInstalled dlRpms
       unless (dryrun || null dlRpms) $ do
-        downloadRpms debug (taskRPMURL task) dlRpms
+        downloadRpms debug (taskRPMURL archtid) dlRpms
         printDlDir
       return dlRpms
   where
-    getTaskRPMs :: Int -> IO [String]
-    getTaskRPMs taskid =
-       sort . filter (".rpm" `isExtensionOf`) . map fst <$>
-       Koji.listTaskOutput huburl taskid False True False
+    getTaskNVRAs :: Int -> IO [NVRA]
+    getTaskNVRAs taskid' =
+      sort . map readNVRA . filter notDebugPkg . filter (".rpm" `isExtensionOf`) . map fst <$>
+      -- FIXME get stats to show size
+      Koji.listTaskOutput huburl taskid' False True False
 
-    taskRPMURL :: String -> String -> String
-    taskRPMURL taskid rpm =
+    taskRPMURL :: Int -> String -> String
+    taskRPMURL taskid' rpm =
       let lastFew =
-            let few = dropWhile (== '0') $ takeEnd 4 taskid in
+            let few = dropWhile (== '0') $ takeEnd 4 (show taskid') in
               if null few then "0" else few
-      in dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ taskid +/+ rpm
+      in dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ show taskid' +/+ rpm
 
 data Existence = NotInstalled | NVRInstalled | NVRChanged
   deriving (Eq, Ord, Show)

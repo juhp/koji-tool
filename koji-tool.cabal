@@ -41,6 +41,7 @@ executable koji-tool
                        Tasks
                        Time
                        User
+                       Utils
   hs-source-dirs:      src
   build-depends:       base < 5,
                        directory,
