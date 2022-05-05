@@ -376,14 +376,17 @@ installRPMs dryrun noreinstall yes classified = do
             _ -> Just "localinstall"
     in whenJust mdnfcmd $ \dnfcmd ->
       if dryrun
-      then mapM_ putStrLn $ ("would " ++ dnfcmd ++ ":") : map showNVRA pkgs
-      else sudo_ "dnf" $ dnfcmd : map showNVRA pkgs ++ ["--assumeyes" | yes == Yes]
+      then mapM_ putStrLn $ ("would " ++ dnfcmd ++ ":") : map showRpmFile pkgs
+      else sudo_ "dnf" $ dnfcmd : map showRpmFile pkgs ++ ["--assumeyes" | yes == Yes]
+
+showRpmFile :: NVRA -> FilePath
+showRpmFile nvra = showNVRA nvra <.> "rpm"
 
 downloadRpms :: Bool -> (String -> String) -> [(Existence,NVRA)] -> IO ()
 downloadRpms debug urlOf rpms = do
   urls <- fmap catMaybes <$>
     forM (map snd rpms) $ \nvra -> do
-    let rpm = showNVRA nvra <.> "rpm"
+    let rpm = showRpmFile nvra
     exists <- doesFileExist rpm
     let url = urlOf rpm
     notfile <-
