@@ -4,6 +4,7 @@
 
 module Main (main) where
 
+import Data.Char (isDigit)
 import Data.List.Extra
 import SimpleCmd
 import SimpleCmdArgs
@@ -69,11 +70,9 @@ main = do
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
-      <*> (Task <$> optionWith auto 't' "task" "TASKID" "Show task"
-           <|> Parent <$> optionWith auto 'c' "children" "TASKID" "List child tasks of parent"
-           <|> Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
+      <*> (Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
            <|> Pattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Build tasks of matching pattern"
-           <|> Package <$> strArg "PACKAGE"
+           <|> argumentWith (maybeReader readTaskReq) "PACKAGE|TASKID"
            <|> pure TaskQuery)
 
     , Subcommand "install"
@@ -141,3 +140,7 @@ main = do
       case elemIndex (lower m) (map lower kojiBuildTypes) of
         Just i -> kojiBuildTypes !! i
         Nothing -> error' $! "unknown build type: " ++ m
+
+    readTaskReq :: String -> Maybe TaskReq
+    readTaskReq cs =
+      Just $ if all isDigit cs then Task (read cs) else Package cs
