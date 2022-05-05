@@ -74,7 +74,11 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       mtask <- kojiGetTaskInfo server (TaskId taskid)
       whenJust mtask$ \task -> do
         when debug $ pPrintCompact task
-        whenJust (maybeTaskResult task) $ printTask True tz
+        whenJust (maybeTaskResult task) $ \res -> do
+          let hasparent = isJust $ mtaskParent res
+          printTask hasparent tz res
+          unless hasparent $
+            tasksCmd (Just server) museropt limit states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --build together with timedate or filter"
@@ -263,7 +267,7 @@ data TaskResult =
               _taskArch :: String,
               _taskMethod :: String,
               _taskState :: TaskState,
-              _mtaskParent :: Maybe Int,
+              mtaskParent :: Maybe Int,
               taskId :: Int,
               _mtaskStartTime :: Maybe UTCTime,
               mtaskEndTime :: Maybe UTCTime
