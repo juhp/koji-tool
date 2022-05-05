@@ -196,21 +196,27 @@ decideRpms yes listmode noreinstall mode base nvras = do
     then mapM_ printInstalled classified >> return []
     else
     case mode of
-      All -> return classified
-      Ask -> mapMaybeM rpmPrompt classified
+      All -> do
+        mapM_ printInstalled classified
+        ok <- prompt yes "install above"
+        return $ if ok then classified else []
+      Ask -> mapMaybeM (rpmPrompt yes) classified
       PkgsReq [] [] ->
         if all ((== NotInstalled) . fst) classified && yes /= Yes
         then decideRpms yes listmode noreinstall Ask base nvras
-        else
+        else do
           let install = filter ((/= NotInstalled) . fst) classified
-          in if yes == Yes
-          then return install
-          else do
+          if yes == Yes
+            then return install
+            else do
             mapM_ printInstalled install
-            ok <- prompt "install above"
+            ok <- prompt yes "install above"
             return $ if ok then install else []
-      PkgsReq subpkgs exclpkgs ->
-        return $ selectRPMs base (subpkgs,exclpkgs) classified
+      PkgsReq subpkgs exclpkgs -> do
+        let install = selectRPMs base (subpkgs,exclpkgs) classified
+        mapM_ printInstalled install
+        ok <- prompt yes "install above"
+        return $ if ok then install else []
   where
     installExists :: NVRA -> IO (Existence, NVRA)
     installExists nvra = do
@@ -265,19 +271,22 @@ selectRPMs base (subpkgs,exclpkgs) rpms =
       excluded = selectRPMs base ([], exclpkgs) rpms
   in nub . sort $ needed ++ excluded
 
-prompt :: String -> IO Bool
-prompt str = do
-  putStr $ str ++ " [y/n]: "
-  c <- getChar
-  unless (c == '\n') $ putStrLn ""
-  case toLower c of
-    'y' -> return True
-    'n' -> return False
-    _ -> prompt str
+prompt :: Yes -> String -> IO Bool
+prompt yes str = do
+  if yes == Yes
+    then return True
+    else do
+    putStr $ str ++ " [y/n]: "
+    c <- getChar
+    unless (c == '\n') $ putStrLn ""
+    case toLower c of
+      'y' -> return True
+      'n' -> return False
+      _ -> prompt yes str
 
-rpmPrompt :: (Existence,NVRA) -> IO (Maybe (Existence,NVRA))
-rpmPrompt (exist,nvra) = do
-  ok <- prompt $ renderInstalled (exist,nvra)
+rpmPrompt :: Yes -> (Existence,NVRA) -> IO (Maybe (Existence,NVRA))
+rpmPrompt yes (exist,nvra) = do
+  ok <- prompt yes $ renderInstalled (exist,nvra)
   return $
     if ok
     then Just (exist,nvra)

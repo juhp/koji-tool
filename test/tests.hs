@@ -13,7 +13,7 @@ program (c, argsv) =
 tests :: Bool -> [([String], [[String]])]
 tests havedist =
   [
-    (["install", "-n"],
+    (["install", "-n", "-y"],
      [["podman", "-p", "podman"] ++ sysdist
      ,["-l", "coreutils"] ++ sysdist
      ,["-l", "-R", "rpmlint-2.2.0-1.fc36"]
