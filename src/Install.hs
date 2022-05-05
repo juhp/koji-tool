@@ -66,7 +66,6 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode di
   when debug $ do
     putStrLn huburl
     putStrLn pkgsurl
-  -- FIXME use this location?
   printDlDir <- setDownloadDir dryrun "rpms"
   when debug printDlDir
   setNoBuffering
@@ -358,9 +357,6 @@ setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
--- data Classify = ChangeNVR | SameNVR
---   deriving (Eq, Ord)
-
 installRPMs :: Bool -> Bool -> Yes -> [(Existence,NVRA)] -> IO ()
 installRPMs _ _ _ [] = return ()
 installRPMs dryrun noreinstall yes classified = do
@@ -374,17 +370,6 @@ installRPMs dryrun noreinstall yes classified = do
       if dryrun
       then mapM_ putStrLn $ ("would " ++ dnfcmd ++ ":") : map showNVRA pkgs
       else sudo_ "dnf" $ dnfcmd : map showNVRA pkgs ++ ["--assumeyes" | yes == Yes]
---  where
-    -- classifyInstall :: String -> IO (Classify,String)
-    -- classifyInstall rpm = do
-    --   minstalled <- cmdMaybe "rpm" ["-q", nvraName rpm]
-    --   case minstalled of
-    --       Nothing -> return (ChangeNVR,rpm)
-    --       Just installed -> return
-    --         (if installed == rpm
-    --          then SameNVR
-    --          else ChangeNVR,
-    --          rpm)
 
 downloadRpms :: Bool -> (String -> String) -> [(Existence,NVRA)] -> IO ()
 downloadRpms debug urlOf rpms = do
