@@ -21,6 +21,8 @@ shows the last successful build with a url and other details.
 
 ## Commands
 ```shellsession
+$ koji-tool --version
+0.8.4
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -97,12 +99,12 @@ List latest build of a package:
 ```shellsession
 $ koji-tool builds --pattern redhat-rpm-config*.fc37 --latest
 
-redhat-rpm-config-214-1.fc37 BuildComplete
-https://koji.fedoraproject.org/koji/buildinfo?buildID=1915968
-https://koji.fedoraproject.org/koji/taskinfo?taskID=82638530
-Start: Thu Feb 10 23:45:28 +08 2022
-End:   Thu Feb 10 23:47:32 +08 2022
-duration: 0h 2m 4s
+redhat-rpm-config-218-1.fc37 BuildComplete
+https://koji.fedoraproject.org/koji/buildinfo?buildID=1963037
+https://koji.fedoraproject.org/koji/taskinfo?taskID=86677797
+Start: Thu May  5 19:02:33 +08 2022
+End:   Thu May  5 19:04:26 +08 2022
+duration: 0h 1m 53s
 ```
 
 ## koji-tool tasks
@@ -129,8 +131,8 @@ Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                        [-m|--method METHOD] [-d|--details] [-D|--debug]
                        [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)]
                        [-T|--tail]
-                       [(-t|--task TASKID) | (-c|--children TASKID) |
-                         (-b|--build BUILD) | (-p|--pattern NVRPAT) | PACKAGE]
+                       [(-b|--build BUILD) | (-p|--pattern NVRPAT) |
+                         PACKAGE|TASKID]
   Query Koji tasks (by default lists most recent buildArch tasks)
 
 Available options:
@@ -152,8 +154,6 @@ Available options:
   -P,--only-package PKG    Filter task results to specified package
   -N,--only-nvr PREFIX     Filter task results by NVR prefix
   -T,--tail                Fetch the tail of build.log
-  -t,--task TASKID         Show task
-  -c,--children TASKID     List child tasks of parent
   -b,--build BUILD         List child tasks of build
   -p,--pattern NVRPAT      Build tasks of matching pattern
   -h,--help                Show this help text
@@ -170,22 +170,23 @@ Show latest newRepo task:
 ```shellsession
 $ koji-tool tasks --method newrepo --latest
 
-f37-build-side-52128 newRepo TaskClosed
-https://koji.fedoraproject.org/koji/taskinfo?taskID=84527460
-Start: Tue Mar 22 08:11:46 +08 2022
-End:   Tue Mar 22 08:15:23 +08 2022
-duration: 0h 3m 37s
+eln-build newRepo TaskClosed
+https://koji.fedoraproject.org/koji/taskinfo?taskID=86821565
+Start: Mon May  9 11:53:53 +08 2022
+End:   Mon May  9 11:57:13 +08 2022
+duration: 0h 3m 20s
 ```
 
 List latest package build's tasks:
 ```shellsession
 $ koji-tool tasks --latest redhat-rpm-config
 
-redhat-rpm-config-214-1.eln114.noarch TaskClosed
-https://koji.fedoraproject.org/koji/taskinfo?taskID=82667980 (parent: 82667916)
-Start: Fri Feb 11 15:08:30 +08 2022
-End:   Fri Feb 11 15:10:09 +08 2022
-duration: 0h 1m 39s
+redhat-rpm-config-218-1.eln118.noarch TaskClosed
+https://koji.fedoraproject.org/koji/taskinfo?taskID=86685316 (parent: 86685296)
+Start: Fri May  6 00:11:10 +08 2022
+End:   Fri May  6 00:13:07 +08 2022
+duration: 0h 1m 57s
+https://kojipkgs.fedoraproject.org/work/tasks/5316/86685316/build.log (13kB)
 ```
 
 ## koji-tool install
@@ -234,7 +235,7 @@ but the following options change the behavior:
 $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
-                         [-r|--reinstall-nvrs]
+                         [-N|--no-reinstall]
                          [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
                            [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
                          [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
@@ -250,7 +251,7 @@ Available options:
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
   -l,--list                List builds
   -L,--latest              Latest build
-  -r,--reinstall-nvrs      Reinstall existing NVRs
+  -N,--no-reinstall        Do not reinstall existing NVRs
   -a,--all                 all subpackages
   -A,--ask                 ask for each subpackge [default if not installed]
   -p,--package SUBPKG      Subpackage (glob) to install

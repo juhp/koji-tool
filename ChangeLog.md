@@ -1,5 +1,13 @@
 # Version history of koji-tool
 
+# 0.8.4 (2022-05-09)
+- Install: completely rework logic using installed status and NVRA etc
+- install: '--no-reinstall' replaces '--reinstall-nvrs'
+- install: determine package name from child or parent task
+- Install: confirm for --all and --exclude, respecting --yes
+- tasks: parse taskid as arg and drop --task and --children
+- Tasks: print parent Task taskid compactly and then its children
+
 # 0.8.3 (2022-04-23)
 - 'latest': new cmd to list latest package build for tag
 - 'install': use --reinstall-nvrs to reinstall rpms for current nvr
