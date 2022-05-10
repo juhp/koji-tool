@@ -1,5 +1,9 @@
 # Version history of koji-tool
 
+# 0.8.5 (2022-05-10)
+- use rpm-nvr-0.1.2 for better NVR and NVRA parsing ensuring non-empty names
+- when parsing koji build request fields, detect git hash and fork builds
+
 # 0.8.4 (2022-05-09)
 - Install: completely rework logic using installed status and NVRA etc
 - install: '--no-reinstall' replaces '--reinstall-nvrs'
