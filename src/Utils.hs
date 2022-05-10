@@ -5,6 +5,7 @@ module Utils (
   )
 where
 
+import Data.List (isInfixOf, isPrefixOf)
 import Data.RPM (dropArch)
 import Data.RPM.NVR
 import Data.RPM.NVRA
@@ -29,8 +30,13 @@ kojiTaskRequestPkgNVR task =
         Nothing -> Left $ unwords $ map showValue $ take 2 req
         Just src ->
           case maybeNVRA src of
-            Just nvra -> Right $ dropArch nvra
-            Nothing -> Left $ takeBaseName src
+            Just nvra | not (".git#" `isInfixOf` src) ->
+                        Right $ dropArch nvra
+            _ -> let base = takeBaseName src in
+                   Left $
+                   if "fedora-ci_" `isPrefixOf` base
+                   then tail $ dropWhile (/= ';') base
+                   else base
     _ -> error' "could determine package from build request"
 
 showValue :: Value -> String
