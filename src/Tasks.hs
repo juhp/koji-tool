@@ -236,7 +236,7 @@ formatTaskResult mtime tz (TaskResult pkg arch method state mparent taskid mstar
   , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
   [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start) | Just start <- [mstart]] ++
   [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | Just end <- [mend]]
-#if MIN_VERSION_time(1,9,1)
+#if MIN_VERSION_time(1,8,0)
       ++
     case mtime of
       Just now ->

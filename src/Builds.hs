@@ -183,7 +183,7 @@ formatBuildResult server ended tz (BuildResult nvr state buildid mtaskid start m
     Nothing -> []
     Just end ->
       [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | ended]
-#if MIN_VERSION_time(1,9,1)
+#if MIN_VERSION_time(1,8,0)
       ++
       let dur = diffUTCTime end start
       in [(if not ended then "current " else "") ++ "duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur]
