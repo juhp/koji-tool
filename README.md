@@ -189,6 +189,17 @@ duration: 0h 1m 57s
 https://kojipkgs.fedoraproject.org/work/tasks/5316/86685316/build.log (13kB)
 ```
 
+## koji-tool quick
+This provides shortcuts to a few select common searches
+
+### Usage
+`koji-tool quick my builds` shows your 10 most recent koji builds (equivalent to `koji-tool builds --mine`)
+
+`koji-tool quick my last fail` shows your most recent task failure including the tail of the build.log (equivalent to `koji-tool tasks -MLT`).
+
+`koji-tool quick last build` shows the latest koji build (equivalent `koji-tool builds -L`).
+
+
 ## koji-tool install
 
 Download and install rpms from a Koji build or task.

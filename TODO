@@ -10,6 +10,9 @@
 - --exclude vs --except
 - tags
 - exclude garbage collected builds
+- common special cases (with large number of subpackages)
+  - eg install ghc -x '*prof' -x '*doc' -x compiler-default -x hadrian
+    - or install ghc -p '*-devel' -p compiler -p ghc
 
 # Queries
 - TUI
@@ -28,6 +31,7 @@
 
 # buildlog-sizes/progress
 - combine
+- cache final sizes
 
 # progress
 - accept task or build url
@@ -48,6 +52,3 @@
 - pick up user's new builds
 
 - screen mode inplace tui
-
-# quickCmd
-`quick my last build fail`

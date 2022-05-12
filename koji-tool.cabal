@@ -38,6 +38,7 @@ executable koji-tool
                        DownloadDir
                        Install
                        Progress
+                       Quick
                        Tasks
                        Time
                        User

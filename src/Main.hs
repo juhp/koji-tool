@@ -15,6 +15,7 @@ import User
 import Install
 import qualified Paths_koji_tool
 import Progress
+import Quick
 import Tasks
 
 main :: IO ()
@@ -103,6 +104,12 @@ main = do
 
     , Subcommand "buildlog-sizes" "Show buildlog sizes for nvr patterns" $
       buildlogSizesCmd <$> strArg "NVRPATTERN"
+
+    , Subcommand "quick"
+      "Simple common queries using words ('my', 'last', 'fail', 'complete', 'build')" $
+      quickCmd
+      <$> hubOpt
+      <*> some (strArg "PHRASE")
     ]
   where
     hubOpt = optional (strOptionWith 'H' "hub" "HUB"
