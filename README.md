@@ -12,7 +12,7 @@ By default Fedora Koji is used.
 A few illustrative examples:
 
 `koji-tool tasks --mine --latest --state fail --tail`:
-shows details of your last buildArch failure and the tail of the build.log.
+shows details of your last buildArch failure and the tail of the build.log (equivalently you can use `koji-tool quick my last fail`).
 
 `koji-tool install systemd`: will try to install or update to the newest rpm packages from koji.
 
@@ -22,7 +22,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.8.5
+0.8.6
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -42,6 +42,8 @@ Available commands:
   install                  Install rpm packages directly from a Koji build task
   progress                 Track running Koji tasks by buildlog size
   buildlog-sizes           Show buildlog sizes for nvr patterns
+  quick                    Simple common queries using words ('my', 'last',
+                           'fail', 'build')
 ```
 
 ## koji-tool builds
@@ -197,7 +199,7 @@ This provides shortcuts to a few select common searches
 
 `koji-tool quick my last fail` shows your most recent task failure including the tail of the build.log (equivalent to `koji-tool tasks -MLT`).
 
-`koji-tool quick last build` shows the latest koji build (equivalent `koji-tool builds -L`).
+`koji-tool quick last complete build` shows the latest completed koji build (equivalent to `koji-tool builds -L -s complete`).
 
 
 ## koji-tool install
@@ -241,12 +243,14 @@ but the following options change the behavior:
 
 `--ask`: ask about each subpackage
 
+`--prefix`: override the subpackage prefix
+
 ### Help
 ```shellsession
 $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
-                         [-N|--no-reinstall]
+                         [-N|--no-reinstall] [-b|--prefix SUBPKGPREFIX]
                          [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
                            [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
                          [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
@@ -263,6 +267,7 @@ Available options:
   -l,--list                List builds
   -L,--latest              Latest build
   -N,--no-reinstall        Do not reinstall existing NVRs
+  -b,--prefix SUBPKGPREFIX Prefix to use for subpackages [default: base package]
   -a,--all                 all subpackages
   -A,--ask                 ask for each subpackge [default if not installed]
   -p,--package SUBPKG      Subpackage (glob) to install

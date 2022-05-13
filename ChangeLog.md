@@ -1,5 +1,10 @@
 # Version history of koji-tool
 
+# 0.8.6 (2022-05-13)
+- new 'quick' command for a few limited common searchs
+- install: --prefix to set subpackage prefix if different to package basename
+- install: fix infinite loop when no match for subpackage glob
+
 # 0.8.5 (2022-05-10)
 - use rpm-nvr-0.1.2 for better NVR and NVRA parsing ensuring non-empty names
 - when parsing koji build request fields, detect git hash and fork builds
