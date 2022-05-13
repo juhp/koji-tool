@@ -63,8 +63,9 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME --debuginfo
 -- FIXME --delete after installing
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Mode -> String -> Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode disttag request pkgbldtsks = do
+           -> Bool -> Bool -> Maybe String -> Mode -> String -> Request
+           -> [String] -> IO ()
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mprefix mode disttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -79,7 +80,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode di
     kojiRPMs :: String -> String -> IO () -> String -> IO [(Existence,NVRA)]
     kojiRPMs huburl pkgsurl printDlDir bldtask =
       case readMaybe bldtask of
-        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir taskid
+        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix mode printDlDir taskid
         Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
     kojiBuildRPMs :: String -> String -> IO () -> String
@@ -105,7 +106,8 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mode di
             putStrLn $ showNVR nvr ++ "\n"
             nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr
             when debug $ mapM_ (putStrLn . showNVRA) nvras
-            dlRpms <- decideRpms yes listmode noreinstall mode (nvrName nvr) nvras
+            let prefix = fromMaybe (nvrName nvr) mprefix
+            dlRpms <- decideRpms yes listmode noreinstall mode prefix nvras
             when debug $ mapM_ printInstalled dlRpms
             unless (dryrun || null dlRpms) $ do
               downloadRpms debug (buildURL nvr) dlRpms
@@ -124,9 +126,9 @@ notDebugPkg :: String -> Bool
 notDebugPkg p =
   not ("-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p)
 
-kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool -> Mode
-             -> IO () -> Int -> IO [(Existence,NVRA)]
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDir taskid = do
+kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool
+             -> Maybe String -> Mode -> IO () -> Int -> IO [(Existence,NVRA)]
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix mode printDlDir taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
@@ -148,23 +150,26 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mode printDlDi
               Nothing -> error' "task id not found"
               Just tid -> (tid,task')
   nvras <- getTaskNVRAs archtid
-  name <- case find ((== "src") . rpmArch) nvras of
-               Just src -> return $ rpmName src
-               Nothing ->
-                 return $
-                 either id nvrName $
-                 kojiTaskRequestPkgNVR $
-                 fromMaybe archtask mtaskinfo
+  prefix <- case mprefix of
+              Just pref -> return pref
+              Nothing ->
+                case find ((== "src") . rpmArch) nvras of
+                  Just src -> return $ rpmName src
+                  Nothing ->
+                    return $
+                    either id nvrName $
+                    kojiTaskRequestPkgNVR $
+                    fromMaybe archtask mtaskinfo
   if listmode
-    then decideRpms yes listmode noreinstall mode name nvras
+    then decideRpms yes listmode noreinstall mode prefix nvras
     else
     if null nvras
     then do
-      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mode printDlDir archtid >>= mapM_ printInstalled
+      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mprefix mode printDlDir archtid >>= mapM_ printInstalled
       return []
     else do
       when debug $ print $ map showNVRA nvras
-      dlRpms <- decideRpms yes listmode noreinstall mode name $
+      dlRpms <- decideRpms yes listmode noreinstall mode prefix $
                 filter ((/= "src") . rpmArch) nvras
       when debug $ mapM_ printInstalled dlRpms
       unless (dryrun || null dlRpms) $ do
@@ -190,7 +195,7 @@ data Existence = NotInstalled | NVRInstalled | NVRChanged
 
 decideRpms :: Yes -> Bool -> Bool -> Mode -> String -> [NVRA]
            -> IO [(Existence,NVRA)]
-decideRpms yes listmode noreinstall mode base nvras = do
+decideRpms yes listmode noreinstall mode prefix nvras = do
   classified <- mapM installExists (filter isBinaryRpm nvras)
   if listmode
     then mapM_ printInstalled classified >> return []
@@ -203,7 +208,7 @@ decideRpms yes listmode noreinstall mode base nvras = do
       Ask -> mapMaybeM (rpmPrompt yes) classified
       PkgsReq [] [] ->
         if all ((== NotInstalled) . fst) classified && yes /= Yes
-        then decideRpms yes listmode noreinstall Ask base nvras
+        then decideRpms yes listmode noreinstall Ask prefix nvras
         else do
           let install = filter ((/= NotInstalled) . fst) classified
           if yes == Yes
@@ -213,7 +218,7 @@ decideRpms yes listmode noreinstall mode base nvras = do
             ok <- prompt yes "install above"
             return $ if ok then install else []
       PkgsReq subpkgs exclpkgs -> do
-        let install = selectRPMs base (subpkgs,exclpkgs) classified
+        let install = selectRPMs prefix (subpkgs,exclpkgs) classified
         mapM_ printInstalled install
         ok <- prompt yes "install above"
         return $ if ok then install else []
@@ -236,15 +241,15 @@ printInstalled = putStrLn . renderInstalled
 
 selectRPMs :: String -> ([String],[String]) -> [(Existence,NVRA)]
            -> [(Existence,NVRA)]
-selectRPMs base (subpkgs,[]) rpms =
+selectRPMs prefix (subpkgs,[]) rpms =
   sort . mconcat $
   flip map subpkgs $ \ pkgpat ->
   case filter (match (compile pkgpat) . rpmName . snd) rpms of
     [] -> if head pkgpat /= '*'
-          then selectRPMs base ([base ++ '-' : pkgpat],[]) rpms
+          then selectRPMs prefix ([prefix ++ '-' : pkgpat],[]) rpms
           else error' $ "no subpackage match for " ++ pkgpat
     result -> result
-selectRPMs base ([], subpkgs) rpms =
+selectRPMs prefix ([], subpkgs) rpms =
   -- FIXME somehow determine unused excludes
   foldl' (exclude subpkgs) [] rpms
   where
@@ -264,11 +269,11 @@ selectRPMs base ([], subpkgs) rpms =
           in if isLiteral comppat
              then pat == rpmname ||
                   pat `notElem` rpmnames &&
-                  (base ++ '-' : pat) == rpmname
+                  (prefix ++ '-' : pat) == rpmname
              else match comppat rpmname
-selectRPMs base (subpkgs,exclpkgs) rpms =
-  let needed = selectRPMs base (subpkgs,[]) rpms
-      excluded = selectRPMs base ([], exclpkgs) rpms
+selectRPMs prefix (subpkgs,exclpkgs) rpms =
+  let needed = selectRPMs prefix (subpkgs,[]) rpms
+      excluded = selectRPMs prefix ([], exclpkgs) rpms
   in nub . sort $ needed ++ excluded
 
 prompt :: Yes -> String -> IO Bool

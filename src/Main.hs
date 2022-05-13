@@ -88,6 +88,7 @@ main = do
       <*> switchWith 'l' "list" "List builds"
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 'N' "no-reinstall" "Do not reinstall existing NVRs"
+      <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
       <*> modeOpt
       <*> disttagOpt sysdisttag
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name" <|>
