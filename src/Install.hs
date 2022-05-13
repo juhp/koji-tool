@@ -218,7 +218,7 @@ decideRpms yes listmode noreinstall mode prefix nvras = do
             ok <- prompt yes "install above"
             return $ if ok then install else []
       PkgsReq subpkgs exclpkgs -> do
-        let install = selectRPMs prefix (subpkgs,exclpkgs) classified
+        let install = selectRPMs False prefix (subpkgs,exclpkgs) classified
         mapM_ printInstalled install
         ok <- prompt yes "install above"
         return $ if ok then install else []
@@ -239,17 +239,17 @@ renderInstalled (exist, nvra) = showNVRA nvra ++ " (" ++ show exist ++ ")"
 printInstalled :: (Existence, NVRA) -> IO ()
 printInstalled = putStrLn . renderInstalled
 
-selectRPMs :: String -> ([String],[String]) -> [(Existence,NVRA)]
+selectRPMs :: Bool -> String -> ([String],[String]) -> [(Existence,NVRA)]
            -> [(Existence,NVRA)]
-selectRPMs prefix (subpkgs,[]) rpms =
+selectRPMs recurse prefix (subpkgs,[]) rpms =
   sort . mconcat $
   flip map subpkgs $ \ pkgpat ->
   case filter (match (compile pkgpat) . rpmName . snd) rpms of
-    [] -> if head pkgpat /= '*'
-          then selectRPMs prefix ([prefix ++ '-' : pkgpat],[]) rpms
+    [] -> if head pkgpat /= '*' && not recurse
+          then selectRPMs True prefix ([prefix ++ '-' : pkgpat],[]) rpms
           else error' $ "no subpackage match for " ++ pkgpat
     result -> result
-selectRPMs prefix ([], subpkgs) rpms =
+selectRPMs _ prefix ([], subpkgs) rpms =
   -- FIXME somehow determine unused excludes
   foldl' (exclude subpkgs) [] rpms
   where
@@ -271,9 +271,9 @@ selectRPMs prefix ([], subpkgs) rpms =
                   pat `notElem` rpmnames &&
                   (prefix ++ '-' : pat) == rpmname
              else match comppat rpmname
-selectRPMs prefix (subpkgs,exclpkgs) rpms =
-  let needed = selectRPMs prefix (subpkgs,[]) rpms
-      excluded = selectRPMs prefix ([], exclpkgs) rpms
+selectRPMs recurse prefix (subpkgs,exclpkgs) rpms =
+  let needed = selectRPMs recurse prefix (subpkgs,[]) rpms
+      excluded = selectRPMs recurse prefix ([], exclpkgs) rpms
   in nub . sort $ needed ++ excluded
 
 prompt :: Yes -> String -> IO Bool
