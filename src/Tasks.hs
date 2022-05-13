@@ -231,7 +231,13 @@ compactTaskResult tz (TaskResult pkg arch method state _mparent taskid mstart me
 
 -- FIXME show task owner
 formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
-formatTaskResult mtime tz (TaskResult pkg arch method state mparent taskid mstart mend) =
+formatTaskResult
+#if MIN_VERSION_time(1,9,1)
+  mtime
+#else
+  _mtime
+#endif
+  tz (TaskResult pkg arch method state mparent taskid mstart mend) =
   [ showPackage pkg ++ (if method == "buildArch" then '.' : arch else ' ' : method) +-+ show state
   , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
   [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start) | Just start <- [mstart]] ++
