@@ -1,15 +1,15 @@
 # Version history of koji-tool
 
-# 0.8.6 (2022-05-13)
+## 0.8.6 (2022-05-13)
 - new 'quick' command for a few limited common searchs
 - install: --prefix to set subpackage prefix if different to package basename
 - install: fix infinite loop when no match for subpackage glob
 
-# 0.8.5 (2022-05-10)
+## 0.8.5 (2022-05-10)
 - use rpm-nvr-0.1.2 for better NVR and NVRA parsing ensuring non-empty names
 - when parsing koji build request fields, detect git hash and fork builds
 
-# 0.8.4 (2022-05-09)
+## 0.8.4 (2022-05-09)
 - Install: completely rework logic using installed status and NVRA etc
 - install: '--no-reinstall' replaces '--reinstall-nvrs'
 - install: determine package name from child or parent task
@@ -17,23 +17,23 @@
 - tasks: parse taskid as arg and drop --task and --children
 - Tasks: print parent Task taskid compactly and then its children
 
-# 0.8.3 (2022-04-23)
+## 0.8.3 (2022-04-23)
 - 'latest': new cmd to list latest package build for tag
 - 'install': use --reinstall-nvrs to reinstall rpms for current nvr
 - 'install': now prompts before proceeding
 - 'install': handle build tasks by finding buildArch
 - 'install': --list now always lists rpms
 
-# 0.8.2 (2022-03-28)
+## 0.8.2 (2022-03-28)
 - use the formatting library for rendering aligned output
 
-# 0.8.1 (2022-03-21)
+## 0.8.1 (2022-03-21)
 - query results ordered by taskid or buildid for speed
 - 'builds', 'tasks': argument is now a package otherwise use --pattern (replaces --package)
 - 'install': add a --yes option to avoid questions (#2)
 - print archs appended with '.' prefix
 
-# 0.8 (2022-03-02)
+## 0.8 (2022-03-02)
 - rename 'query' to 'tasks'
 - 'tasks': new '--tail' option to fetch and display tail of build.log
   (shows root.log instead if build.log is too small)
@@ -47,14 +47,14 @@
 - 'tasks' and 'builds' have --details option otherwise output is compact
   (unless there is a single result)
 
-# 0.7 (2022-01-25)
+## 0.7 (2022-01-25)
 - query: new options: '--package' to search recent builds and '--latest'
 - query --method: now defaults to buildArch (use 'any' to include all)
 - query: now defaults to "--before now" (instead of "--from today 00:00")
 - query --arch: map i686 to i386 and armv7hl to armhfp
 - query: do not drop tasks without string request
 
-# 0.6.1 (2022-01-14)
+## 0.6.1 (2022-01-14)
 - install --list: now lists the rpms of a unique nvr
 - install --list: new --latest option which only finds the latest build
 - install --nv: now actually looks for N-V nor N-V-R
