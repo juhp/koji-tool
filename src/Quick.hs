@@ -33,6 +33,7 @@ allWords = concatMap quickWords [minBound..]
 
 -- FIXME: arch
 -- FIXME: method
+-- FIXME: mlt (or mlft)
 quickCmd :: Maybe String -> Bool -> [String] -> IO ()
 quickCmd _ _ [] = error' $ "quick handles these words:\n\n" ++
                   unlines

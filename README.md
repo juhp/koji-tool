@@ -22,7 +22,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.8.6
+0.8.7
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -42,8 +42,8 @@ Available commands:
   install                  Install rpm packages directly from a Koji build task
   progress                 Track running Koji tasks by buildlog size
   buildlog-sizes           Show buildlog sizes for nvr patterns
-  quick                    Simple common queries using words ('my', 'last',
-                           'fail', 'build')
+  quick                    Simple common queries using words
+                           ('my','last','fail','complete','current','build')
 ```
 
 ## koji-tool builds
@@ -197,10 +197,24 @@ This provides shortcuts to a few select common searches
 ### Usage
 `koji-tool quick my builds` shows your 10 most recent koji builds (equivalent to `koji-tool builds --mine`)
 
-`koji-tool quick my last fail` shows your most recent task failure including the tail of the build.log (equivalent to `koji-tool tasks -MLT`).
+`koji-tool quick my last fail` shows your most recent task failure including the tail of the build.log (equivalent to `koji-tool tasks -MLT -s fail`).
 
 `koji-tool quick last complete build` shows the latest completed koji build (equivalent to `koji-tool builds -L -s complete`).
 
+### Help
+```shellsession
+$ koji-tool quick
+koji-tool: quick handles these words:
+
+my mine
+last latest
+fail failure failed
+complete completed completion close closed finish finished
+current building open
+build builds
+PACKAGE
+USER's
+```
 
 ## koji-tool install
 
@@ -227,6 +241,12 @@ Use `--disttag` suffix to select a different Fedora version.
 $ koji-tool install TASKID --exclude "*-devel"
 ```
 will install all the non-devel subpackages from the task.
+
+A more complex example:
+```shellsession
+$ koji-tool install google-noto-fonts --prefix google-noto -p 'sans-*-vf-fonts' -x 'sans-*-ui-vf-fonts'
+```
+installs all the Google Noto Sans variable fonts excluding UI faces.
 
 One can use `--hub` to specify a different Koji hub build service.
 

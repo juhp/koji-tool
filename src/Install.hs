@@ -62,6 +62,7 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME --arch (including src)
 -- FIXME --debuginfo
 -- FIXME --delete after installing
+-- FIXME --dnf to install selected packages using default dnf repo instead
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
            -> Bool -> Bool -> Maybe String -> Mode -> String -> Request
            -> [String] -> IO ()

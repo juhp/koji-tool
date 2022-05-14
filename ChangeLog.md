@@ -1,5 +1,13 @@
 # Version history of koji-tool
 
+## 0.8.7 (2022-05-14)
+'quick' enhancements:
+- better help
+- support "current" state for ongoing jobs
+- --debug flag
+- an extra unknown word is now taken to be a package name
+- append "\'s" to a username to search for their build tasks
+
 ## 0.8.6 (2022-05-13)
 - new 'quick' command for a few limited common searchs
 - install: --prefix to set subpackage prefix if different to package basename
