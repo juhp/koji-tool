@@ -110,6 +110,7 @@ main = do
       "Simple common queries using words ('my', 'last', 'fail', 'complete', 'build')" $
       quickCmd
       <$> hubOpt
+      <*> switchWith 'D' "debug" "Debug output including XML results"
       <*> many (strArg "PHRASE")
     ]
   where

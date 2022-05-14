@@ -28,10 +28,14 @@ quickWords Current = ["current", "building", "open"]
 quickWords Build = ["build","builds"]
 
 -- Package to choose build
+-- FIXME: arch
+-- FIXME: method
+-- FIXME: user's
 -- handle some extra words?
-quickCmd :: Maybe String -> [String] -> IO ()
-quickCmd _ [] = error' $ "use these known words:\n\n" ++ unlines (map (unwords . quickWords) [minBound..])
-quickCmd mhub args = do
+-- FIXME: unknown words are just ignored (should be package?)
+quickCmd :: Maybe String -> Bool -> [String] -> IO ()
+quickCmd _ _ [] = error' $ "use these known words:\n\n" ++ unlines (map (unwords . quickWords) [minBound..])
+quickCmd mhub debug args = do
   let mine = if hasWord Mine then Just UserSelf else Nothing
       limit = if hasWord Limit then 1 else 10
       failure = hasWord Failure
@@ -42,11 +46,11 @@ quickCmd mhub args = do
     then
     let states = [BuildFailed|failure] ++ [BuildComplete|complete] ++
                  [BuildBuilding|current]
-    in Builds.buildsCmd mhub mine limit states Nothing (Just "rpm") False False Builds.BuildQuery
+    in Builds.buildsCmd mhub mine limit states Nothing (Just "rpm") False debug Builds.BuildQuery
     else
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
-    in Tasks.tasksCmd mhub mine limit states [] Nothing Nothing False False Nothing failure Tasks.TaskQuery
+    in Tasks.tasksCmd mhub mine limit states [] Nothing Nothing False debug Nothing failure Tasks.TaskQuery
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` quickWords word) args
