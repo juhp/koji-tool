@@ -7,6 +7,7 @@ module Quick (
   )
 where
 
+import Data.List ((\\))
 import Distribution.Koji
 import SimpleCmd (error')
 
@@ -27,12 +28,12 @@ quickWords Complete = ["complete","completed","completion",
 quickWords Current = ["current", "building", "open"]
 quickWords Build = ["build","builds"]
 
--- Package to choose build
+allWords :: [String]
+allWords = concatMap quickWords [minBound..]
+
 -- FIXME: arch
 -- FIXME: method
 -- FIXME: user's
--- handle some extra words?
--- FIXME: unknown words are just ignored (should be package?)
 quickCmd :: Maybe String -> Bool -> [String] -> IO ()
 quickCmd _ _ [] = error' $ "use these known words:\n\n" ++ unlines (map (unwords . quickWords) [minBound..])
 quickCmd mhub debug args = do
@@ -42,15 +43,25 @@ quickCmd mhub debug args = do
       complete = hasWord Complete
       current = hasWord Current
       build = hasWord Build
+      mpkg =
+        case args \\ allWords of
+          [] -> Nothing
+          [pkg] -> Just pkg
+          other ->
+            error' $
+            "you can only specify one package - too many unknown words: " ++
+            unwords other
   if build
     then
     let states = [BuildFailed|failure] ++ [BuildComplete|complete] ++
                  [BuildBuilding|current]
-    in Builds.buildsCmd mhub mine limit states Nothing (Just "rpm") False debug Builds.BuildQuery
+        buildreq = maybe Builds.BuildQuery Builds.BuildPackage mpkg
+    in Builds.buildsCmd mhub mine limit states Nothing (Just "rpm") False debug buildreq
     else
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
-    in Tasks.tasksCmd mhub mine limit states [] Nothing Nothing False debug Nothing failure Tasks.TaskQuery
+        taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
+    in Tasks.tasksCmd mhub mine limit states [] Nothing Nothing False debug Nothing failure taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` quickWords word) args
