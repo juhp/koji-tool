@@ -35,6 +35,9 @@ tests havedist =
   ,
     (["latest"],
      [["rawhide", "ghc"]])
+  ,
+    (["quick"],
+     [["last", "failed", "build"]])
   ]
   where
     sysdist = if havedist then [] else ["-d", "fc35"]
