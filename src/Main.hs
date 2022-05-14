@@ -110,7 +110,7 @@ main = do
       "Simple common queries using words ('my', 'last', 'fail', 'complete', 'build')" $
       quickCmd
       <$> hubOpt
-      <*> some (strArg "PHRASE")
+      <*> many (strArg "PHRASE")
     ]
   where
     hubOpt = optional (strOptionWith 'H' "hub" "HUB"
