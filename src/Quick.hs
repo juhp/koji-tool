@@ -35,7 +35,7 @@ allWords = concatMap quickWords [minBound..]
 -- FIXME: method
 -- FIXME: user's
 quickCmd :: Maybe String -> Bool -> [String] -> IO ()
-quickCmd _ _ [] = error' $ "use these known words:\n\n" ++ unlines (map (unwords . quickWords) [minBound..])
+quickCmd _ _ [] = error' $ "quick knows these words:\n\n" ++ unlines (map (unwords . quickWords) [minBound..])
 quickCmd mhub debug args = do
   let mine = if hasWord Mine then Just UserSelf else Nothing
       limit = if hasWord Limit then 1 else 10

@@ -107,7 +107,7 @@ main = do
       buildlogSizesCmd <$> strArg "NVRPATTERN"
 
     , Subcommand "quick"
-      "Simple common queries using words ('my', 'last', 'fail', 'complete', 'build')" $
+      "Simple common queries using words ('my','last','fail','complete','current','build')" $
       quickCmd
       <$> hubOpt
       <*> switchWith 'D' "debug" "Debug output including XML results"
