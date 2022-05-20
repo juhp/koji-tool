@@ -36,7 +36,7 @@ tests havedist =
     (["latest"],
      [["rawhide", "ghc"]])
   ,
-    (["quick"],
+    (["find"],
      [["last", "failed", "build"]])
   ]
   where
