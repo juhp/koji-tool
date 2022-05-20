@@ -9,7 +9,8 @@ module Tasks (
   tasksCmd,
   parseTaskState,
   kojiMethods,
-  fedoraKojiHub
+  fedoraKojiHub,
+  taskinfoUrl
   )
 where
 

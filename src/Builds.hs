@@ -47,8 +47,7 @@ buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
           -> BuildReq -> IO ()
 buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
-  let server = maybe fedoraKojiHub hubURL mhub
-  when (server /= fedoraKojiHub && museropt == Just UserSelf) $
+  when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
   case buildreq of
@@ -58,35 +57,37 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       let bldinfo = if all isDigit bld
                     then InfoID (read bld)
                     else InfoString bld
-      mbld <- getBuild server bldinfo
-      whenJust (mbld >>= maybeBuildResult) $ printBuild server tz
+      mbld <- getBuild hub bldinfo
+      whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz
     BuildPackage pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package: " ++ pkg
       when (isJust mdate) $
         error' "cannot use --package together with timedate"
-      mpkgid <- getPackageID server pkg
+      mpkgid <- getPackageID hub pkg
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
           let fullquery = [("packageID", ValueInt pkgid),
                           commonBuildQueryOptions limit]
           when debug $ print fullquery
-          builds <- listBuilds server fullquery
+          builds <- listBuilds hub fullquery
           when debug $ mapM_ pPrintCompact builds
           if details || length builds == 1
-            then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult builds
+            then mapM_ (printBuild hub tz) $ mapMaybe maybeBuildResult builds
             else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
-      query <- setupQuery server
+      query <- setupQuery
       let fullquery = query ++ [commonBuildQueryOptions limit]
       when debug $ print fullquery
-      builds <- listBuilds server fullquery
+      builds <- listBuilds hub fullquery
       when debug $ mapM_ pPrintCompact builds
       if details || length builds == 1
-        then mapM_ (printBuild server tz) $ mapMaybe maybeBuildResult builds
+        then mapM_ (printBuild hub tz) $ mapMaybe maybeBuildResult builds
         else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
   where
+    hub = maybe fedoraKojiHub hubURL mhub
+
     shortBuildResult :: TimeZone -> Struct -> Maybe String
     shortBuildResult tz bld = do
       nvr <- lookupStruct "nvr" bld
@@ -98,9 +99,10 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
                 case lookupTime "start" bld of
                   Just t -> compactZonedTime tz t
                   Nothing -> ""
-      return $ nvr +-+ show state +-+ date
+          mbid = lookupStruct "build_id" bld
+      return $ nvr +-+ show state +-+ date +-+ maybe "" (buildinfoUrl hub) mbid
 
-    setupQuery server = do
+    setupQuery = do
       mdatestring <-
         case mdate of
           Nothing -> return Nothing
@@ -108,7 +110,7 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       -- FIXME better output including user
       whenJust mdatestring $ \date ->
         putStrLn $ maybe "" show mdate +-+ date
-      mowner <- maybeGetKojiUser server museropt
+      mowner <- maybeGetKojiUser hub museropt
       return $
         [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]]
         ++ [("userID", ValueInt (getID owner)) | Just owner <- [mowner]]
@@ -140,6 +142,10 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       pPrint
 #endif
 
+buildinfoUrl :: String -> Int -> String
+buildinfoUrl hub bid =
+  webUrl hub ++ "/buildinfo?buildID=" ++ show bid
+
 -- FIXME
 data BuildResult =
   BuildResult {_buildNVR :: NVR,
@@ -163,20 +169,17 @@ maybeBuildResult st = do
     BuildResult nvr state buildid mtaskid start_time mend_time
 
 printBuild :: String -> TimeZone -> BuildResult -> IO ()
-printBuild server tz task = do
+printBuild hub tz task = do
   putStrLn ""
   let mendtime = mbuildEndTime task
   time <- maybe getCurrentTime return mendtime
-  (mapM_ putStrLn . formatBuildResult server (isJust mendtime) tz) (task {mbuildEndTime = Just time})
+  (mapM_ putStrLn . formatBuildResult hub (isJust mendtime) tz) (task {mbuildEndTime = Just time})
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
-formatBuildResult server ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
-  -- FIXME any better way?
-  let weburl = dropSuffix "hub" server
-  in
+formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
   [ showNVR nvr +-+ show state
-  , weburl ++ "/buildinfo?buildID=" ++ show buildid]
-  ++ [weburl ++ "/taskinfo?taskID=" ++ show taskid | Just taskid <- [mtaskid]]
+  , buildinfoUrl hub buildid]
+  ++ [Tasks.taskinfoUrl hub taskid | Just taskid <- [mtaskid]]
   ++ [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start)]
   ++
   case mendtime of
@@ -214,8 +217,8 @@ kojiBuildTypes = ["all", "image", "maven", "module", "rpm", "win"]
 
 latestCmd :: Maybe String -> Bool -> String -> String -> IO ()
 latestCmd mhub debug tag pkg = do
-  let server = maybe fedoraKojiHub hubURL mhub
-  mbld <- kojiLatestBuild server tag pkg
+  let hub = maybe fedoraKojiHub hubURL mhub
+  mbld <- kojiLatestBuild hub tag pkg
   when debug $ print mbld
   tz <- getCurrentTimeZone
-  whenJust (mbld >>= maybeBuildResult) $ printBuild server tz
+  whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz
