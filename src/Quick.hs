@@ -3,7 +3,8 @@
 -- SPDX-License-Identifier: BSD-3-Clause
 
 module Quick (
-  quickCmd
+  quickCmd,
+  wordsList
   )
 where
 
@@ -30,6 +31,10 @@ quickWords Current = ["current","building","open"]
 quickWords Build = ["build","builds"]
 quickWords Detail = ["detail","details","detailed"]
 
+wordsList :: ([String] -> String) -> [String]
+wordsList f =
+  map (f . quickWords) [minBound..] ++ ["PACKAGE"] -- "USER's" hidden!
+
 allWords :: [String]
 allWords = concatMap quickWords [minBound..]
 
@@ -38,9 +43,7 @@ allWords = concatMap quickWords [minBound..]
 -- FIXME: mlt (or mlft)
 quickCmd :: Maybe String -> Bool -> [String] -> IO ()
 quickCmd _ _ [] = error' $ "quick handles these words:\n\n" ++
-                  unlines
-                  (map (unwords . quickWords) [minBound..] ++
-                  ["PACKAGE", "USER's"])
+                  unlines (wordsList unwords ++ ["USER's"])
 quickCmd mhub debug args = do
   let user = if hasWord Mine
              then Just UserSelf

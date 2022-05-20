@@ -44,7 +44,7 @@ Available commands:
   progress                 Track running Koji tasks by buildlog size
   buildlog-sizes           Show buildlog sizes for nvr patterns
   find                     Simple quick common queries using words
-                           ('my','last','fail','complete','current','build')
+                           (my,last,fail,complete,current,build,detail,PACKAGE)
 ```
 
 ## koji-tool builds
