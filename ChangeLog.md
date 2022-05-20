@@ -1,5 +1,8 @@
 # Version history of koji-tool
 
+## 0.9 (2022-05-20)
+- rename 'quick' command to 'find'
+
 ## 0.8.7 (2022-05-14)
 'quick' enhancements:
 - better help
