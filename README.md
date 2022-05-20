@@ -213,6 +213,7 @@ fail failure failed
 complete completed completion close closed finish finished
 current building open
 build builds
+detail details detailed
 PACKAGE
 USER's
 

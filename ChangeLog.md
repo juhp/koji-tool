@@ -3,6 +3,7 @@
 ## 0.9 (2022-05-20)
 - rename 'quick' command to 'find'
 - 'builds': compact output now appends url
+- 'find': add "details" word
 
 ## 0.8.7 (2022-05-14)
 'quick' enhancements:

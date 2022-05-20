@@ -16,7 +16,7 @@ import qualified Builds
 import qualified Tasks
 import User
 
-data Words = Mine | Limit | Failure | Complete | Current | Build
+data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
   deriving (Enum,Bounded)
 
 quickWords :: Words -> [String]
@@ -26,8 +26,9 @@ quickWords Failure = ["fail","failure","failed"]
 quickWords Complete = ["complete","completed","completion",
                        "close","closed",
                        "finish","finished"]
-quickWords Current = ["current", "building", "open"]
+quickWords Current = ["current","building","open"]
 quickWords Build = ["build","builds"]
+quickWords Detail = ["detail","details","detailed"]
 
 allWords :: [String]
 allWords = concatMap quickWords [minBound..]
@@ -53,6 +54,7 @@ quickCmd mhub debug args = do
       complete = hasWord Complete
       current = hasWord Current
       build = hasWord Build
+      detail = hasWord Detail
       mpkg =
         case removeUsers (args \\ allWords) of
           [] -> Nothing
@@ -67,12 +69,12 @@ quickCmd mhub debug args = do
     let states = [BuildFailed|failure] ++ [BuildComplete|complete] ++
                  [BuildBuilding|current]
         buildreq = maybe Builds.BuildQuery Builds.BuildPackage mpkg
-    in Builds.buildsCmd mhub user limit states Nothing (Just "rpm") False debug buildreq
+    in Builds.buildsCmd mhub user limit states Nothing (Just "rpm") detail debug buildreq
     else
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub user limit states [] Nothing Nothing False debug Nothing failure taskreq
+    in Tasks.tasksCmd mhub user limit states [] Nothing Nothing detail debug Nothing failure taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` quickWords word) args
