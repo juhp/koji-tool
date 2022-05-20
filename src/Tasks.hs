@@ -409,7 +409,7 @@ displayLog tid lastlog = do
     else
     if last ls == "Child return code was: 0"
     then putStr out
-    else do
-      let err = "Child return code was: 1"
-      putStr $ unlines $ takeWhile (err /=) ls
-      putStrLn err
+    else putStr . unlines $
+      case breakOnEnd ["Child return code was: 1"] ls of
+        ([],ls') -> ls'
+        (ls',_) -> ls'
