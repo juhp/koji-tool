@@ -3,7 +3,7 @@
 -- SPDX-License-Identifier: BSD-3-Clause
 
 module Quick (
-  quickCmd,
+  findCmd,
   wordsList
   )
 where
@@ -20,31 +20,31 @@ import User
 data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
   deriving (Enum,Bounded)
 
-quickWords :: Words -> [String]
-quickWords Mine = ["my","mine"]
-quickWords Limit = ["last","latest"]
-quickWords Failure = ["fail","failure","failed"]
-quickWords Complete = ["complete","completed","completion",
+findWords :: Words -> [String]
+findWords Mine = ["my","mine"]
+findWords Limit = ["last","latest"]
+findWords Failure = ["fail","failure","failed"]
+findWords Complete = ["complete","completed","completion",
                        "close","closed",
                        "finish","finished"]
-quickWords Current = ["current","building","open"]
-quickWords Build = ["build","builds"]
-quickWords Detail = ["detail","details","detailed"]
+findWords Current = ["current","building","open"]
+findWords Build = ["build","builds"]
+findWords Detail = ["detail","details","detailed"]
 
 wordsList :: ([String] -> String) -> [String]
 wordsList f =
-  map (f . quickWords) [minBound..] ++ ["PACKAGE"] -- "USER's" hidden!
+  map (f . findWords) [minBound..] ++ ["PACKAGE"] -- "USER's" hidden!
 
 allWords :: [String]
-allWords = concatMap quickWords [minBound..]
+allWords = concatMap findWords [minBound..]
 
 -- FIXME: arch
 -- FIXME: method
 -- FIXME: mlt (or mlft)
-quickCmd :: Maybe String -> Bool -> [String] -> IO ()
-quickCmd _ _ [] = error' $ "quick handles these words:\n\n" ++
+findCmd :: Maybe String -> Bool -> [String] -> IO ()
+findCmd _ _ [] = error' $ "find handles these words:\n\n" ++
                   unlines (wordsList unwords ++ ["USER's"])
-quickCmd mhub debug args = do
+findCmd mhub debug args = do
   let user = if hasWord Mine
              then Just UserSelf
              else case filter ("'s" `isSuffixOf`) args of
@@ -80,7 +80,7 @@ quickCmd mhub debug args = do
     in Tasks.tasksCmd mhub user limit states [] Nothing Nothing detail debug Nothing failure taskreq
   where
     hasWord :: Words -> Bool
-    hasWord word = any (`elem` quickWords word) args
+    hasWord word = any (`elem` findWords word) args
 
     removeUsers :: [String] -> [String]
     removeUsers = filter (not . ("'s" `isSuffixOf`))

@@ -109,7 +109,7 @@ main = do
     , Subcommand "find"
       ("Simple quick common queries using words (" ++
        intercalate "," (wordsList head) ++ ")") $
-      quickCmd
+      findCmd
       <$> hubOpt
       <*> switchWith 'D' "debug" "Debug output including XML results"
       <*> many (strArg "PHRASE")

@@ -205,7 +205,7 @@ This provides shortcuts to a few select common searches
 ### Help
 ```shellsession
 $ koji-tool find
-koji-tool: quick handles these words:
+koji-tool: find handles these words:
 
 my mine
 last latest
