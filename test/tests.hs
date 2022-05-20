@@ -13,16 +13,6 @@ program (c, argsv) =
 tests :: Bool -> [([String], [[String]])]
 tests havedist =
   [
-    (["install", "-n", "-y"],
-     [["podman", "-p", "podman"] ++ sysdist
-     ,["-l", "coreutils"] ++ sysdist
-     ,["-l", "-R", "rpmlint-2.2.0-1.fc36"]
-     ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash", "-p", "bash"]
-     ,["-H", "stream", "-d", "el9", "kernel", "-x", "kernel-devel*", "-x", "*-debug*"]
-     ,["-l", "-H", "stream", "-d", "el9", "grep"]
-     ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
-     ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist])
-  ,
     (["builds"],
      [["-L", "rust"]
      ,["-l", "3"]
@@ -38,6 +28,16 @@ tests havedist =
   ,
     (["find"],
      [["last", "failed", "build"]])
+  ,
+        (["install", "-n", "-y"],
+     [["podman", "-p", "podman"] ++ sysdist
+     ,["-l", "coreutils"] ++ sysdist
+     ,["-l", "-R", "rpmlint-2.2.0-1.fc36"]
+     ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash", "-p", "bash"]
+     ,["-H", "stream", "-d", "el9", "kernel", "-x", "kernel-devel*", "-x", "*-debug*"]
+     ,["-l", "-H", "stream", "-d", "el9", "grep"]
+     ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
+     ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist])
   ]
   where
     sysdist = if havedist then [] else ["-d", "fc35"]
