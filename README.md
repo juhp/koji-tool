@@ -12,7 +12,8 @@ By default Fedora Koji is used.
 A few illustrative examples:
 
 `koji-tool tasks --mine --latest --state fail --tail`:
-shows details of your last buildArch failure and the tail of the build.log (equivalently you can use `koji-tool quick my last fail`).
+shows details of your last buildArch failure and the tail of the build.log
+(equivalently you can use `koji-tool find my last fail`).
 
 `koji-tool install systemd`: will try to install or update to the newest rpm packages from koji.
 
@@ -22,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.8.7
+0.9
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -36,13 +37,13 @@ Available options:
 Available commands:
   builds                   Query Koji builds (by default lists most recent
                            builds)
-  latest                   Query latest Koji build for tag
   tasks                    Query Koji tasks (by default lists most recent
                            buildArch tasks)
+  latest                   Query latest Koji build for tag
   install                  Install rpm packages directly from a Koji build task
   progress                 Track running Koji tasks by buildlog size
   buildlog-sizes           Show buildlog sizes for nvr patterns
-  quick                    Simple common queries using words
+  find                     Simple quick common queries using words
                            ('my','last','fail','complete','current','build')
 ```
 
@@ -191,19 +192,19 @@ duration: 0h 1m 57s
 https://kojipkgs.fedoraproject.org/work/tasks/5316/86685316/build.log (13kB)
 ```
 
-## koji-tool quick
+## koji-tool find
 This provides shortcuts to a few select common searches
 
 ### Usage
-`koji-tool quick my builds` shows your 10 most recent koji builds (equivalent to `koji-tool builds --mine`)
+`koji-tool find my builds` shows your 10 most recent koji builds (equivalent to `koji-tool builds --mine`)
 
-`koji-tool quick my last fail` shows your most recent task failure including the tail of the build.log (equivalent to `koji-tool tasks -MLT -s fail`).
+`koji-tool find my last fail` shows your most recent task failure including the tail of the build.log (equivalent to `koji-tool tasks -MLT -s fail`).
 
-`koji-tool quick last complete build` shows the latest completed koji build (equivalent to `koji-tool builds -L -s complete`).
+`koji-tool find last complete build` shows the latest completed koji build (equivalent to `koji-tool builds -L -s complete`).
 
 ### Help
 ```shellsession
-$ koji-tool quick
+$ koji-tool find
 koji-tool: quick handles these words:
 
 my mine
@@ -214,6 +215,7 @@ current building open
 build builds
 PACKAGE
 USER's
+
 ```
 
 ## koji-tool install
