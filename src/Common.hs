@@ -2,11 +2,12 @@ module Common (
   knownHubs,
   hubURL,
   commonQueryOptions,
-  commonBuildQueryOptions
+  commonBuildQueryOptions,
+  webUrl
   )
 where
 
-import Data.List (isPrefixOf)
+import Data.List.Extra (dropSuffix, isPrefixOf)
 import Distribution.Koji (fedoraKojiHub, Value(..))
 import SimpleCmd (error')
 
@@ -34,3 +35,6 @@ commonQueryOptions limit order =
 commonBuildQueryOptions :: Int -> (String, Value)
 commonBuildQueryOptions limit =
   ("queryOpts", ValueStruct (commonQueryOptions limit "-build_id"))
+
+webUrl :: String -> String
+webUrl = dropSuffix "hub"

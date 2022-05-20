@@ -64,66 +64,67 @@ tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
          -> Maybe TaskFilter -> Bool -> TaskReq -> IO ()
 tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' tail' taskreq = do
-  let server = maybe fedoraKojiHub hubURL mhub
-  when (server /= fedoraKojiHub && museropt == Just UserSelf) $
+  when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
   case taskreq of
     Task taskid -> do
       when (isJust museropt || isJust mdate || isJust mfilter') $
         error' "cannot use --task together with --user, timedate, or filter"
-      mtask <- kojiGetTaskInfo server (TaskId taskid)
+      mtask <- kojiGetTaskInfo hub (TaskId taskid)
       whenJust mtask$ \task -> do
         when debug $ pPrintCompact task
         whenJust (maybeTaskResult task) $ \res -> do
           let hasparent = isJust $ mtaskParent res
           printTask hasparent tz res
           unless hasparent $
-            tasksCmd (Just server) museropt limit states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
+            tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --build together with timedate or filter"
       mtaskid <- if all isDigit bld
-                then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild server (InfoID (read bld))
-                else kojiGetBuildTaskID server bld
+                then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild hub (InfoID (read bld))
+                else kojiGetBuildTaskID hub bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd (Just server) museropt limit states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
+        tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     Package pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package " ++ pkg
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --package together with timedate or filter"
-      mpkgid <- getPackageID server pkg
+      mpkgid <- getPackageID hub pkg
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
-          builds <- listBuilds server
+          builds <- listBuilds hub
                     [("packageID", ValueInt pkgid),
                      commonBuildQueryOptions limit]
           forM_ builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd (Just server) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
+              tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     Pattern pat -> do
       let buildquery = [("pattern", ValueString pat),
                         commonBuildQueryOptions limit]
       when debug $ print buildquery
-      builds <- listBuilds server buildquery
+      builds <- listBuilds hub buildquery
       when debug $ print builds
       forM_ builds $ \bld -> do
         let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
         whenJust mtaskid $ \(TaskId taskid) ->
-          tasksCmd (Just server) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
+          tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' (Parent taskid)
     _ -> do
-      query <- setupQuery server
+      query <- setupQuery
       let queryopts = commonQueryOptions limit "-id"
       when debug $ print $ query ++ queryopts
-      tasks <- listTasks server query queryopts
+      tasks <- listTasks hub query queryopts
       when debug $ mapM_ pPrintCompact tasks
       let detailed = details || length tasks == 1
       (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
   where
-    setupQuery server = do
+    hub = maybe fedoraKojiHub hubURL mhub
+
+    setupQuery = do
       case taskreq of
         Parent parent ->
           return $ ("parent", ValueInt parent) : commonParams
@@ -136,7 +137,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
             warning "buildArch tasks"
           whenJust mdatestring $ \date ->
             warning $ maybe "" show mdate +-+ date
-          mowner <- maybeGetKojiUser server museropt
+          mowner <- maybeGetKojiUser hub museropt
           return $
             [("owner", ValueInt (getID owner)) | Just owner <- [mowner]] ++
             [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]] ++
@@ -204,10 +205,10 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       if detailed
         then do
         putStrLn ""
-        (mapM_ putStrLn . formatTaskResult mtime tz) task
+        (mapM_ putStrLn . formatTaskResult hub mtime tz) task
         buildlogSize tail' $ taskId task
         else
-        (putStrLn . compactTaskResult tz) task
+        (putStrLn . compactTaskResult hub tz) task
 
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
@@ -217,21 +218,24 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       pPrint
 #endif
 
+taskinfoUrl :: String -> Int -> String
+taskinfoUrl hub tid =
+  webUrl hub +/+ "taskinfo?taskID=" ++ show tid
+
 -- FIXME option to hide url (take terminal width into consideration?)
-compactTaskResult :: TimeZone -> TaskResult -> String
-compactTaskResult tz (TaskResult pkg arch method state _mparent taskid mstart mend) =
+compactTaskResult :: String -> TimeZone -> TaskResult -> String
+compactTaskResult hub tz (TaskResult pkg arch method state _mparent taskid mstart mend) =
   let time =
         case mend of
           Just end -> compactZonedTime tz end
           Nothing -> maybe "" (compactZonedTime tz) mstart
   in
     showPackage pkg ++ (if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method) +-+
-    show state +-+ time +-+
-    "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid
+    show state +-+ time +-+ taskinfoUrl hub taskid
 
 -- FIXME show task owner
-formatTaskResult :: Maybe UTCTime -> TimeZone -> TaskResult -> [String]
-formatTaskResult
+formatTaskResult :: String -> Maybe UTCTime -> TimeZone -> TaskResult -> [String]
+formatTaskResult hub
 #if MIN_VERSION_time(1,9,1)
   mtime
 #else
@@ -239,7 +243,7 @@ formatTaskResult
 #endif
   tz (TaskResult pkg arch method state mparent taskid mstart mend) =
   [ showPackage pkg ++ (if method == "buildArch" then '.' : arch else ' ' : method) +-+ show state
-  , "https://koji.fedoraproject.org/koji/taskinfo?taskID=" ++ show taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
+  , taskinfoUrl hub taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
   [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start) | Just start <- [mstart]] ++
   [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | Just end <- [mend]]
 #if MIN_VERSION_time(1,9,1)
