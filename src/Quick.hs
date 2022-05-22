@@ -18,6 +18,7 @@ import qualified Tasks
 import User
 
 data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
+           | Install
   deriving (Enum,Bounded)
 
 findWords :: Words -> [String]
@@ -30,10 +31,11 @@ findWords Complete = ["complete","completed","completion",
 findWords Current = ["current","building","open"]
 findWords Build = ["build","builds"]
 findWords Detail = ["detail","details","detailed"]
+findWords Install = ["install"]
 
 wordsList :: ([String] -> String) -> [String]
 wordsList f =
-  map (f . findWords) [minBound..] ++ ["PACKAGE"] -- "USER's" hidden!
+  map (f . findWords) [minBound..] ++ ["PACKAGE","USER\\'s"]
 
 allWords :: [String]
 allWords = concatMap findWords [minBound..]
@@ -43,7 +45,7 @@ allWords = concatMap findWords [minBound..]
 -- FIXME: mlt (or mlft)
 findCmd :: Maybe String -> Bool -> [String] -> IO ()
 findCmd _ _ [] = error' $ "find handles these words:\n\n" ++
-                  unlines (wordsList unwords ++ ["USER's"])
+                  unlines (wordsList unwords)
 findCmd mhub debug args = do
   let user = if hasWord Mine
              then Just UserSelf
@@ -58,6 +60,7 @@ findCmd mhub debug args = do
       current = hasWord Current
       build = hasWord Build
       detail = hasWord Detail
+      install = hasWord Install
       mpkg =
         case removeUsers (args \\ allWords) of
           [] -> Nothing
@@ -77,7 +80,7 @@ findCmd mhub debug args = do
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub user limit states [] Nothing Nothing detail debug Nothing failure taskreq
+    in Tasks.tasksCmd mhub user limit states [] Nothing Nothing detail debug Nothing failure install taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args
