@@ -1,7 +1,8 @@
 module Utils (
   kojiTaskRequestNVR,
   kojiTaskRequestPkgNVR,
-  showValue
+  showValue,
+  buildOutputURL
   )
 where
 
@@ -10,6 +11,7 @@ import Data.RPM (dropArch)
 import Data.RPM.NVR
 import Data.RPM.NVRA
 import Distribution.Koji
+import Network.HTTP.Directory ((+/+))
 import SimpleCmd (error')
 import System.FilePath (takeBaseName)
 
@@ -43,3 +45,11 @@ showValue :: Value -> String
 showValue (ValueString cs) = cs
 showValue (ValueInt i) = show i
 showValue val = show val
+
+buildOutputURL :: NVR -> String
+buildOutputURL nvr =
+  let name = nvrName nvr
+      verrel = nvrVerRel nvr
+      ver = vrVersion verrel
+      rel = vrRelease verrel
+  in "https://kojipkgs.fedoraproject.org/packages" +/+ name +/+ ver +/+ rel

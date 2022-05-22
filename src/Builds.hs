@@ -30,6 +30,7 @@ import Common
 import qualified Tasks
 import Time
 import User
+import Utils (buildOutputURL)
 
 data BuildReq = BuildBuild String | BuildPackage String
               | BuildQuery | BuildPattern String
@@ -43,6 +44,7 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
+-- FIXME show tail of build's build.log
 buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
           -> BuildReq -> IO ()
@@ -148,7 +150,7 @@ buildinfoUrl hub bid =
 
 -- FIXME
 data BuildResult =
-  BuildResult {_buildNVR :: NVR,
+  BuildResult {buildNVR :: NVR,
                _buildState :: BuildState,
                _buildId :: Int,
                _mtaskId :: Maybe Int,
@@ -169,11 +171,12 @@ maybeBuildResult st = do
     BuildResult nvr state buildid mtaskid start_time mend_time
 
 printBuild :: String -> TimeZone -> BuildResult -> IO ()
-printBuild hub tz task = do
+printBuild hub tz build = do
   putStrLn ""
-  let mendtime = mbuildEndTime task
+  let mendtime = mbuildEndTime build
   time <- maybe getCurrentTime return mendtime
-  (mapM_ putStrLn . formatBuildResult hub (isJust mendtime) tz) (task {mbuildEndTime = Just time})
+  (mapM_ putStrLn . formatBuildResult hub (isJust mendtime) tz) (build {mbuildEndTime = Just time})
+  putStrLn $ buildOutputURL $ buildNVR build
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
 formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
