@@ -20,9 +20,6 @@ import Tasks
 
 main :: IO ()
 main = do
-  sysdisttag <- do
-    dist <- cmd "rpm" ["--eval", "%{dist}"]
-    return $ if dist == "%{dist}" then "" else dist
   simpleCmdArgs (Just Paths_koji_tool.version)
     "Query and track Koji tasks, and install rpms from Koji."
     "see https://github.com/juhp/koji-tool#readme" $
@@ -89,8 +86,8 @@ main = do
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 'N' "no-reinstall" "Do not reinstall existing NVRs"
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
-      <*> modeOpt
-      <*> disttagOpt sysdisttag
+      <*> selectOpt
+      <*> optional disttagOpt
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name" <|>
            flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
       <*> some (strArg "PKG|NVR|TASKID...")
@@ -125,14 +122,15 @@ main = do
       User <$> strOptionWith 'u' "user" "USER" "Koji user"
       <|> flagWith' UserSelf 'M' "mine" "Your tasks (krb fasid)"
 
-    modeOpt :: Parser Mode
-    modeOpt =
+    selectOpt :: Parser Select
+    selectOpt =
       flagWith' All 'a' "all" "all subpackages" <|>
       flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
       PkgsReq <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
 
-    disttagOpt :: String -> Parser String
-    disttagOpt disttag = startingDot <$> strOptionalWith 'd' "disttag" "DISTTAG" ("Use a different disttag [default: " ++ disttag ++ "]") disttag
+    disttagOpt :: Parser String
+    disttagOpt = startingDot <$>
+                 strOptionWith 'd' "disttag" "DISTTAG" "Override the disttag"
 
     startingDot cs =
       case cs of

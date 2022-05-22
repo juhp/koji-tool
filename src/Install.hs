@@ -3,7 +3,7 @@
 -- SPDX-License-Identifier: BSD-3-Clause
 
 module Install (
-  Mode(..),
+  Select(..),
   Request(..),
   installCmd,
   knownHubs,
@@ -47,7 +47,7 @@ defaultPkgsURL url =
 data Yes = No | Yes
   deriving Eq
 
-data Mode = All
+data Select = All
           | Ask
           -- distinguish except and exclude
           | PkgsReq [String] [String] -- ^ include, except/exclude
@@ -64,9 +64,9 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME --delete after installing
 -- FIXME --dnf to install selected packages using default dnf repo instead
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Maybe String -> Mode -> String -> Request
+           -> Bool -> Bool -> Maybe String -> Select -> Maybe String -> Request
            -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mprefix mode disttag request pkgbldtsks = do
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mprefix select mdisttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -81,17 +81,23 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mprefix
     kojiRPMs :: String -> String -> IO () -> String -> IO [(Existence,NVRA)]
     kojiRPMs huburl pkgsurl printDlDir bldtask =
       case readMaybe bldtask of
-        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix mode printDlDir taskid
+        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select printDlDir taskid
         Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
     kojiBuildRPMs :: String -> String -> IO () -> String
                   -> IO [(Existence,NVRA)]
     kojiBuildRPMs huburl pkgsurl printDlDir pkgbld = do
+      disttag <-
+        case mdisttag of
+          Just dt -> return dt
+          Nothing -> do
+            dist <- cmd "rpm" ["--eval", "%{dist}"]
+            return $ if dist == "%{dist}" then "" else dist
       nvrs <- map readNVR <$> kojiBuildOSBuilds debug huburl listmode latest disttag request pkgbld
       if listmode
         then do
-        if mode /= PkgsReq [] []
-          then error' "modes not supported for listing build"  -- FIXME
+        if select /= PkgsReq [] []
+          then error' "selects not supported for listing build"  -- FIXME
           else case nvrs of
                  [nvr] -> do
                    putStrLn (showNVR nvr)
@@ -108,7 +114,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mprefix
             nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr
             when debug $ mapM_ (putStrLn . showNVRA) nvras
             let prefix = fromMaybe (nvrName nvr) mprefix
-            dlRpms <- decideRpms yes listmode noreinstall mode prefix nvras
+            dlRpms <- decideRpms yes listmode noreinstall select prefix nvras
             when debug $ mapM_ printInstalled dlRpms
             unless (dryrun || null dlRpms) $ do
               downloadRpms debug (buildURL nvr) dlRpms
@@ -128,8 +134,8 @@ notDebugPkg p =
   not ("-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p)
 
 kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool
-             -> Maybe String -> Mode -> IO () -> Int -> IO [(Existence,NVRA)]
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix mode printDlDir taskid = do
+             -> Maybe String -> Select -> IO () -> Int -> IO [(Existence,NVRA)]
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select printDlDir taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
@@ -162,15 +168,15 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix mode p
                     kojiTaskRequestPkgNVR $
                     fromMaybe archtask mtaskinfo
   if listmode
-    then decideRpms yes listmode noreinstall mode prefix nvras
+    then decideRpms yes listmode noreinstall select prefix nvras
     else
     if null nvras
     then do
-      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mprefix mode printDlDir archtid >>= mapM_ printInstalled
+      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mprefix select printDlDir archtid >>= mapM_ printInstalled
       return []
     else do
       when debug $ print $ map showNVRA nvras
-      dlRpms <- decideRpms yes listmode noreinstall mode prefix $
+      dlRpms <- decideRpms yes listmode noreinstall select prefix $
                 filter ((/= "src") . rpmArch) nvras
       when debug $ mapM_ printInstalled dlRpms
       unless (dryrun || null dlRpms) $ do
@@ -194,14 +200,14 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix mode p
 data Existence = NotInstalled | NVRInstalled | NVRChanged
   deriving (Eq, Ord, Show)
 
-decideRpms :: Yes -> Bool -> Bool -> Mode -> String -> [NVRA]
+decideRpms :: Yes -> Bool -> Bool -> Select -> String -> [NVRA]
            -> IO [(Existence,NVRA)]
-decideRpms yes listmode noreinstall mode prefix nvras = do
+decideRpms yes listmode noreinstall select prefix nvras = do
   classified <- mapM installExists (filter isBinaryRpm nvras)
   if listmode
     then mapM_ printInstalled classified >> return []
     else
-    case mode of
+    case select of
       All -> do
         mapM_ printInstalled classified
         ok <- prompt yes "install above"
