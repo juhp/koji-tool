@@ -214,7 +214,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
         then do
         putStrLn ""
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
-        buildlogSize tail' $ taskId task
+        buildlogSize debug tail' task
         else
         (putStrLn . compactTaskResult hub tz) task
 
@@ -270,7 +270,7 @@ showPackage (Right nvr) = showNVR nvr
 
 data TaskResult =
   TaskResult {taskPackage :: Either String NVR,
-              _taskArch :: String,
+              taskArch :: String,
               _taskMethod :: String,
               _taskState :: TaskState,
               mtaskParent :: Maybe Int,
@@ -298,41 +298,98 @@ parseTaskState s =
     _ -> error' $! "unknown task state: " ++ s
 #endif
 
-data LastLog = WholeBuild | BuildTail | RootLog
+data LogFile = BuildLog | RootLog
   deriving Eq
 
-logUrl :: Int -> LastLog -> String
-logUrl taskid lastlog =
-  if lastlog == BuildTail
-  then "https://koji.fedoraproject.org/koji/getfile?taskID=" ++ tid ++ "&name=build.log&offset=-4000"
-  else "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> logName <.> "log"
+data OutputLocation = PackagesOutput | WorkOutput
+
+outputUrl :: TaskResult -> OutputLocation -> Maybe String
+outputUrl task loc =
+  case loc of
+    WorkOutput -> Just $ taskOutputUrl task
+    PackagesOutput ->
+      case taskPackage task of
+        Left _ -> Nothing
+        Right nvr ->
+          Just $ buildOutputURL nvr +/+ "data/logs" +/+ taskArch task
+
+findOutputURL :: TaskResult -> IO (Maybe String)
+findOutputURL task =
+  case outputUrl task PackagesOutput of
+    Just burl -> checkUrl burl $
+                 checkUrl (taskOutputUrl task) $ return Nothing
+    Nothing -> checkUrl (taskOutputUrl task) $ return Nothing
   where
-    tid = show taskid
+    checkUrl :: String -> IO (Maybe String) -> IO (Maybe String)
+    checkUrl url alt = do
+      exists <- httpExists' url
+      if exists
+        then return $ Just url
+        else alt
+
+taskOutputUrl :: TaskResult -> String
+taskOutputUrl task =
+  "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid
+  where
+    tid = show (taskId task)
 
     lastFew =
       let few = dropWhile (== '0') $ takeEnd 4 tid
       in if null few then "0" else few
 
-    logName = if lastlog == RootLog then "root" else "build"
+tailLogUrl :: Int -> LogFile -> String
+tailLogUrl taskid file =
+  "https://koji.fedoraproject.org/koji/getfile?taskID=" ++ show taskid ++ "&name=" ++ logFile file ++ "&offset=-4000"
 
-buildlogSize :: Bool -> Int -> IO ()
-buildlogSize tail' taskid = do
-  let buildlog = logUrl taskid WholeBuild
-  exists <- httpExists' buildlog
-  when exists $ do
+logFile :: LogFile -> String
+logFile RootLog = "root.log"
+logFile BuildLog = "build.log"
+
+buildlogSize :: Bool -> Bool -> TaskResult -> IO ()
+buildlogSize debug tail' task = do
+  murl <- findOutputURL task
+  whenJust murl $ \ url -> do
+    let buildlog = url +/+ logFile BuildLog
     putStr $ buildlog ++ " "
     msize <- httpFileSize' buildlog
     whenJust msize $ \size -> do
       fprintLn ("(" % commas % "kB)") (size `div` 1000)
       -- FIXME check if short build.log ends with srpm
-      lastlog <-
+      file <-
         if size < 1500
         then do
-          putStrLn $ logUrl taskid RootLog
+          putStrLn $ url +/+ logFile RootLog
           return RootLog
-        else return BuildTail
-      when tail' $
-        displayLog taskid lastlog
+        else return BuildLog
+      when tail' $ displayLog url file
+    when debug $ putStrLn buildlog
+  where
+    displayLog :: String -> LogFile -> IO ()
+    displayLog url file = do
+      let logurl =
+            case file of
+              RootLog -> url +/+  logFile file
+              BuildLog -> tailLogUrl (taskId task) file
+      req <- parseRequest logurl
+      resp <- httpLBS req
+      let out = U.toString $ getResponseBody resp
+          ls = lines out
+      putStrLn ""
+      if file == RootLog
+        then
+        let excluded = ["Executing command:", "Child return code was: 0",
+                        "child environment: None", "ensuring that dir exists:",
+                        "touching file:", "creating dir:", "kill orphans"]
+        in putStr $ unlines $ map (dropPrefix "DEBUG ") $ takeEnd 30 $
+           filter (\l -> not (any (`isInfixOf` l) excluded)) ls
+        else
+        if last ls == "Child return code was: 0"
+        then putStr out
+        else putStr . unlines $
+          case breakOnEnd ["Child return code was: 1"] ls of
+            ([],ls') -> ls'
+            (ls',_) -> ls'
+      putStrLn $ "\n" ++ logurl
 
 kojiMethods :: [String]
 kojiMethods =
@@ -398,25 +455,3 @@ kojiMethods =
      "tagBuild",
      "tagNotification",
      "waitrepo"])
-
-displayLog :: Int -> LastLog -> IO ()
-displayLog tid lastlog = do
-  req <- parseRequest $ logUrl tid lastlog
-  resp <- httpLBS req
-  let out = U.toString $ getResponseBody resp
-      ls = lines out
-  putStrLn ""
-  if lastlog == RootLog
-    then
-    let excluded = ["Executing command:", "Child return code was: 0",
-                    "child environment: None", "ensuring that dir exists:",
-                    "touching file:", "creating dir:", "kill orphans"]
-    in putStr $ unlines $ map (dropPrefix "DEBUG ") $ takeEnd 30 $
-       filter (\l -> not (any (`isInfixOf` l) excluded)) ls
-    else
-    if last ls == "Child return code was: 0"
-    then putStr out
-    else putStr . unlines $
-      case breakOnEnd ["Child return code was: 1"] ls of
-        ([],ls') -> ls'
-        (ls',_) -> ls'
