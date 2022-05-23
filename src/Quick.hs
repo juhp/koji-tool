@@ -18,7 +18,7 @@ import qualified Tasks
 import User
 
 data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
-           | Install
+           | Install | Tail | NoTail
   deriving (Enum,Bounded)
 
 findWords :: Words -> [String]
@@ -32,6 +32,8 @@ findWords Current = ["current","building","open"]
 findWords Build = ["build","builds"]
 findWords Detail = ["detail","details","detailed"]
 findWords Install = ["install"]
+findWords Tail = ["tail"]
+findWords NoTail = ["notail"]
 
 wordsList :: ([String] -> String) -> [String]
 wordsList f =
@@ -61,6 +63,8 @@ findCmd mhub debug args = do
       build = hasWord Build
       detail = hasWord Detail
       install = hasWord Install
+      tail' = hasWord Tail
+      notail = hasWord NoTail
       mpkg =
         case removeUsers (args \\ allWords) of
           [] -> Nothing
@@ -80,7 +84,7 @@ findCmd mhub debug args = do
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub user limit states [] Nothing Nothing detail debug Nothing failure install taskreq
+    in Tasks.tasksCmd mhub user limit states [] Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) install taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args
