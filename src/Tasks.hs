@@ -80,7 +80,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
           let hasparent = isJust $ mtaskParent res
           printTask hasparent tz res
           if hasparent
-            then when install $ installCmd False debug No mhub Nothing False False False Nothing (PkgsReq [] []) Nothing ReqName [show taskid]
+            then when install $ installCmd False debug No mhub Nothing False False False False Nothing (PkgsReq [] []) Nothing ReqName [show taskid]
             else tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' install (Parent taskid)
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
@@ -127,7 +127,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
       when install $
         if exact
-        then installCmd False debug No mhub Nothing False False False Nothing (PkgsReq [] []) Nothing ReqName [show (i :: Int) | i <- mapMaybe (lookupStruct "id") tasks]
+        then installCmd False debug No mhub Nothing False False False False Nothing (PkgsReq [] []) Nothing ReqName [show (i :: Int) | i <- mapMaybe (lookupStruct "id") tasks]
         else error' "cannot install more than one task"
   where
     hub = maybe fedoraKojiHub hubURL mhub

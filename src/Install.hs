@@ -64,9 +64,9 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME --delete after installing
 -- FIXME --dnf to install selected packages using default dnf repo instead
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Maybe String -> Select -> Maybe String -> Request
-           -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mprefix select mdisttag request pkgbldtsks = do
+           -> Bool -> Bool -> Bool -> Maybe String -> Select -> Maybe String
+           -> Request -> [String] -> IO ()
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall mprefix select mdisttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -76,7 +76,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest noreinstall mprefix
   when debug printDlDir
   setNoBuffering
   mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
-    >>= installRPMs dryrun noreinstall yes . mconcat
+    >>= installRPMs dryrun userpm noreinstall yes . mconcat
   where
     kojiRPMs :: String -> String -> IO () -> String -> IO [(Existence,NVRA)]
     kojiRPMs huburl pkgsurl printDlDir bldtask =
@@ -386,19 +386,22 @@ setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
-installRPMs :: Bool -> Bool -> Yes -> [(Existence,NVRA)] -> IO ()
-installRPMs _ _ _ [] = return ()
-installRPMs dryrun noreinstall yes classified = do
+installRPMs :: Bool -> Bool -> Bool -> Yes -> [(Existence,NVRA)] -> IO ()
+installRPMs _ _ _ _ [] = return ()
+installRPMs dryrun rpm noreinstall yes classified =
   forM_ (groupSort classified) $ \(cl,pkgs) ->
     unless (null pkgs) $
-    let mdnfcmd =
+    let pkgmgr = if rpm then "rpm" else "dnf"
+        mcom =
           case cl of
-            NVRInstalled -> if noreinstall then Nothing else Just "reinstall"
-            _ -> Just "localinstall"
-    in whenJust mdnfcmd $ \dnfcmd ->
+            NVRInstalled -> if noreinstall
+                            then Nothing
+                            else Just (if rpm then ["-Uvh","--replacepkgs"] else ["reinstall"])
+            _ -> Just (if rpm then ["-ivh"] else ["localinstall"])
+    in whenJust mcom $ \com ->
       if dryrun
-      then mapM_ putStrLn $ ("would " ++ dnfcmd ++ ":") : map showRpmFile pkgs
-      else sudo_ "dnf" $ dnfcmd : map showRpmFile pkgs ++ ["--assumeyes" | yes == Yes]
+      then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile pkgs
+      else sudo_ pkgmgr $ com ++ map showRpmFile pkgs ++ ["--assumeyes" | yes == Yes && not rpm]
 
 showRpmFile :: NVRA -> FilePath
 showRpmFile nvra = showNVRA nvra <.> "rpm"
