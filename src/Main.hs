@@ -106,8 +106,8 @@ main = do
       buildlogSizesCmd <$> strArg "NVRPATTERN"
 
     , Subcommand "find"
-      ("Simple quick common queries using words (" ++
-       intercalate "," (wordsList head) ++ ")") $
+      ("Simple quick common queries using words like: [" ++
+       intercalate ", " (wordsList head) ++ "]") $
       findCmd
       <$> hubOpt
       <*> switchWith 'D' "debug" "Debug output including XML results"
@@ -132,7 +132,8 @@ main = do
 
     disttagOpt :: Parser String
     disttagOpt = startingDot <$>
-                 strOptionWith 'd' "disttag" "DISTTAG" "Override the disttag"
+                 strOptionWith 'd' "disttag" "DISTTAG"
+                 "Select a disttag different to system"
 
     startingDot cs =
       case cs of

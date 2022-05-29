@@ -1,5 +1,14 @@
 # Version history of koji-tool
 
+## 0.9.1 (2022-05-29)
+- 'find': add "install", "tail", "notail", and archs support
+- 'install': --rpm option to install directly with rpm instead of dnf
+- 'tasks': add --install option
+- 'tasks': major rework of the log file handling
+- 'tasks --tail': fix output when still running
+- 'tasks': compact task output shows duration
+- 'builds': now outputs packages/ archive url
+
 ## 0.9 (2022-05-20)
 - rename 'quick' command to 'find'
 - 'builds': compact output now appends url

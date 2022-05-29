@@ -23,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.9
+0.9.1
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -43,8 +43,9 @@ Available commands:
   install                  Install rpm packages directly from a Koji build task
   progress                 Track running Koji tasks by buildlog size
   buildlog-sizes           Show buildlog sizes for nvr patterns
-  find                     Simple quick common queries using words
-                           (my,last,fail,complete,current,build,detail,PACKAGE)
+  find                     Simple quick common queries using words like: [my,
+                           last, fail, complete, current, build, detail,
+                           install, tail, notail, x86_64, PACKAGE, USER\'s]
 ```
 
 ## koji-tool builds
@@ -133,7 +134,7 @@ Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                        [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
                        [-m|--method METHOD] [-d|--details] [-D|--debug]
                        [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)]
-                       [-T|--tail]
+                       [-T|--tail] [-i|--install]
                        [(-b|--build BUILD) | (-p|--pattern NVRPAT) |
                          PACKAGE|TASKID]
   Query Koji tasks (by default lists most recent buildArch tasks)
@@ -157,6 +158,7 @@ Available options:
   -P,--only-package PKG    Filter task results to specified package
   -N,--only-nvr PREFIX     Filter task results by NVR prefix
   -T,--tail                Fetch the tail of build.log
+  -i,--install             install the package
   -b,--build BUILD         List child tasks of build
   -p,--pattern NVRPAT      Build tasks of matching pattern
   -h,--help                Show this help text
@@ -214,8 +216,12 @@ complete completed completion close closed finish finished
 current building open
 build builds
 detail details detailed
+install
+tail
+notail
+x86_64 aarch64 ppc64le s390x i686 armv7hl
 PACKAGE
-USER's
+USER\'s
 
 ```
 
@@ -273,7 +279,8 @@ but the following options change the behavior:
 $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
-                         [-N|--no-reinstall] [-b|--prefix SUBPKGPREFIX]
+                         [-r|--rpm] [-N|--no-reinstall]
+                         [-b|--prefix SUBPKGPREFIX]
                          [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
                            [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
                          [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
@@ -289,13 +296,14 @@ Available options:
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
   -l,--list                List builds
   -L,--latest              Latest build
+  -r,--rpm                 Use rpm instead of dnf
   -N,--no-reinstall        Do not reinstall existing NVRs
   -b,--prefix SUBPKGPREFIX Prefix to use for subpackages [default: base package]
   -a,--all                 all subpackages
   -A,--ask                 ask for each subpackge [default if not installed]
   -p,--package SUBPKG      Subpackage (glob) to install
   -x,--exclude SUBPKG      Subpackage (glob) not to install
-  -d,--disttag DISTTAG     Use a different disttag [default: .fc36]
+  -d,--disttag DISTTAG     Override the disttag
   -R,--nvr                 Give an N-V-R instead of package name
   -V,--nv                  Give an N-V instead of package name
   -h,--help                Show this help text
@@ -326,7 +334,7 @@ s390x      558kB [100,481 B/min] TaskClosed
 The `buildlog-sizes` command is similar but runs once over nvr patterns.
 
 ## Installation
-Builds for fedora are available in [copr](https://copr.fedorainfracloud.org/coprs/petersen/koji-tool/monitor/detailed).
+koji-tool is packaged in Fedora 35+
 
 ## Build
 `cabal-rpm builddep && cabal install || stack install`
