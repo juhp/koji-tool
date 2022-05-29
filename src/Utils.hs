@@ -2,11 +2,12 @@ module Utils (
   kojiTaskRequestNVR,
   kojiTaskRequestPkgNVR,
   showValue,
-  buildOutputURL
+  buildOutputURL,
+  hubToPkgsURL
   )
 where
 
-import Data.List (isInfixOf, isPrefixOf)
+import Data.List.Extra (dropSuffix, isInfixOf, isPrefixOf, isSuffixOf, replace)
 import Data.RPM (dropArch)
 import Data.RPM.NVR
 import Data.RPM.NVRA
@@ -46,10 +47,22 @@ showValue (ValueString cs) = cs
 showValue (ValueInt i) = show i
 showValue val = show val
 
-buildOutputURL :: NVR -> String
-buildOutputURL nvr =
+buildOutputURL :: String -> NVR -> String
+buildOutputURL hub nvr =
   let name = nvrName nvr
       verrel = nvrVerRel nvr
       ver = vrVersion verrel
       rel = vrRelease verrel
-  in "https://kojipkgs.fedoraproject.org/packages" +/+ name +/+ ver +/+ rel
+  in hubToPkgsURL hub +/+ name +/+ ver +/+ rel
+
+hubToPkgsURL :: String -> String
+hubToPkgsURL url =
+  case dropSuffix "/" url of
+    "https://koji.fedoraproject.org/kojihub" ->
+      "https://kojipkgs.fedoraproject.org/packages"
+    "https://kojihub.stream.centos.org/kojihub" ->
+      "https://kojihub.stream.centos.org/kojifiles/packages"
+    _ ->
+      if "kojihub" `isSuffixOf` url
+      then replace "kojihub" "kojifiles" url +/+ "packages"
+      else error' $ "use --files-url to specify kojifiles url for " ++ url

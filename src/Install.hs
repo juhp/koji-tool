@@ -32,18 +32,6 @@ import Common
 import DownloadDir
 import Utils
 
-defaultPkgsURL :: String -> String
-defaultPkgsURL url =
-  case dropSuffix "/" url of
-    "https://koji.fedoraproject.org/kojihub" ->
-      "https://kojipkgs.fedoraproject.org/packages"
-    "https://kojihub.stream.centos.org/kojihub" ->
-      "https://kojihub.stream.centos.org/kojifiles/packages"
-    _ ->
-      if "kojihub" `isSuffixOf` url
-      then replace "kojihub" "kojifiles" url +/+ "packages"
-      else error' $ "use --files-url to specify kojifiles url for " ++ url
-
 data Yes = No | Yes
   deriving Eq
 
@@ -68,7 +56,7 @@ installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
            -> Request -> [String] -> IO ()
 installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall mprefix select mdisttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
-      pkgsurl = fromMaybe (defaultPkgsURL huburl) mpkgsurl
+      pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
   when debug $ do
     putStrLn huburl
     putStrLn pkgsurl

@@ -224,7 +224,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
         then do
         putStrLn ""
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
-        buildlogSize debug tail' task
+        buildlogSize debug tail' hub task
         else
         (putStrLn . compactTaskResult hub tz) task
 
@@ -306,25 +306,25 @@ data LogFile = BuildLog | RootLog
 
 data OutputLocation = PackagesOutput | WorkOutput
 
-outputUrl :: TaskResult -> OutputLocation -> Maybe String
-outputUrl task loc =
+outputUrl :: String -> TaskResult -> OutputLocation -> Maybe String
+outputUrl hub task loc =
   case loc of
     WorkOutput -> Just $ taskOutputUrl task
     PackagesOutput ->
       case taskPackage task of
         Left _ -> Nothing
         Right nvr ->
-          Just $ buildOutputURL nvr +/+ "data/logs" +/+ taskArch task
+          Just $ buildOutputURL hub nvr +/+ "data/logs" +/+ taskArch task
 
-findOutputURL :: TaskResult -> IO (Maybe String)
-findOutputURL task =
-  case outputUrl task PackagesOutput of
-    Just burl -> checkUrl burl $
-                 checkUrl (taskOutputUrl task) $ return Nothing
-    Nothing -> checkUrl (taskOutputUrl task) $ return Nothing
+findOutputURL :: String -> TaskResult -> IO (Maybe String)
+findOutputURL hub task =
+  case outputUrl hub task PackagesOutput of
+    Just burl -> urlExistsOr burl $
+                 urlExistsOr (taskOutputUrl task) $ return Nothing
+    Nothing -> urlExistsOr (taskOutputUrl task) $ return Nothing
   where
-    checkUrl :: String -> IO (Maybe String) -> IO (Maybe String)
-    checkUrl url alt = do
+    urlExistsOr :: String -> IO (Maybe String) -> IO (Maybe String)
+    urlExistsOr url alt = do
       exists <- httpExists' url
       if exists
         then return $ Just url
@@ -340,17 +340,17 @@ taskOutputUrl task =
       let few = dropWhile (== '0') $ takeEnd 4 tid
       in if null few then "0" else few
 
-tailLogUrl :: Int -> LogFile -> String
-tailLogUrl taskid file =
-  "https://koji.fedoraproject.org/koji/getfile?taskID=" ++ show taskid ++ "&name=" ++ logFile file ++ "&offset=-4000"
+tailLogUrl :: String -> Int -> LogFile -> String
+tailLogUrl hub taskid file =
+  webUrl hub +/+ "getfile?taskID=" ++ show taskid ++ "&name=" ++ logFile file ++ "&offset=-4000"
 
 logFile :: LogFile -> String
 logFile RootLog = "root.log"
 logFile BuildLog = "build.log"
 
-buildlogSize :: Bool -> Bool -> TaskResult -> IO ()
-buildlogSize debug tail' task = do
-  murl <- findOutputURL task
+buildlogSize :: Bool -> Bool -> String -> TaskResult -> IO ()
+buildlogSize debug tail' hub task = do
+  murl <- findOutputURL hub task
   whenJust murl $ \ url -> do
     let buildlog = url +/+ logFile BuildLog
     putStr $ buildlog ++ " "
@@ -372,7 +372,7 @@ buildlogSize debug tail' task = do
       let logurl =
             case file of
               RootLog -> url +/+  logFile file
-              BuildLog -> tailLogUrl (taskId task) file
+              BuildLog -> tailLogUrl hub (taskId task) file
       req <- parseRequest logurl
       resp <- httpLBS req
       let out = U.toString $ getResponseBody resp

@@ -175,7 +175,7 @@ printBuild hub tz build = do
   let mendtime = mbuildEndTime build
   time <- maybe getCurrentTime return mendtime
   (mapM_ putStrLn . formatBuildResult hub (isJust mendtime) tz) (build {mbuildEndTime = Just time})
-  putStrLn $ buildOutputURL $ buildNVR build
+  putStrLn $ buildOutputURL hub $ buildNVR build
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
 formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
