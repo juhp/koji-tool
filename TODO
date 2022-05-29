@@ -19,6 +19,9 @@
 - --short option
 - --active or state filter
 
+# find
+- shell
+
 ## tasks
 - determine username for non-Fedora
 - build pattern
@@ -44,7 +47,7 @@
 - % of previous build (or finished tasks)
 - mbs urls?
 - average build times? (cache or separate tool?)
-- quits during srpm builds
+* quits after srpm build
 - show log sizes for old finished builds
 
 - display buildtimes for completed tasks

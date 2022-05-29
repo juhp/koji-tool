@@ -38,6 +38,7 @@ import System.FilePath ((</>))
 
 import Utils
 
+-- FIXME quits after srpmbuild
 progressCmd :: Bool -> Int -> Bool -> [TaskID] -> IO ()
 progressCmd debug waitdelay modules tids = do
   when (waitdelay < 1) $ error' "minimum interval is 1 min"

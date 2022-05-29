@@ -66,8 +66,10 @@ data TaskResult =
               mtaskEndTime :: Maybe UTCTime
              }
 
--- FIXME short output summary
+-- FIXME short output option
 -- --sibling
+-- FIXME --tail-size option (eg more that 4000B)
+-- FIXME --output-fields
 tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
          -> Maybe TaskFilter -> Bool -> Bool -> TaskReq -> IO ()
@@ -223,6 +225,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       if detailed
         then do
         putStrLn ""
+        -- FIX for parent/build method show children (like we do with taskid)
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
         buildlogSize debug tail' hub task
         else

@@ -44,6 +44,7 @@ capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
 -- FIXME show tail of build's build.log
+-- FIXME add --install
 buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
           -> BuildReq -> IO ()
@@ -147,7 +148,7 @@ buildinfoUrl :: String -> Int -> String
 buildinfoUrl hub bid =
   webUrl hub ++ "/buildinfo?buildID=" ++ show bid
 
--- FIXME
+-- FIXME only 2 accessors
 data BuildResult =
   BuildResult {buildNVR :: NVR,
                _buildState :: BuildState,
