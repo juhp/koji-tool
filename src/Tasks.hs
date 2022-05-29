@@ -55,9 +55,16 @@ getTimedate :: BeforeAfter -> String
 getTimedate (Before s) = s
 getTimedate (After s) = s
 
-capitalize :: String -> String
-capitalize "" = ""
-capitalize (h:t) = toUpper h : t
+data TaskResult =
+  TaskResult {taskPackage :: Either String NVR,
+              taskArch :: String,
+              _taskMethod :: String,
+              _taskState :: TaskState,
+              mtaskParent :: Maybe Int,
+              taskId :: Int,
+              _mtaskStartTime :: Maybe UTCTime,
+              mtaskEndTime :: Maybe UTCTime
+             }
 
 -- FIXME short output summary
 -- --sibling
@@ -155,6 +162,10 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
             ++ [("state", ValueArray (map taskStateToValue states)) | notNull states]
             ++ [("arch", ValueArray (map (ValueString . kojiArch) archs)) | notNull archs]
             ++ [("method", ValueString method) | let method = fromMaybe "buildArch" mmethod]
+
+          capitalize :: String -> String
+          capitalize "" = ""
+          capitalize (h:t) = toUpper h : t
 
           kojiArch :: String -> String
           kojiArch "i686" = "i386"
@@ -270,17 +281,6 @@ formatTaskResult hub
 showPackage :: Either String NVR -> String
 showPackage (Left p) = p
 showPackage (Right nvr) = showNVR nvr
-
-data TaskResult =
-  TaskResult {taskPackage :: Either String NVR,
-              taskArch :: String,
-              _taskMethod :: String,
-              _taskState :: TaskState,
-              mtaskParent :: Maybe Int,
-              taskId :: Int,
-              _mtaskStartTime :: Maybe UTCTime,
-              mtaskEndTime :: Maybe UTCTime
-             }
 
 #if !MIN_VERSION_koji(0,0,3)
 taskStateToValue :: TaskState -> Value
