@@ -19,7 +19,6 @@ import Data.List.Extra
 import Data.Maybe
 import Data.RPM.NVR
 import Data.Time.Clock
-import Data.Time.Format
 import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
@@ -183,16 +182,16 @@ formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mend
   [ showNVR nvr +-+ show state
   , buildinfoUrl hub buildid]
   ++ [Tasks.taskinfoUrl hub taskid | Just taskid <- [mtaskid]]
-  ++ [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start)]
+  ++ [formatLocalTime True tz start]
   ++
   case mendtime of
     Nothing -> []
     Just end ->
-      [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | ended]
+      [formatLocalTime False tz end | ended]
 #if MIN_VERSION_time(1,9,1)
       ++
       let dur = diffUTCTime end start
-      in [(if not ended then "current " else "") ++ "duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur]
+      in [(if not ended then "current " else "") ++ "duration: " ++ renderDuration False dur]
 #endif
 
 #if !MIN_VERSION_koji(0,0,3)

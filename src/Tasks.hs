@@ -24,7 +24,6 @@ import Data.Monoid ((<>))
 #endif
 import Data.RPM.NVR
 import Data.Time.Clock
-import Data.Time.Format
 import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
@@ -238,8 +237,12 @@ compactTaskResult hub tz (TaskResult pkg arch method state _mparent taskid mstar
           Just end -> compactZonedTime tz end
           Nothing -> maybe "" (compactZonedTime tz) mstart
   in
-    showPackage pkg ++ (if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method) +-+
-    show state +-+ time +-+ taskinfoUrl hub taskid
+    unwords $
+    [showPackage pkg ++ if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method,
+     show state,
+     time] ++
+    ["(" ++ renderDuration True dur ++ ")" | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start] ++
+    [taskinfoUrl hub taskid]
 
 -- FIXME show task owner
 formatTaskResult :: String -> Maybe UTCTime -> TimeZone -> TaskResult -> [String]
@@ -252,15 +255,15 @@ formatTaskResult hub
   tz (TaskResult pkg arch method state mparent taskid mstart mend) =
   [ showPackage pkg ++ (if method == "buildArch" then '.' : arch else ' ' : method) +-+ show state
   , taskinfoUrl hub taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
-  [formatTime defaultTimeLocale "Start: %c" (utcToZonedTime tz start) | Just start <- [mstart]] ++
-  [formatTime defaultTimeLocale "End:   %c" (utcToZonedTime tz end) | Just end <- [mend]]
+  [formatLocalTime True tz start | Just start <- [mstart]] ++
+  [formatLocalTime False tz end | Just end <- [mend]]
 #if MIN_VERSION_time(1,9,1)
       ++
     case mtime of
       Just now ->
-        ["current duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur | Just start <- [mstart],  let dur = diffUTCTime now start]
+        ["current duration: " ++ renderDuration False dur | Just start <- [mstart],  let dur = diffUTCTime now start]
       Nothing ->
-        ["duration: " ++ formatTime defaultTimeLocale "%Hh %Mm %Ss" dur | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start]
+        ["duration: " ++ renderDuration False dur | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start]
 
 #endif
 

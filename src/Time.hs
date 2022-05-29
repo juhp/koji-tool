@@ -1,6 +1,10 @@
+{-# LANGUAGE CPP #-}
+
 module Time (
   compactZonedTime,
-  lookupTime)
+  lookupTime,
+  formatLocalTime,
+  renderDuration)
 where
 
 import Data.Time.Clock
@@ -25,3 +29,25 @@ lookupTime prefix str = do
     Nothing ->
       lookupStruct (prefix ++ "_time") str >>=
       parseTimeM False defaultTimeLocale "%Y-%m-%d %H:%M:%S%Q%EZ"
+
+formatLocalTime :: Bool -> TimeZone -> UTCTime -> String
+formatLocalTime start tz t =
+  formatTime defaultTimeLocale (if start then "Start: %c" else "End:   %c") $
+  utcToZonedTime tz t
+
+renderDuration :: Bool -> NominalDiffTime -> String
+#if MIN_VERSION_time(1,9,0)
+renderDuration short dur =
+  let fmtstr
+        | dur < 60 = "%s" ++ secs
+        | dur < 3600 = "%m" ++ mins ++ " %S" ++ secs
+        | otherwise = "%h" ++ hrs ++ " %M" ++ mins
+  in formatTime defaultTimeLocale fmtstr dur
+  where
+    secs = if short then "s" else " sec"
+    mins = if short then "m" else " min"
+    hrs = if short then "h" else " hours"
+#else
+renderDuration short dur =
+  show dur ++ if short then "" else "ec"
+#endif
