@@ -11,7 +11,7 @@ where
 #else
 import Control.Applicative ((<$>), (<*>))
 #endif
-import Control.Monad
+import Control.Monad.Extra (unless, when, whenJust)
 
 import Formatting
 
@@ -32,10 +32,12 @@ import Data.Monoid ((<>))
 import Data.RPM.NVR
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Time.LocalTime (getCurrentTimeZone)
 import Distribution.Koji
 import SimpleCmd
 import System.FilePath ((</>))
 
+import Time
 import Utils
 
 -- FIXME quits after srpmbuild
@@ -57,19 +59,22 @@ kojiTaskinfoRecursive tid = do
   case mtaskinfo of
     Nothing -> error' $ "taskinfo not found for " ++ displayID tid
     Just taskinfo -> do
-      parent <-
-        case lookupStruct "method" taskinfo :: Maybe String of
-          Nothing -> error' $ "no method found for " ++ displayID tid
-          Just method ->
-            case method of
-              "build" -> return tid
-              "buildArch" ->
-                case lookupStruct "parent" taskinfo of
-                  Nothing -> error' $ "no parent found for " ++ displayID tid
-                  Just parent -> return (TaskId parent)
-              _ -> error' $ "unsupport method: " ++ method
+      let parent =
+            case lookupStruct "method" taskinfo :: Maybe String of
+              Nothing -> error' $ "no method found for " ++ displayID tid
+              Just method ->
+                case method of
+                  "build" -> tid
+                  "buildArch" ->
+                    case lookupStruct "parent" taskinfo of
+                      Nothing -> error' $ "no parent found for " ++ displayID tid
+                      Just par -> TaskId par
+                  _ -> error' $ "unsupported method: " ++ method
       children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
                           kojiGetTaskChildren fedoraKojiHub parent True
+      whenJust (lookupTime "start" taskinfo) $ \t -> do
+        tz <- getCurrentTimeZone
+        putStrLn $ formatLocalTime True tz t
       return (tid, zip children (repeat Nothing))
 
 type BuildTask = (TaskID, [TaskInfoSize])
@@ -102,12 +107,12 @@ loopBuildTasks debug waitdelay bts = do
             kojiTaskinfoRecursive tid
             else return (tid,[])
         ((task,_):_) -> do
-          putStrLn ""
           when debug $ print task
           let mnvr = kojiTaskRequestNVR task
           logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ")"
           sizes <- mapM buildlogSize tasks
           printLogSizes waitdelay sizes
+          putStrLn ""
           let news = map (\(t,(s,_)) -> (t,s)) sizes
               open = filter (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
           return (tid, open)
