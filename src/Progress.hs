@@ -11,7 +11,7 @@ where
 #else
 import Control.Applicative ((<$>), (<*>))
 #endif
-import Control.Monad.Extra (unless, when, whenJust)
+import Control.Monad.Extra (unless, when)
 
 import Formatting
 
@@ -29,10 +29,10 @@ import Data.Maybe
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
 #endif
+import Data.Time (UTCTime, diffUTCTime, getCurrentTime)
 import Data.RPM.NVR
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Time.LocalTime (getCurrentTimeZone)
 import Distribution.Koji
 import SimpleCmd
 import System.FilePath ((</>))
@@ -72,12 +72,14 @@ kojiTaskinfoRecursive tid = do
                   _ -> error' $ "unsupported method: " ++ method
       children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
                           kojiGetTaskChildren fedoraKojiHub parent True
-      whenJust (lookupTime "start" taskinfo) $ \t -> do
-        tz <- getCurrentTimeZone
-        putStrLn $ formatLocalTime True tz t
-      return (tid, zip children (repeat Nothing))
+      let start =
+            case lookupTime "start" taskinfo of
+              Nothing ->
+                error' $ "task " ++ displayID tid ++ " has no start time"
+              Just t -> t
+      return (tid, start, zip children (repeat Nothing))
 
-type BuildTask = (TaskID, [TaskInfoSize])
+type BuildTask = (TaskID, UTCTime, [TaskInfoSize])
 
 -- FIXME change to (TaskID,Struct,Size)
 type TaskInfoSize = (Struct,Maybe Int)
@@ -98,32 +100,34 @@ loopBuildTasks debug waitdelay bts = do
       threadDelay (fromEnum (fromIntegral (m * 60) :: Micro))
 
     runProgress :: BuildTask -> IO BuildTask
-    runProgress (tid,tasks) =
+    runProgress (tid,start,tasks) =
       case tasks of
         [] -> do
           state <- kojiGetTaskState fedoraKojiHub tid
           if state `elem` map Just openTaskStates then do
             threadDelayMinutes waitdelay
             kojiTaskinfoRecursive tid
-            else return (tid,[])
+            else return (tid, start, [])
         ((task,_):_) -> do
           when debug $ print task
+          current <- getCurrentTime
           let mnvr = kojiTaskRequestNVR task
-          logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ")"
+              duration = diffUTCTime current start
+          logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ") " ++ renderDuration True duration
           sizes <- mapM buildlogSize tasks
           printLogSizes waitdelay sizes
           putStrLn ""
           let news = map (\(t,(s,_)) -> (t,s)) sizes
               open = filter (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
-          return (tid, open)
+          return (tid, start, open)
 
     tasksOpen :: BuildTask -> Bool
-    tasksOpen (_,ts) = not (null ts)
+    tasksOpen (_,_,ts) = not (null ts)
 
     updateBuildTask :: BuildTask -> IO BuildTask
-    updateBuildTask (tid, ts) = do
+    updateBuildTask (tid,start,ts) = do
       news <- mapM updateTask ts
-      return (tid, news)
+      return (tid, start, news)
 
     updateTask :: TaskInfoSize -> IO TaskInfoSize
     updateTask (task,size) = do
