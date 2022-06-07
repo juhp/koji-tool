@@ -64,17 +64,18 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall 
   printDlDir <- setDownloadDir dryrun "rpms"
   when debug printDlDir
   setNoBuffering
-  mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
-    >>= installRPMs dryrun userpm noreinstall yes . mconcat
+  buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
+  installRPMs dryrun debug userpm noreinstall yes buildrpms
   where
-    kojiRPMs :: String -> String -> IO () -> String -> IO [(Existence,NVRA)]
+    kojiRPMs :: String -> String -> IO () -> String
+             -> IO (FilePath, [(Existence,NVRA)])
     kojiRPMs huburl pkgsurl printDlDir bldtask =
       case readMaybe bldtask of
         Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select printDlDir taskid
         Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
     kojiBuildRPMs :: String -> String -> IO () -> String
-                  -> IO [(Existence,NVRA)]
+                  -> IO (FilePath, [(Existence,NVRA)])
     kojiBuildRPMs huburl pkgsurl printDlDir pkgbld = do
       disttag <-
         case mdisttag of
@@ -94,7 +95,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall 
                    kojiGetBuildRPMs huburl nvr >>=
                      mapM_ putStrLn . sort . filter notDebugPkg
                  _ -> mapM_ (putStrLn . showNVR) nvrs
-        return []
+        return ("",[])
         else
         case nvrs of
           [] -> error' $ pkgbld ++ " not found for " ++ disttag
@@ -105,11 +106,13 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall 
             let prefix = fromMaybe (nvrName nvr) mprefix
             dlRpms <- decideRpms yes listmode noreinstall select prefix nvras
             when debug $ mapM_ printInstalled dlRpms
+            let subdir = showNVR nvr
             unless (dryrun || null dlRpms) $ do
-              downloadRpms debug (buildURL nvr) dlRpms
+              -- FIXME should be NVRA ideally
+              downloadRpms debug subdir (buildURL nvr) dlRpms
               -- FIXME once we check file size - can skip if no downloads
               printDlDir
-            return dlRpms
+            return (subdir,dlRpms)
           _ -> error $ "multiple build founds for " ++ pkgbld ++ ": " ++
                unwords (map showNVR nvrs)
         where
@@ -123,7 +126,8 @@ notDebugPkg p =
   not ("-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p)
 
 kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool
-             -> Maybe String -> Select -> IO () -> Int -> IO [(Existence,NVRA)]
+             -> Maybe String -> Select -> IO () -> Int
+             -> IO (FilePath, [(Existence,NVRA)])
 kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select printDlDir taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
@@ -157,21 +161,25 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select
                     kojiTaskRequestPkgNVR $
                     fromMaybe archtask mtaskinfo
   if listmode
-    then decideRpms yes listmode noreinstall select prefix nvras
+    then do
+    drpms <- decideRpms yes listmode noreinstall select prefix nvras
+    return ("",drpms)
     else
     if null nvras
     then do
-      kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mprefix select printDlDir archtid >>= mapM_ printInstalled
-      return []
+      (_, rpms) <- kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mprefix select printDlDir archtid
+      mapM_ printInstalled rpms
+      return ("",[])
     else do
       when debug $ print $ map showNVRA nvras
       dlRpms <- decideRpms yes listmode noreinstall select prefix $
                 filter ((/= "src") . rpmArch) nvras
       when debug $ mapM_ printInstalled dlRpms
+      let subdir = show archtid
       unless (dryrun || null dlRpms) $ do
-        downloadRpms debug (taskRPMURL archtid) dlRpms
+        downloadRpms debug subdir (taskRPMURL archtid) dlRpms
         printDlDir
-      return dlRpms
+      return (subdir,dlRpms)
   where
     getTaskNVRAs :: Int -> IO [NVRA]
     getTaskNVRAs taskid' =
@@ -375,11 +383,12 @@ setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
-installRPMs :: Bool -> Bool -> Bool -> Yes -> [(Existence,NVRA)] -> IO ()
-installRPMs _ _ _ _ [] = return ()
-installRPMs dryrun rpm noreinstall yes classified =
-  forM_ (groupSort classified) $ \(cl,pkgs) ->
-    unless (null pkgs) $
+installRPMs :: Bool -> Bool -> Bool -> Bool -> Yes -> [(FilePath,[(Existence,NVRA)])]
+            -> IO ()
+installRPMs _ _ _ _ _ [] = return ()
+installRPMs dryrun debug rpm noreinstall yes classified =
+  forM_ (groupClasses classified) $ \(cl,dirpkgs) ->
+    unless (null dirpkgs) $
     let pkgmgr = if rpm then "rpm" else "dnf"
         mcom =
           case cl of
@@ -389,24 +398,39 @@ installRPMs dryrun rpm noreinstall yes classified =
             _ -> Just (if rpm then ["-ivh"] else ["localinstall"])
     in whenJust mcom $ \com ->
       if dryrun
-      then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile pkgs
-      else sudo_ pkgmgr $ com ++ map showRpmFile pkgs ++ ["--assumeyes" | yes == Yes && not rpm]
+      then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile dirpkgs
+      else do
+        when debug $ mapM_ (putStrLn . showRpmFile) dirpkgs
+        sudo_ pkgmgr $ com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && not rpm]
+  where
+    groupClasses =
+      groupSort . concatMap mapDir
+      where
+        mapDir :: (FilePath,[(Existence,NVRA)])
+               -> [(Existence,(FilePath,NVRA))]
+        mapDir (dir,cls) =
+          map (\(e,n) -> (e,(dir,n))) cls
 
-showRpmFile :: NVRA -> FilePath
-showRpmFile nvra = showNVRA nvra <.> "rpm"
+showRpm :: NVRA -> FilePath
+showRpm nvra = showNVRA nvra <.> "rpm"
 
-downloadRpms :: Bool -> (String -> String) -> [(Existence,NVRA)] -> IO ()
-downloadRpms debug urlOf rpms = do
+showRpmFile :: (FilePath,NVRA) -> FilePath
+showRpmFile (dir,nvra) = dir </> showRpm nvra
+
+downloadRpms :: Bool -> FilePath -> (String -> String) -> [(Existence,NVRA)]
+             -> IO ()
+downloadRpms debug subdir urlOf rpms = do
   urls <- fmap catMaybes <$>
     forM (map snd rpms) $ \nvra -> do
-    let rpm = showRpmFile nvra
-    exists <- doesFileExist rpm
+    let rpm = showRpm nvra
+        rpmfile = subdir </> rpm
+    exists <- doesFileExist rpmfile
     let url = urlOf rpm
     notfile <-
       if exists
       then do
-        old <- outOfDate rpm url
-        when old $ removeFile rpm
+        old <- outOfDate rpmfile url
+        when old $ removeFile rpmfile
         return old
       else return True
     when notfile $ putStrLn $ if debug then url else rpm
@@ -414,7 +438,7 @@ downloadRpms debug urlOf rpms = do
   unless (null urls) $ do
     mapM_ putStrLn urls
     putStrLn "downloading..."
-    cmd_ "curl" $ ["--remote-time", "--fail", "-C-", "--show-error", "--remote-name-all", "--progress-bar"] ++ urls
+    cmd_ "curl" $ ["--remote-time", "--fail", "-C-", "--show-error", "--create-dirs", "--output-dir", subdir, "--remote-name-all", "--progress-bar"] ++ urls
   where
     outOfDate :: String -> String -> IO Bool
     outOfDate file url = do
