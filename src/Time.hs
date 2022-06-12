@@ -4,6 +4,7 @@ module Time (
   compactZonedTime,
   lookupTime,
   lookupTimes,
+  durationOfTask,
   formatLocalTime,
   renderDuration)
 where
@@ -38,6 +39,12 @@ lookupTimes str = do
   start <- lookupTime False str
   let mend = lookupTime True str
   return (start,mend)
+
+durationOfTask :: Struct -> Maybe NominalDiffTime
+durationOfTask str = do
+  (start,mend) <- lookupTimes str
+  end <- mend
+  return $ diffUTCTime end start
 
 formatLocalTime :: Bool -> TimeZone -> UTCTime -> String
 formatLocalTime start tz t =

@@ -29,7 +29,7 @@ import Data.Maybe
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
 #endif
-import Data.Time (UTCTime, diffUTCTime, getCurrentTime)
+import Data.Time (diffUTCTime, getCurrentTime, NominalDiffTime)
 import Data.RPM.NVR
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -150,7 +150,12 @@ buildlogSize (task, old) = do
       let few = dropWhile (== '0') $ takeEnd 4 tid in
         if null few then "0" else few
 
-data TaskOutput = TaskOut {_outArch :: Text, moutSize :: Maybe Int, moutSpeed :: Maybe Int, _outState :: Text, _method :: Text}
+data TaskOutput = TaskOut {_outArch :: Text,
+                           moutSize :: Maybe Int,
+                           moutSpeed :: Maybe Int,
+                           _outState :: Text,
+                           _method :: Text,
+                           _mduration :: Maybe NominalDiffTime}
 
 printLogSizes :: Int -> [TaskInfoSizes] -> IO ()
 printLogSizes waitdelay tss =
@@ -158,8 +163,18 @@ printLogSizes waitdelay tss =
   in mapM_ (printTaskOut mxsi mxsp) taskoutputs
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
-    printTaskOut mxsi mxsp (TaskOut a msi msp st mth) =
-      fprintLn (rpadded 8 ' ' stext % lpadded mxsi ' ' (optioned commas) % "kB" % " " % optioned ("[" % lpadded mxsp ' ' commas % " B/min]") % " " % stext % " " % stext) a ((`div` 1000) <$> msi) ((`div` waitdelay) <$> msp) st (abridgeMethod mth)
+    printTaskOut mxsi mxsp (TaskOut a msi msp st mth mdur) =
+      fprintLn (rpadded 8 ' ' stext %
+                lpadded mxsi ' ' (optioned commas) % "kB" % " " %
+                optioned ("[" % lpadded mxsp ' ' commas % " B/min]") % " " %
+                stext % " " %
+                optioned string % " " % stext)
+      a
+      ((`div` 1000) <$> msi)
+      ((`div` waitdelay) <$> msp)
+      st
+      (renderDuration True <$> mdur)
+      (abridgeMethod mth)
 
     formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
     formatSize ts =
@@ -183,8 +198,11 @@ printLogSizes waitdelay tss =
           arch = maybeVal "arch not found" (lookupStruct "arch") task :: Text
           diff = (-) <$> size <*> old
           state = maybeVal "No state found" getTaskState task
-          state' = if state == TaskOpen then "" else T.pack (show state)
-        in TaskOut arch size diff state' method
+          state' =
+            if state == TaskOpen
+            then ""
+            else T.pack $ show state
+        in TaskOut arch size diff state' method (durationOfTask task)
 
 kojiListBuildTasks :: Maybe String -> IO [TaskID]
 kojiListBuildTasks muser = do

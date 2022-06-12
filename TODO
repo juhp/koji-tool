@@ -50,8 +50,6 @@
 * quits after srpm build
 - show log sizes for old finished builds
 
-- display buildtimes for completed tasks
-
 - pick up user's new builds
 
 - screen mode inplace tui
