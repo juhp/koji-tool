@@ -191,8 +191,8 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
     maybeTaskResult :: Struct -> Maybe TaskResult
     maybeTaskResult st = do
       arch <- lookupStruct "arch" st
-      let mstart_time = lookupTime "start" st
-          mend_time = lookupTime "completion" st
+      let mstart_time = lookupTime False st
+          mend_time = lookupTime True st
       taskid <- lookupStruct "id" st
       method <- lookupStruct "method" st
       state <- getTaskState st

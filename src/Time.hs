@@ -3,6 +3,7 @@
 module Time (
   compactZonedTime,
   lookupTime,
+  lookupTimes,
   formatLocalTime,
   renderDuration)
 where
@@ -22,13 +23,21 @@ compactZonedTime :: TimeZone -> UTCTime -> String
 compactZonedTime tz =
   formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z" . utcToZonedTime tz
 
-lookupTime :: String -> Struct -> Maybe UTCTime
-lookupTime prefix str = do
+lookupTime :: Bool -> Struct -> Maybe UTCTime
+lookupTime completion str = do
   case lookupStruct (prefix ++ "_ts") str of
     Just ts -> return $ readTime' ts
     Nothing ->
       lookupStruct (prefix ++ "_time") str >>=
       parseTimeM False defaultTimeLocale "%Y-%m-%d %H:%M:%S%Q%EZ"
+  where
+    prefix = if completion then "completion" else "start"
+
+lookupTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
+lookupTimes str = do
+  start <- lookupTime False str
+  let mend = lookupTime True str
+  return (start,mend)
 
 formatLocalTime :: Bool -> TimeZone -> UTCTime -> String
 formatLocalTime start tz t =

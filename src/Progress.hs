@@ -73,7 +73,7 @@ kojiTaskinfoRecursive tid = do
       children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
                           kojiGetTaskChildren fedoraKojiHub parent True
       let start =
-            case lookupTime "start" taskinfo of
+            case lookupTime False taskinfo of
               Nothing ->
                 error' $ "task " ++ displayID tid ++ " has no start time"
               Just t -> t

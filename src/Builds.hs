@@ -95,12 +95,10 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       nvr <- lookupStruct "nvr" bld
       state <- readBuildState <$> lookupStruct "state" bld
       let date =
-            case lookupTime "completion" bld of
-              Just t -> compactZonedTime tz t
-              Nothing ->
-                case lookupTime "start" bld of
-                  Just t -> compactZonedTime tz t
-                  Nothing -> ""
+            case lookupTimes bld of
+              Nothing -> ""
+              Just (start,mend) ->
+                compactZonedTime tz $ fromMaybe start mend
           mbid = lookupStruct "build_id" bld
       return $ nvr +-+ show state +-+ date +-+ maybe "" (buildinfoUrl hub) mbid
 
@@ -161,15 +159,14 @@ data BuildResult =
 
 maybeBuildResult :: Struct -> Maybe BuildResult
 maybeBuildResult st = do
-  start_time <- lookupTime "start" st
-  let mend_time = lookupTime "completion" st
+  (start,mend) <- lookupTimes st
   buildid <- lookupStruct "build_id" st
   -- buildContainer has no task_id
   let mtaskid = lookupStruct "task_id" st
   state <- getBuildState st
   nvr <- lookupStruct "nvr" st >>= maybeNVR
   return $
-    BuildResult nvr state buildid mtaskid start_time mend_time
+    BuildResult nvr state buildid mtaskid start mend
 
 printBuild :: String -> TimeZone -> BuildResult -> IO ()
 printBuild hub tz build = do
