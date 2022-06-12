@@ -2,6 +2,9 @@
 - hub configurations
 - determine urls for logs etc by parsing html
 
+# misc
+- api-version command
+
 # install
 - autodetect nvr
 - --nodeps

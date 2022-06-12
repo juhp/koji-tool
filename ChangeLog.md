@@ -1,5 +1,13 @@
 # Version history of koji-tool
 
+## 0.9.2 (2022-06-12)
+- progress: print build duration
+- install: place rpms in a nvr subdirectory
+- progress: show duration of build and finished tasks
+- install: when downloading check if local files' timestamp within build time
+- progress: no longer quit after srpm build
+- tasks --install now takes install options string
+
 ## 0.9.1 (2022-05-29)
 - 'find': add "install", "tail", "notail", and archs support
 - 'install': --rpm option to install directly with rpm instead of dnf
