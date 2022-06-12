@@ -278,9 +278,9 @@ formatTaskResult hub
       ++
     case mtime of
       Just now ->
-        ["current duration: " ++ renderDuration False dur | Just start <- [mstart],  let dur = diffUTCTime now start]
+        ["current duration: " ++ renderDuration False dur | Just start <- [mstart], let dur = diffUTCTime now start]
       Nothing ->
-        ["duration: " ++ renderDuration False dur | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start]
+        ["duration: " ++ renderDuration False dur | Just start <- [mstart], Just end <- [mend], let dur = diffUTCTime end start]
 
 #endif
 
