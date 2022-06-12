@@ -87,7 +87,7 @@ findCmd mhub debug args = do
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub user limit states archs Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) install taskreq
+    in Tasks.tasksCmd mhub user limit states archs Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) (if install then Just (Tasks.PkgsReq [] []) else Nothing) taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args

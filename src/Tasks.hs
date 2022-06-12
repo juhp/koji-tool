@@ -10,7 +10,8 @@ module Tasks (
   parseTaskState,
   kojiMethods,
   fedoraKojiHub,
-  taskinfoUrl
+  taskinfoUrl,
+  Select(PkgsReq)
   )
 where
 
@@ -72,8 +73,8 @@ data TaskResult =
 -- FIXME --output-fields
 tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
-         -> Maybe TaskFilter -> Bool -> Bool -> TaskReq -> IO ()
-tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' tail' install taskreq = do
+         -> Maybe TaskFilter -> Bool -> Maybe Select -> TaskReq -> IO ()
+tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' tail' minstall taskreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -88,8 +89,9 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
           let hasparent = isJust $ mtaskParent res
           printTask hasparent tz res
           if hasparent
-            then when install $ installCmd False debug No mhub Nothing False False False False Nothing (PkgsReq [] []) Nothing ReqName [show taskid]
-            else tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' install (Parent taskid)
+            then whenJust minstall $ \installopts ->
+            installCmd False debug No mhub Nothing False False False False False Nothing installopts Nothing ReqName [show taskid]
+            else tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --build together with timedate or filter"
@@ -97,7 +99,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild hub (InfoID (read bld))
                 else kojiGetBuildTaskID hub bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' install (Parent taskid)
+        tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
     Package pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package " ++ pkg
@@ -113,7 +115,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
           forM_ builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' install (Parent taskid)
+              tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
     Pattern pat -> do
       let buildquery = [("pattern", ValueString pat),
                         commonBuildQueryOptions limit]
@@ -123,7 +125,7 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       forM_ builds $ \bld -> do
         let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
         whenJust mtaskid $ \(TaskId taskid) ->
-          tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' install (Parent taskid)
+          tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
     _ -> do
       query <- setupQuery
       let queryopts = commonQueryOptions limit "-id"
@@ -133,9 +135,9 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
       let exact = length tasks == 1
           detailed = details || exact
       (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
-      when install $
+      whenJust minstall $ \args ->
         if exact
-        then installCmd False debug No mhub Nothing False False False False Nothing (PkgsReq [] []) Nothing ReqName [show (i :: Int) | i <- mapMaybe (lookupStruct "id") tasks]
+        then installCmd False debug No mhub Nothing False False False False False Nothing args Nothing ReqName [show (i :: Int) | i <- mapMaybe (lookupStruct "id") tasks]
         else error' "cannot install more than one task"
   where
     hub = maybe fedoraKojiHub hubURL mhub

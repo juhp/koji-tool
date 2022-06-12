@@ -60,7 +60,7 @@ main = do
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
-      <*> switchWith 'i' "install" "install the package"
+      <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> (Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
            <|> Pattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Build tasks of matching pattern"
            <|> argumentWith (maybeReader readTaskReq) "PACKAGE|TASKID"

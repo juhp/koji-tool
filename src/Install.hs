@@ -7,7 +7,8 @@ module Install (
   Request(..),
   installCmd,
   knownHubs,
-  Yes(..)
+  Yes(..),
+  installArgs
   )
 where
 
@@ -37,10 +38,31 @@ data Yes = No | Yes
   deriving Eq
 
 data Select = All
-          | Ask
-          -- distinguish except and exclude
-          | PkgsReq [String] [String] -- ^ include, except/exclude
+            | Ask
+            | PkgsReq [String] [String] -- ^ include, except/exclude
   deriving Eq
+
+installArgs :: String -> Select
+installArgs cs =
+  case words cs of
+    ["-a"] -> All
+    ["--all"] -> All
+    ["-A"] -> Ask
+    ["--ask"] -> Ask
+    ws -> installPairs [] [] ws
+  where
+    installPairs :: [String] -> [String] -> [String] -> Select
+    installPairs pa xa [] = PkgsReq pa xa
+    installPairs pa xa (w:ws)
+      | w `elem` ["-p","--package"] =
+          case ws of
+            [] -> error' "--install-opts --package missing value"
+            (w':ws') -> installPairs (w':pa) xa ws'
+      | w `elem` ["-x","--exclude"] =
+          case ws of
+            [] -> error' "--install-opts --exclude missing value"
+            (w':ws') -> installPairs pa (w':xa) ws'
+      | otherwise = error' "invalid --install-opts"
 
 data Request = ReqName | ReqNV | ReqNVR
   deriving Eq
