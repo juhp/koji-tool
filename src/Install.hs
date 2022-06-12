@@ -30,6 +30,7 @@ import Text.Read (readMaybe)
 
 import Common
 import DownloadDir
+import Time
 import Utils
 
 data Yes = No | Yes
@@ -52,10 +53,11 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME --delete after installing
 -- FIXME --dnf to install selected packages using default dnf repo instead
 -- FIXME offer to download subpackage deps
+-- FIXME is --check-remote-time really needed?
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Bool -> Maybe String -> Select -> Maybe String
-           -> Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall mprefix select mdisttag request pkgbldtsks = do
+           -> Bool -> Bool -> Bool -> Bool -> Maybe String -> Select
+           -> Maybe String -> Request -> [String] -> IO ()
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime useRpm noreinstall mprefix select mdisttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -65,13 +67,13 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall 
   when debug printDlDir
   setNoBuffering
   buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
-  installRPMs dryrun debug userpm noreinstall yes buildrpms
+  installRPMs dryrun debug useRpm noreinstall yes buildrpms
   where
     kojiRPMs :: String -> String -> IO () -> String
              -> IO (FilePath, [(Existence,NVRA)])
     kojiRPMs huburl pkgsurl printDlDir bldtask =
       case readMaybe bldtask of
-        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select printDlDir taskid
+        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select checkremotetime printDlDir taskid
         Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
     kojiBuildRPMs :: String -> String -> IO () -> String
@@ -92,7 +94,8 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall 
                  [nvr] -> do
                    putStrLn (showNVR nvr)
                    putStrLn ""
-                   kojiGetBuildRPMs huburl nvr >>=
+                   bid <- kojiGetBuildID' huburl (showNVR nvr)
+                   kojiGetBuildRPMs huburl nvr bid >>=
                      mapM_ putStrLn . sort . filter notDebugPkg
                  _ -> mapM_ (putStrLn . showNVR) nvrs
         return ("",[])
@@ -101,15 +104,17 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest userpm noreinstall 
           [] -> error' $ pkgbld ++ " not found for " ++ disttag
           [nvr] -> do
             putStrLn $ showNVR nvr ++ "\n"
-            nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr
+            bid <- kojiGetBuildID' huburl (showNVR nvr)
+            nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
             when debug $ mapM_ (putStrLn . showNVRA) nvras
             let prefix = fromMaybe (nvrName nvr) mprefix
             dlRpms <- decideRpms yes listmode noreinstall select prefix nvras
             when debug $ mapM_ printInstalled dlRpms
             let subdir = showNVR nvr
             unless (dryrun || null dlRpms) $ do
+              bld <- kojiGetBuild' huburl nvr
               -- FIXME should be NVRA ideally
-              downloadRpms debug subdir (buildURL nvr) dlRpms
+              downloadRpms debug checkremotetime (lookupTimes' bld) subdir (buildURL nvr) dlRpms
               -- FIXME once we check file size - can skip if no downloads
               printDlDir
             return (subdir,dlRpms)
@@ -126,9 +131,9 @@ notDebugPkg p =
   not ("-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p)
 
 kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Bool
-             -> Maybe String -> Select -> IO () -> Int
+             -> Maybe String -> Select -> Bool -> IO () -> Int
              -> IO (FilePath, [(Existence,NVRA)])
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select printDlDir taskid = do
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select checkremotetime printDlDir taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
@@ -167,7 +172,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select
     else
     if null nvras
     then do
-      (_, rpms) <- kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mprefix select printDlDir archtid
+      (_, rpms) <- kojiTaskRPMs dryrun debug yes huburl pkgsurl True noreinstall mprefix select checkremotetime printDlDir archtid
       mapM_ printInstalled rpms
       return ("",[])
     else do
@@ -177,7 +182,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select
       when debug $ mapM_ printInstalled dlRpms
       let subdir = show archtid
       unless (dryrun || null dlRpms) $ do
-        downloadRpms debug subdir (taskRPMURL archtid) dlRpms
+        downloadRpms debug checkremotetime (lookupTimes' archtask) subdir (taskRPMURL archtid) dlRpms
         printDlDir
       return (subdir,dlRpms)
   where
@@ -352,31 +357,27 @@ packageOfPattern request pat =
       case readNVR pat of
         NVR n _ -> (n, True)
 
-kojiGetBuildRPMs :: String -> NVR -> IO [String]
-kojiGetBuildRPMs huburl nvr = do
-  mbid <- kojiGetBuildID huburl (showNVR nvr)
-  case mbid of
-    Nothing -> error $ "Build id not found for " ++ showNVR nvr
-    Just (BuildId bid) -> do
-      rpms <- Koji.listBuildRPMs huburl bid
-      sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
-      return $ map getNVRA $ filter (forArch sysarch) rpms
-   where
-     forArch :: String -> Struct -> Bool
-     forArch sysarch st =
-       case lookupStruct "arch" st of
-         Just arch -> arch `elem` [sysarch, "noarch"]
-         Nothing -> error $ "No arch found for rpm for: " ++ showNVR nvr
+kojiGetBuildRPMs :: String -> NVR -> BuildID -> IO [String]
+kojiGetBuildRPMs huburl nvr (BuildId bid) = do
+  rpms <- Koji.listBuildRPMs huburl bid
+  sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
+  return $ map getNVRA $ filter (forArch sysarch) rpms
+  where
+    forArch :: String -> Struct -> Bool
+    forArch sysarch st =
+      case lookupStruct "arch" st of
+        Just arch -> arch `elem` [sysarch, "noarch"]
+        Nothing -> error $ "No arch found for rpm for: " ++ showNVR nvr
 
-     getNVRA :: Struct -> String
-     getNVRA st =
-       case lookupStruct "nvr" st of
-         Nothing -> error' "NVR not found"
-         Just pnvr ->
-           case lookupStruct "arch" st of
-             Nothing -> error "arch not found"
-             Just arch ->
-               pnvr <.> arch
+    getNVRA :: Struct -> String
+    getNVRA st =
+      case lookupStruct "nvr" st of
+        Nothing -> error' "NVR not found"
+        Just pnvr ->
+          case lookupStruct "arch" st of
+            Nothing -> error "arch not found"
+            Just arch ->
+              pnvr <.> arch
 
 setNoBuffering :: IO ()
 setNoBuffering = do
@@ -417,28 +418,32 @@ showRpm nvra = showNVRA nvra <.> "rpm"
 showRpmFile :: (FilePath,NVRA) -> FilePath
 showRpmFile (dir,nvra) = dir </> showRpm nvra
 
-downloadRpms :: Bool -> FilePath -> (String -> String) -> [(Existence,NVRA)]
-             -> IO ()
-downloadRpms debug subdir urlOf rpms = do
+downloadRpms :: Bool -> Bool -> (UTCTime, UTCTime) -> FilePath
+             -> (String -> String) -> [(Existence,NVRA)] -> IO ()
+downloadRpms debug checkremotetime (taskstart,taskend) subdir urlOf rpms = do
   urls <- fmap catMaybes <$>
-    forM (map snd rpms) $ \nvra -> do
-    let rpm = showRpm nvra
-        rpmfile = subdir </> rpm
+    forM (map (showRpm . snd) rpms) $ \rpm -> do
+    let rpmfile = subdir </> rpm
     exists <- doesFileExist rpmfile
     let url = urlOf rpm
     notfile <-
       if exists
       then do
-        old <- outOfDate rpmfile url
-        when old $ removeFile rpmfile
-        return old
+        if checkremotetime
+          then do
+          old <- outOfDate rpmfile url
+          when old $ removeFile rpmfile
+          return old
+          else do
+          localtime <- getModificationTime rpmfile
+          return $ localtime < taskstart || localtime > taskend
       else return True
-    when notfile $ putStrLn $ if debug then url else rpm
+    -- FIXME is this still useful?
+    when (notfile && debug) $ putStrLn url
     return $ if notfile then Just url else Nothing
   unless (null urls) $ do
-    mapM_ putStrLn urls
     putStrLn "downloading..."
-    cmd_ "curl" $ ["--remote-time", "--fail", "-C-", "--show-error", "--create-dirs", "--output-dir", subdir, "--remote-name-all", "--progress-bar"] ++ urls
+    cmd_ "curl" $ ["--remote-time", "--fail", "-C-", "--show-error", "--create-dirs", "--output-dir", subdir, "--remote-name-all", "--progress-bar", "--write-out", "%{filename_effective}\n"] ++ urls
   where
     outOfDate :: String -> String -> IO Bool
     outOfDate file url = do

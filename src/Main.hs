@@ -85,6 +85,7 @@ main = do
                     "KojiFiles packages url [default: Fedora]")
       <*> switchWith 'l' "list" "List builds"
       <*> switchWith 'L' "latest" "Latest build"
+      <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
       <*> switchWith 'r' "rpm" "Use rpm instead of dnf"
       <*> switchWith 'N' "no-reinstall" "Do not reinstall existing NVRs"
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")

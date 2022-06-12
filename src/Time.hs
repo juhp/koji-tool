@@ -4,9 +4,11 @@ module Time (
   compactZonedTime,
   lookupTime,
   lookupTimes,
+  lookupTimes',
   durationOfTask,
   formatLocalTime,
-  renderDuration)
+  renderDuration,
+  UTCTime)
 where
 
 import Data.Time.Clock
@@ -39,6 +41,15 @@ lookupTimes str = do
   start <- lookupTime False str
   let mend = lookupTime True str
   return (start,mend)
+
+lookupTimes' :: Struct -> (UTCTime, UTCTime)
+lookupTimes' str =
+  case lookupTimes str of
+    Nothing -> error "no start time for task"
+    Just (start,mend) ->
+      case mend of
+        Nothing -> error "no end time for task"
+        Just end -> (start,end)
 
 durationOfTask :: Struct -> Maybe NominalDiffTime
 durationOfTask str = do

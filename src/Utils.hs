@@ -1,6 +1,8 @@
 module Utils (
   kojiTaskRequestNVR,
   kojiTaskRequestPkgNVR,
+  kojiGetBuildID',
+  kojiGetBuild',
   showValue,
   buildOutputURL,
   hubToPkgsURL
@@ -12,6 +14,7 @@ import Data.RPM (dropArch)
 import Data.RPM.NVR
 import Data.RPM.NVRA
 import Distribution.Koji
+import qualified Distribution.Koji.API as Koji
 import Network.HTTP.Directory ((+/+))
 import SimpleCmd (error')
 import System.FilePath (takeBaseName)
@@ -41,6 +44,20 @@ kojiTaskRequestPkgNVR task =
                    then tail $ dropWhile (/= ';') base
                    else base
     _ -> error' "could determine package from build request"
+
+kojiGetBuildID' :: String -> String -> IO BuildID
+kojiGetBuildID' hub nvr = do
+  mbid <- kojiGetBuildID hub nvr
+  case mbid of
+    Nothing -> error' $ "build id not found for " ++ nvr
+    Just bid -> return bid
+
+kojiGetBuild' :: String -> NVR -> IO Koji.Struct
+kojiGetBuild' hub nvr = do
+  mbld <- Koji.getBuild hub (Koji.InfoString (showNVR nvr))
+  case mbld of
+    Nothing -> error' $ "build not found for " ++ showNVR nvr
+    Just bld -> return bld
 
 showValue :: Value -> String
 showValue (ValueString cs) = cs
