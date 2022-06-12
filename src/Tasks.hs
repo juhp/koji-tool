@@ -234,7 +234,8 @@ tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' t
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
       pPrintOpt CheckColorTty
-      (defaultOutputOptionsDarkBg {outputOptionsCompact = True})
+      (defaultOutputOptionsDarkBg {outputOptionsCompact = True,
+                                   outputOptionsCompactParens = True})
 #else
       pPrint
 #endif

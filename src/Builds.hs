@@ -139,7 +139,8 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
       pPrintOpt CheckColorTty
-      (defaultOutputOptionsDarkBg {outputOptionsCompact = True})
+      (defaultOutputOptionsDarkBg {outputOptionsCompact = True,
+                                   outputOptionsCompactParens = True})
 #else
       pPrint
 #endif
