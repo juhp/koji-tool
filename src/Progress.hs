@@ -40,7 +40,6 @@ import System.FilePath ((</>))
 import Time
 import Utils
 
--- FIXME quits after srpmbuild
 progressCmd :: Bool -> Int -> Bool -> [TaskID] -> IO ()
 progressCmd debug waitdelay modules tids = do
   when (waitdelay < 1) $ error' "minimum interval is 1 min"
@@ -104,7 +103,8 @@ loopBuildTasks debug waitdelay bts = do
       case tasks of
         [] -> do
           state <- kojiGetTaskState fedoraKojiHub tid
-          if state `elem` map Just openTaskStates then do
+          if state `elem` map Just openTaskStates
+            then do
             threadDelayMinutes waitdelay
             kojiTaskinfoRecursive tid
             else return (tid, start, [])
@@ -119,7 +119,9 @@ loopBuildTasks debug waitdelay bts = do
           putStrLn ""
           let news = map (\(t,(s,_)) -> (t,s)) sizes
               open = filter (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
-          return (tid, start, open)
+          if null open
+            then runProgress (tid,start,[])
+            else return (tid, start, open)
 
     tasksOpen :: BuildTask -> Bool
     tasksOpen (_,_,ts) = not (null ts)
