@@ -70,8 +70,9 @@ buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
       case mpkgid of
         Nothing -> error' $ "no package id found for " ++ pkg
         Just pkgid -> do
+          query <- setupQuery
           let fullquery = [("packageID", ValueInt pkgid),
-                          commonBuildQueryOptions limit]
+                          commonBuildQueryOptions limit] ++ query
           when debug $ print fullquery
           builds <- listBuilds hub fullquery
           when debug $ mapM_ pPrintCompact builds
