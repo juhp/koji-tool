@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE BangPatterns, CPP #-}
 
 -- SPDX-License-Identifier: BSD-3-Clause
 
@@ -48,7 +48,7 @@ capitalize (h:t) = toUpper h : t
 buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
           -> BuildReq -> IO ()
-buildsCmd mhub museropt limit states mdate mtype details debug buildreq = do
+buildsCmd mhub museropt limit !states mdate mtype details debug buildreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -208,7 +208,7 @@ parseBuildState s =
     "failed" -> BuildFailed
     "cancel" -> BuildCanceled
     "canceled" -> BuildCanceled
-    _ -> error' $! "unknown task state: " ++ s
+    _ -> error' $! "unknown build state: " ++ s
 #endif
 
 getBuildState :: Struct -> Maybe BuildState

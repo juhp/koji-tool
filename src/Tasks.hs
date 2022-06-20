@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, OverloadedStrings #-}
+{-# LANGUAGE BangPatterns, CPP, OverloadedStrings #-}
 
 -- SPDX-License-Identifier: BSD-3-Clause
 
@@ -74,7 +74,7 @@ data TaskResult =
 tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
          -> Maybe TaskFilter -> Bool -> Maybe Select -> TaskReq -> IO ()
-tasksCmd mhub museropt limit states archs mdate mmethod details debug mfilter' tail' minstall taskreq = do
+tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' tail' minstall taskreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
