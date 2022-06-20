@@ -76,9 +76,9 @@ kojiTaskinfoRecursive tid = do
               Nothing ->
                 error' $ "task " ++ displayID tid ++ " has no start time"
               Just t -> t
-      return (tid, start, zip children (repeat Nothing))
+      return (tid, start, Nothing, zip children (repeat Nothing))
 
-type BuildTask = (TaskID, UTCTime, [TaskInfoSize])
+type BuildTask = (TaskID, UTCTime, Maybe Int, [TaskInfoSize])
 
 -- FIXME change to (TaskID,Struct,Size)
 type TaskInfoSize = (Struct,Maybe Int)
@@ -99,7 +99,7 @@ loopBuildTasks debug waitdelay bts = do
       threadDelay (fromEnum (fromIntegral (m * 60) :: Micro))
 
     runProgress :: BuildTask -> IO BuildTask
-    runProgress (tid,start,tasks) =
+    runProgress (tid,start,msize,tasks) =
       case tasks of
         [] -> do
           state <- kojiGetTaskState fedoraKojiHub tid
@@ -107,29 +107,36 @@ loopBuildTasks debug waitdelay bts = do
             then do
             threadDelayMinutes waitdelay
             kojiTaskinfoRecursive tid
-            else return (tid, start, [])
+            else return (tid, start, msize, [])
         ((task,_):_) -> do
           when debug $ print task
           current <- getCurrentTime
           let mnvr = kojiTaskRequestNVR task
               duration = diffUTCTime current start
-          logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ") " ++ renderDuration True duration
+          logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show s ++ "kB,") ((`div` 1000) <$> msize) +-+ renderDuration True duration
           sizes <- mapM buildlogSize tasks
           printLogSizes waitdelay sizes
           putStrLn ""
           let news = map (\(t,(s,_)) -> (t,s)) sizes
-              open = filter (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
+              (open,closed) = partition (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
+              mlargest = if null closed
+                         then Nothing
+                         else maximum $ map snd closed
+              mbiggest = case (mlargest,msize) of
+                           (Just large, Just size) -> Just $ max large size
+                           (Just large, Nothing) -> Just large
+                           (Nothing,_) -> msize
           if null open
-            then runProgress (tid,start,[])
-            else return (tid, start, open)
+            then runProgress (tid,start,mbiggest,[])
+            else return (tid, start, mbiggest, open)
 
     tasksOpen :: BuildTask -> Bool
-    tasksOpen (_,_,ts) = not (null ts)
+    tasksOpen (_,_,_,ts) = not (null ts)
 
     updateBuildTask :: BuildTask -> IO BuildTask
-    updateBuildTask (tid,start,ts) = do
+    updateBuildTask (tid,start,msize,ts) = do
       news <- mapM updateTask ts
-      return (tid, start, news)
+      return (tid, start, msize, news)
 
     updateTask :: TaskInfoSize -> IO TaskInfoSize
     updateTask (task,size) = do

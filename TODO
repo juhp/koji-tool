@@ -50,7 +50,6 @@
 - % of previous build (or finished tasks)
 - mbs urls?
 - average build times? (cache or separate tool?)
-- show log sizes for old finished builds
 
 - pick up user's new builds
 
