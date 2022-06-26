@@ -15,7 +15,7 @@ import User
 import Install
 import qualified Paths_koji_tool
 import Progress
-import Quick
+import Find
 import Tasks
 
 main :: IO ()

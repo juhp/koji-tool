@@ -2,7 +2,7 @@
 
 -- SPDX-License-Identifier: BSD-3-Clause
 
-module Quick (
+module Find (
   findCmd,
   wordsList
   )
@@ -11,11 +11,13 @@ where
 import Data.Char ( isDigit, isAsciiLower, isAsciiUpper )
 import Data.List.Extra ((\\), dropSuffix, isSuffixOf)
 import Distribution.Koji
+    ( BuildState(BuildBuilding, BuildFailed, BuildComplete),
+      TaskState(TaskOpen, TaskFailed, TaskClosed) )
 import SimpleCmd (error')
 
 import qualified Builds
 import qualified Tasks
-import User
+import User ( UserOpt(User, UserSelf) )
 
 data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
            | Install | Tail | NoTail | Arch

@@ -36,9 +36,9 @@ executable koji-tool
                        BuildlogSizes
                        Common
                        DownloadDir
+                       Find
                        Install
                        Progress
-                       Quick
                        Tasks
                        Time
                        User
