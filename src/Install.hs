@@ -221,7 +221,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select
               if null few then "0" else few
       in dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ show taskid' +/+ rpm
 
-data Existence = NotInstalled | NVRInstalled | NVRChanged
+data Existence = NVRInstalled | NVRChanged | NotInstalled
   deriving (Eq, Ord, Show)
 
 decideRpms :: Yes -> Bool -> Bool -> Select -> String -> [NVRA]
