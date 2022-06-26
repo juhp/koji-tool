@@ -4,6 +4,7 @@
 
 module Builds (
   BuildReq(..),
+  Details(..),
   buildsCmd,
   parseBuildState,
   fedoraKojiHub,
@@ -26,6 +27,7 @@ import SimpleCmd
 import Text.Pretty.Simple
 
 import Common
+import Install
 import qualified Tasks
 import Time
 import User
@@ -43,12 +45,14 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (h:t) = toUpper h : t
 
--- FIXME show tail of build's build.log
+data Details = DetailDefault | Detailed | DetailedTasks
+  deriving Eq
+
 -- FIXME add --install
 buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
-          -> Maybe Tasks.BeforeAfter -> Maybe String -> Bool -> Bool
-          -> BuildReq -> IO ()
-buildsCmd mhub museropt limit !states mdate mtype details debug buildreq = do
+          -> Maybe Tasks.BeforeAfter -> Maybe String -> Details
+          -> Maybe Tasks.Select -> Bool -> BuildReq -> IO ()
+buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -60,7 +64,7 @@ buildsCmd mhub museropt limit !states mdate mtype details debug buildreq = do
                     then InfoID (read bld)
                     else InfoString bld
       mbld <- getBuild hub bldinfo
-      whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz
+      whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz details minstall
     BuildPackage pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package: " ++ pkg
@@ -76,8 +80,8 @@ buildsCmd mhub museropt limit !states mdate mtype details debug buildreq = do
           when debug $ print fullquery
           builds <- listBuilds hub fullquery
           when debug $ mapM_ pPrintCompact builds
-          if details || length builds == 1
-            then mapM_ (printBuild hub tz) $ mapMaybe maybeBuildResult builds
+          if details /= DetailDefault || length builds == 1
+            then mapM_ (printBuild hub tz details minstall) $ mapMaybe maybeBuildResult builds
             else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
       query <- setupQuery
@@ -85,8 +89,8 @@ buildsCmd mhub museropt limit !states mdate mtype details debug buildreq = do
       when debug $ print fullquery
       builds <- listBuilds hub fullquery
       when debug $ mapM_ pPrintCompact builds
-      if details || length builds == 1
-        then mapM_ (printBuild hub tz) $ mapMaybe maybeBuildResult builds
+      if details /= DetailDefault || length builds == 1
+        then mapM_ (printBuild hub tz details minstall) $ mapMaybe maybeBuildResult builds
         else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
   where
     hub = maybe fedoraKojiHub hubURL mhub
@@ -148,12 +152,11 @@ buildinfoUrl :: String -> Int -> String
 buildinfoUrl hub bid =
   webUrl hub ++ "/buildinfo?buildID=" ++ show bid
 
--- FIXME only 2 accessors
 data BuildResult =
   BuildResult {buildNVR :: NVR,
-               _buildState :: BuildState,
+               buildState :: BuildState,
                _buildId :: Int,
-               _mtaskId :: Maybe Int,
+               mbuildTaskId :: Maybe Int,
                _buildStartTime :: UTCTime,
                mbuildEndTime :: Maybe UTCTime
               }
@@ -169,13 +172,22 @@ maybeBuildResult st = do
   return $
     BuildResult nvr state buildid mtaskid start mend
 
-printBuild :: String -> TimeZone -> BuildResult -> IO ()
-printBuild hub tz build = do
+printBuild :: String -> TimeZone -> Details -> Maybe Tasks.Select
+           -> BuildResult -> IO ()
+printBuild hub tz details minstall build = do
   putStrLn ""
   let mendtime = mbuildEndTime build
   time <- maybe getCurrentTime return mendtime
   (mapM_ putStrLn . formatBuildResult hub (isJust mendtime) tz) (build {mbuildEndTime = Just time})
-  putStrLn $ buildOutputURL hub $ buildNVR build
+  when (buildState build == BuildComplete) $
+    putStrLn $ buildOutputURL hub $ buildNVR build
+  whenJust (mbuildTaskId build) $ \taskid -> do
+    when (details == DetailedTasks) $ do
+      putStrLn ""
+      Tasks.tasksCmd (Just hub) Nothing 7 [] [] Nothing Nothing False False Nothing False Nothing (Tasks.Parent taskid)
+    whenJust minstall $ \installopts -> do
+      putStrLn ""
+      installCmd False False No (Just hub) Nothing False False False False False Nothing installopts Nothing ReqName [show taskid]
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
 formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
@@ -223,4 +235,4 @@ latestCmd mhub debug tag pkg = do
   mbld <- kojiLatestBuild hub tag pkg
   when debug $ print mbld
   tz <- getCurrentTimeZone
-  whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz
+  whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz Detailed Nothing

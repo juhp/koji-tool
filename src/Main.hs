@@ -34,8 +34,10 @@ main = do
       <*> many (parseBuildState <$> strOptionWith 's' "state" "STATE" "Filter builds by state (building,complete,deleted,fail(ed),cancel(ed)")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
-      <*> (fmap normalizeBuildType <$> optional (strOptionWith 't' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
-      <*> switchWith 'd' "details" "Show more details of builds"
+      <*> (fmap normalizeBuildType <$> optional (strOptionWith 'T' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
+      <*> (flagWith' Detailed 'd' "details" "Show more build details" <|>
+           flagWith DetailDefault DetailedTasks 't' "tasks" "Show details and tasks")
+      <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       <*> (BuildBuild <$> strOptionWith 'b' "build" "NVR/BUILDID" "Show build" <|>
            BuildPattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Builds matching glob pattern" <|>

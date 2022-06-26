@@ -79,17 +79,19 @@ findCmd mhub debug args = do
             error' $
             "you can only specify one package - too many unknown words: " ++
             unwords other
+      installation = if install then Just (Tasks.PkgsReq [] []) else Nothing
   if build
     then
     let states = [BuildFailed|failure] ++ [BuildComplete|complete] ++
                  [BuildBuilding|current]
         buildreq = maybe Builds.BuildQuery Builds.BuildPackage mpkg
-    in Builds.buildsCmd mhub user limit states Nothing (Just "rpm") detail debug buildreq
+        detailed = if detail then Builds.Detailed else Builds.DetailDefault
+    in Builds.buildsCmd mhub user limit states Nothing (Just "rpm") detailed installation debug buildreq
     else
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub user limit states archs Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) (if install then Just (Tasks.PkgsReq [] []) else Nothing) taskreq
+    in Tasks.tasksCmd mhub user limit states archs Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) installation taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args
