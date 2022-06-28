@@ -325,8 +325,8 @@ outputUrl hub task loc =
 findOutputURL :: String -> TaskResult -> IO (Maybe String)
 findOutputURL hub task =
   case outputUrl hub task PackagesOutput of
-    Just burl -> urlExistsOr burl $
-                 urlExistsOr (taskOutputUrl task) $ return Nothing
+    Just burl -> urlExistsOr (taskOutputUrl task) $
+                 urlExistsOr burl $ return Nothing
     Nothing -> urlExistsOr (taskOutputUrl task) $ return Nothing
   where
     urlExistsOr :: String -> IO (Maybe String) -> IO (Maybe String)
