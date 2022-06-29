@@ -37,5 +37,5 @@ maybeGetKojiUser server (Just useropt) = do
             else error' "Cannot determine Koji user: kerberos klist not installed - try --user"
       _ -> error' $ "Do not know how to determine Koji user for " ++ server
   muserid <- kojiGetUserID server user
-  when (isNothing muserid) $ warning "userid not found"
+  when (isNothing muserid) $ error' "userid not found"
   return muserid
