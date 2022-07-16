@@ -233,9 +233,7 @@ decideRpms yes listmode noreinstall select prefix nvras = do
     else
     case select of
       All -> do
-        mapM_ printInstalled classified
-        ok <- prompt yes "install above"
-        return $ if ok then classified else []
+        promptPkgs yes classified
       Ask -> mapMaybeM (rpmPrompt yes) classified
       PkgsReq [] [] ->
         if all ((== NotInstalled) . fst) classified && yes /= Yes
@@ -244,15 +242,10 @@ decideRpms yes listmode noreinstall select prefix nvras = do
           let install = filter ((/= NotInstalled) . fst) classified
           if yes == Yes
             then return install
-            else do
-            mapM_ printInstalled install
-            ok <- prompt yes "install above"
-            return $ if ok then install else []
+            else promptPkgs yes install
       PkgsReq subpkgs exclpkgs -> do
         let install = selectRPMs False prefix (subpkgs,exclpkgs) classified
-        mapM_ printInstalled install
-        ok <- prompt yes "install above"
-        return $ if ok then install else []
+        promptPkgs yes install
   where
     installExists :: NVRA -> IO (Existence, NVRA)
     installExists nvra = do
@@ -307,8 +300,29 @@ selectRPMs recurse prefix (subpkgs,exclpkgs) rpms =
       excluded = selectRPMs recurse prefix ([], exclpkgs) rpms
   in nub . sort $ needed ++ excluded
 
+promptPkgs :: Yes -> [(Existence,NVRA)] -> IO [(Existence,NVRA)]
+promptPkgs yes classified = do
+  mapM_ printInstalled classified
+  ok <- prompt yes "install above"
+  return $ if ok then classified else []
+
 prompt :: Yes -> String -> IO Bool
 prompt yes str = do
+  if yes == Yes
+    then return True
+    else do
+    putStr $ str ++ " [Y/n]: "
+    inp <- trim <$> getLine
+    case lower inp of
+      "" -> return True
+      "y" -> return True
+      "yes" -> return True
+      "n" -> return False
+      "no" -> return False
+      _ -> prompt yes str
+
+promptChar :: Yes -> String -> IO Bool
+promptChar yes str = do
   if yes == Yes
     then return True
     else do
@@ -318,11 +332,11 @@ prompt yes str = do
     case toLower c of
       'y' -> return True
       'n' -> return False
-      _ -> prompt yes str
+      _ -> promptChar yes str
 
 rpmPrompt :: Yes -> (Existence,NVRA) -> IO (Maybe (Existence,NVRA))
 rpmPrompt yes (exist,nvra) = do
-  ok <- prompt yes $ renderInstalled (exist,nvra)
+  ok <- promptChar yes $ renderInstalled (exist,nvra)
   return $
     if ok
     then Just (exist,nvra)
