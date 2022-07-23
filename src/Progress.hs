@@ -113,7 +113,7 @@ loopBuildTasks debug waitdelay bts = do
           current <- getCurrentTime
           let mnvr = kojiTaskRequestNVR task
               duration = diffUTCTime current start
-          logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show s ++ "kB,") ((`div` 1000) <$> msize) +-+ renderDuration True duration
+          logMsg $ maybe "<unknown>" showNVR mnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
           sizes <- mapM buildlogSize tasks
           printLogSizes waitdelay sizes
           putStrLn ""
