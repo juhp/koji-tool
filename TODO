@@ -54,3 +54,6 @@
 - pick up user's new builds
 
 - screen mode inplace tui
+
+- list binary packages (install does this, but not obvious)
+- diff build command

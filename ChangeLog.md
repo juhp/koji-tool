@@ -1,5 +1,17 @@
 # Version history of koji-tool
 
+## 0.9.3 (2022-08-02)
+- 'builds' for a package now use specified query options
+- 'builds': add --install and --tasks options
+- 'install': update installed subpackages first then install any new subpkgs
+- 'install': separate prompt logic for "install above" packages
+- 'progress' records the largest finished build.log size
+- 'progress': exclude srpm from max log sizes
+- 'progress': show pkg name instead of "unknown" nvr early on
+- 'tasks': fix output url selection for scratch builds
+- make parsing of states strict for earlier errors
+- error if koji userid not found
+
 ## 0.9.2 (2022-06-12)
 - tasks --install now takes install options string
 - install: place rpms in a nvr subdirectory
