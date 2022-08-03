@@ -3,6 +3,7 @@
 ## 0.9.3 (2022-08-03)
 - 'builds' for a package now use specified query options
 - 'builds': add --install and --tasks options
+- 'install': --exclude globs now filter --package globs
 - 'install': update installed subpackages first then install any new subpkgs
 - 'install': separate prompt logic for "install above" packages
 - 'install': experimental support for rpm-ostree overlaying (--rpm-ostree)

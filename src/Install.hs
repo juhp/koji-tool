@@ -301,8 +301,8 @@ selectRPMs _ prefix ([], subpkgs) rpms =
              else match comppat rpmname
 selectRPMs recurse prefix (subpkgs,exclpkgs) rpms =
   let needed = selectRPMs recurse prefix (subpkgs,[]) rpms
-      excluded = selectRPMs recurse prefix ([], exclpkgs) rpms
-  in nub . sort $ needed ++ excluded
+      excluded = selectRPMs recurse prefix (exclpkgs,[]) rpms
+  in nub . sort $ needed \\ excluded
 
 promptPkgs :: Yes -> [(Existence,NVRA)] -> IO [(Existence,NVRA)]
 promptPkgs yes classified = do
