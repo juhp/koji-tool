@@ -56,7 +56,7 @@ executable koji-tool
                        pretty-simple,
                        rpm-nvr >= 0.1.2,
                        simple-cmd,
-                       simple-cmd-args >= 0.1.7,
+                       simple-cmd-args >= 0.1.8,
                        text,
                        time,
                        utf8-string,

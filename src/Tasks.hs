@@ -71,6 +71,8 @@ data TaskResult =
 -- --sibling
 -- FIXME --tail-size option (eg more that 4000B)
 -- FIXME --output-fields
+-- FIXME default to 'build' for install or try 'build' after 'buildarch'?
+-- FIXME parent tasks need not have limit
 tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
          -> Maybe TaskFilter -> Bool -> Maybe Select -> TaskReq -> IO ()
@@ -90,7 +92,7 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
           printTask hasparent tz res
           if hasparent
             then whenJust minstall $ \installopts ->
-            installCmd False debug No mhub Nothing False False False False False Nothing installopts Nothing ReqName [show taskid]
+            installCmd False debug No mhub Nothing False False False Nothing False Nothing installopts Nothing ReqName [show taskid]
             else tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
@@ -137,7 +139,7 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
       (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
       whenJust minstall $ \args ->
         if exact
-        then installCmd False debug No mhub Nothing False False False False False Nothing args Nothing ReqName [show (i :: Int) | i <- mapMaybe (lookupStruct "id") tasks]
+        then installCmd False debug No mhub Nothing False False False Nothing False Nothing args Nothing ReqName [show (i :: Int) | i <- mapMaybe (lookupStruct "id") tasks]
         else error' "cannot install more than one task"
   where
     hub = maybe fedoraKojiHub hubURL mhub

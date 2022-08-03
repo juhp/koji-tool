@@ -6,6 +6,7 @@ module Install (
   Select(..),
   Request(..),
   installCmd,
+  PkgMgr(..),
   knownHubs,
   Yes(..),
   installArgs
@@ -67,19 +68,22 @@ installArgs cs =
 data Request = ReqName | ReqNV | ReqNVR
   deriving Eq
 
+data PkgMgr = DNF | RPM | OSTREE
+  deriving Eq
+
 -- FIXME --include devel, --exclude *
 -- FIXME specify tag or task
 -- FIXME support enterprise builds
 -- FIXME --arch (including src)
 -- FIXME --debuginfo
 -- FIXME --delete after installing
--- FIXME --dnf to install selected packages using default dnf repo instead
+-- FIXME way to install selected packages using default dnf repo instead
 -- FIXME offer to download subpackage deps
 -- FIXME is --check-remote-time really needed?
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Bool -> Bool -> Maybe String -> Select
+           -> Bool -> Bool -> Maybe PkgMgr -> Bool -> Maybe String -> Select
            -> Maybe String -> Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime useRpm noreinstall mprefix select mdisttag request pkgbldtsks = do
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr noreinstall mprefix select mdisttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -89,7 +93,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime use
   when debug printDlDir
   setNoBuffering
   buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
-  installRPMs dryrun debug useRpm noreinstall yes buildrpms
+  installRPMs dryrun debug mmgr noreinstall yes buildrpms
   where
     kojiRPMs :: String -> String -> IO () -> String
              -> IO (FilePath, [(Existence,NVRA)])
@@ -421,25 +425,41 @@ setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
-installRPMs :: Bool -> Bool -> Bool -> Bool -> Yes -> [(FilePath,[(Existence,NVRA)])]
+installRPMs :: Bool -> Bool -> Maybe PkgMgr -> Bool -> Yes -> [(FilePath,[(Existence,NVRA)])]
             -> IO ()
 installRPMs _ _ _ _ _ [] = return ()
-installRPMs dryrun debug rpm noreinstall yes classified =
+installRPMs dryrun debug mmgr noreinstall yes classified =
   forM_ (groupClasses classified) $ \(cl,dirpkgs) ->
-    unless (null dirpkgs) $
-    let pkgmgr = if rpm then "rpm" else "dnf"
-        mcom =
-          case cl of
-            NVRInstalled -> if noreinstall
-                            then Nothing
-                            else Just (if rpm then ["-Uvh","--replacepkgs"] else ["reinstall"])
-            _ -> Just (if rpm then ["-ivh"] else ["localinstall"])
+  unless (null dirpkgs) $ do
+  mgr <-
+    case mmgr of
+      Nothing -> do
+        mostree <- findExecutable "rpm-ostree"
+        return $ if isJust mostree then OSTREE else DNF
+      Just m -> return m
+  let pkgmgr =
+        case mgr of
+          DNF -> "dnf"
+          RPM -> "rpm"
+          OSTREE -> "rpm-ostree"
+      mcom =
+        case cl of
+          NVRInstalled -> if noreinstall
+                          then Nothing
+                          else Just (case mgr of
+                                       DNF -> ["reinstall"]
+                                       RPM -> ["-Uvh","--replacepkgs"]
+                                       OSTREE -> ["install"])
+          _ -> Just (case mgr of
+                       DNF -> ["localinstall"]
+                       RPM -> ["-ivh"]
+                       OSTREE -> ["install"])
     in whenJust mcom $ \com ->
-      if dryrun
-      then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile dirpkgs
-      else do
-        when debug $ mapM_ (putStrLn . showRpmFile) dirpkgs
-        sudo_ pkgmgr $ com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && not rpm]
+    if dryrun
+    then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile dirpkgs
+    else do
+      when debug $ mapM_ (putStrLn . showRpmFile) dirpkgs
+      sudo_ pkgmgr $ com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && mgr == DNF]
   where
     groupClasses =
       groupSort . concatMap mapDir

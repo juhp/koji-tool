@@ -62,6 +62,7 @@ main = do
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
+      -- FIXME any way to pass --help to install?
       <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> (Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
            <|> Pattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Build tasks of matching pattern"
@@ -88,7 +89,7 @@ main = do
       <*> switchWith 'l' "list" "List builds"
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
-      <*> switchWith 'r' "rpm" "Use rpm instead of dnf"
+      <*> optional pkgMgrOpt
       <*> switchWith 'N' "no-reinstall" "Do not reinstall existing NVRs"
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
       <*> selectOpt
@@ -158,3 +159,9 @@ main = do
     readTaskReq :: String -> Maybe TaskReq
     readTaskReq cs =
       Just $ if all isDigit cs then Task (read cs) else Package cs
+
+    pkgMgrOpt :: Parser PkgMgr
+    pkgMgrOpt =
+      flagLongWith' RPM "rpm" "Use rpm instead of dnf" <|>
+      flagLongWith' OSTREE "rpm-ostree" "Use rpm-ostree instead of dnf" <|>
+      flagLongWith' DNF "dnf" "Use dnf to install [default unless ostree]"

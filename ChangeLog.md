@@ -5,6 +5,7 @@
 - 'builds': add --install and --tasks options
 - 'install': update installed subpackages first then install any new subpkgs
 - 'install': separate prompt logic for "install above" packages
+- 'install': experimental support for rpm-ostree overlaying (--rpm-ostree)
 - 'progress' records the largest finished build.log size
 - 'progress': exclude srpm from max log sizes
 - 'progress': show pkg name instead of "unknown" nvr early on

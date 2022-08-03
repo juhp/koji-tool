@@ -4,7 +4,7 @@ extra-deps:
   - haxr-3000.11.4
   - HaXml-1.25.5
   - simple-cmd-0.2.0
-  - simple-cmd-args-0.1.7
+  - simple-cmd-args-0.1.8
   - xdg-userdirs-0.1.0.2
   - rpm-nvr-0.1.2
   - http-directory-0.1.9
