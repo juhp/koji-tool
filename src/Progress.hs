@@ -52,6 +52,8 @@ progressCmd debug waitdelay modules tids = do
   btasks <- mapM kojiTaskinfoRecursive tasks
   loopBuildTasks debug waitdelay btasks
 
+type BuildTask = (TaskID, UTCTime, Maybe UTCTime, Maybe Int, [TaskInfoSize])
+
 kojiTaskinfoRecursive :: TaskID -> IO BuildTask
 kojiTaskinfoRecursive tid = do
   mtaskinfo <- kojiGetTaskInfo fedoraKojiHub tid
@@ -76,9 +78,8 @@ kojiTaskinfoRecursive tid = do
               Nothing ->
                 error' $ "task " ++ displayID tid ++ " has no start time"
               Just t -> t
-      return (tid, start, Nothing, zip children (repeat Nothing))
-
-type BuildTask = (TaskID, UTCTime, Maybe Int, [TaskInfoSize])
+          mend = lookupTime True taskinfo
+      return (tid, start, mend, Nothing, zip children (repeat Nothing))
 
 -- FIXME change to (TaskID,Struct,Size)
 type TaskInfoSize = (Struct,Maybe Int)
@@ -99,7 +100,7 @@ loopBuildTasks debug waitdelay bts = do
       threadDelay (fromEnum (fromIntegral (m * 60) :: Micro))
 
     runProgress :: BuildTask -> IO BuildTask
-    runProgress (tid,start,msize,tasks) =
+    runProgress (tid,start,mend,msize,tasks) =
       case tasks of
         [] -> do
           state <- kojiGetTaskState fedoraKojiHub tid
@@ -107,12 +108,12 @@ loopBuildTasks debug waitdelay bts = do
             then do
             threadDelayMinutes waitdelay
             kojiTaskinfoRecursive tid
-            else return (tid, start, msize, [])
+            else return (tid, start, Nothing, msize, [])
         ((task,_):_) -> do
           when debug $ print task
-          current <- getCurrentTime
           let epkgnvr = kojiTaskRequestPkgNVR task
-              duration = diffUTCTime current start
+          end <- maybe getCurrentTime return mend
+          let duration = diffUTCTime end start
           logMsg $ either id showNVR epkgnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
           sizes <- mapM buildlogSize tasks
           printLogSizes waitdelay sizes
@@ -127,16 +128,16 @@ loopBuildTasks debug waitdelay bts = do
                            (Just large, Nothing) -> Just large
                            (Nothing,_) -> msize
           if null open
-            then runProgress (tid,start,mbiggest,[])
-            else return (tid, start, mbiggest, open)
+            then runProgress (tid,start,mend,mbiggest,[])
+            else return (tid, start, mend, mbiggest, open)
 
     tasksOpen :: BuildTask -> Bool
-    tasksOpen (_,_,_,ts) = not (null ts)
+    tasksOpen (_,_,_,_,ts) = not (null ts)
 
     updateBuildTask :: BuildTask -> IO BuildTask
-    updateBuildTask (tid,start,msize,ts) = do
+    updateBuildTask (tid,start,mend,msize,ts) = do
       news <- mapM updateTask ts
-      return (tid, start, msize, news)
+      return (tid, start, mend, msize, news)
 
     updateTask :: TaskInfoSize -> IO TaskInfoSize
     updateTask (task,size) = do
