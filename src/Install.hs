@@ -174,7 +174,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode noreinstall mprefix select
                     _ -> error' $ "unsupport method: " ++ method
   sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
   let (archtid,archtask) =
-        case find (\t -> lookupStruct "arch" t == Just sysarch) tasks of
+        case find (\t -> let march = lookupStruct "arch" t in march `elem` [Just sysarch,Just "noarch"]) tasks of
           Nothing -> error' $ "no " ++ sysarch ++ " task found"
           Just task' ->
             case lookupStruct "id" task' of
