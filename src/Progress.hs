@@ -120,7 +120,7 @@ loopBuildTasks debug waitdelay bts = do
           putStrLn ""
           let news = map (\(t,(s,_)) -> (t,s)) sizes
               (open,closed) = partition (\ (t,_) -> getTaskState t `elem` map Just openTaskStates) news
-              mlargest = if null (filter (\(t,_) -> lookupStruct "method" t /= Just ("buildSRPMFromSCM" :: String)) closed)
+              mlargest = if not (any (\(t,_) -> lookupStruct "method" t /= Just ("buildSRPMFromSCM" :: String)) closed)
                          then Nothing
                          else maximum $ map snd closed
               mbiggest = case (mlargest,msize) of
