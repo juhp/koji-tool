@@ -468,7 +468,10 @@ installRPMs dryrun debug mmgr noreinstall yes classified =
     then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile dirpkgs
     else do
       when debug $ mapM_ (putStrLn . showRpmFile) dirpkgs
-      sudo_ pkgmgr $ com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && mgr == DNF]
+      (case mgr of
+        OSTREE -> cmd_
+        _ -> sudo_) pkgmgr $
+        com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && mgr == DNF]
   where
     groupClasses =
       groupSort . concatMap mapDir
