@@ -187,7 +187,7 @@ printBuild hub tz details minstall build = do
       Tasks.tasksCmd (Just hub) Nothing 7 [] [] Nothing Nothing False False Nothing False Nothing (Tasks.Parent taskid)
     whenJust minstall $ \installopts -> do
       putStrLn ""
-      installCmd False False No (Just hub) Nothing False False False Nothing False Nothing installopts Nothing ReqName [show taskid]
+      installCmd False False No (Just hub) Nothing False False False Nothing ExistingUpdate Nothing installopts Nothing ReqName [show taskid]
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
 formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime) =

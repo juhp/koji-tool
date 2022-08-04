@@ -90,7 +90,7 @@ main = do
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
       <*> optional pkgMgrOpt
-      <*> switchWith 'N' "no-reinstall" "Do not reinstall existing NVRs"
+      <*> existingOpt
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
       <*> selectOpt
       <*> optional disttagOpt
@@ -165,3 +165,8 @@ main = do
       flagLongWith' RPM "rpm" "Use rpm instead of dnf" <|>
       flagLongWith' OSTREE "rpm-ostree" "Use rpm-ostree instead of dnf" <|>
       flagLongWith' DNF "dnf" "Use dnf to install [default unless ostree]"
+
+    existingOpt :: Parser ExistingStrategy
+    existingOpt =
+      flagWith' ExistingNoReinstall 'N' "no-reinstall" "Do not reinstall existing NVRs" <|>
+      flagWith ExistingUpdate ExistingSkip 'S' "skip-existing" "Ignore already installed subpackages (imples --no-reinstall)"
