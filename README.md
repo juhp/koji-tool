@@ -23,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.9.2
+0.9.3
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -68,7 +68,8 @@ $ koji-tool builds --help
 Usage: koji-tool builds [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                         [(-L|--latest) | (-l|--limit INT)] [-s|--state STATE]
                         [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
-                        [-t|--type TYPE] [-d|--details] [-D|--debug]
+                        [-T|--type TYPE] [(-d|--details) | (-t|--tasks)]
+                        [-i|--install INSTALLOPTS] [-D|--debug]
                         [(-b|--build NVR/BUILDID) | (-p|--pattern NVRPAT) |
                           PACKAGE]
   Query Koji builds (by default lists most recent builds)
@@ -84,8 +85,10 @@ Available options:
                            (building,complete,deleted,fail(ed),cancel(ed)
   -B,--before TIMESTAMP    Builds completed before timedate [default: now]
   -F,--from TIMESTAMP      Builds completed after timedate
-  -t,--type TYPE           Select builds by type: all,image,maven,module,rpm,win
-  -d,--details             Show more details of builds
+  -T,--type TYPE           Select builds by type: all,image,maven,module,rpm,win
+  -d,--details             Show more build details
+  -t,--tasks               Show details and tasks
+  -i,--install INSTALLOPTS Install the package with 'install' options
   -D,--debug               Pretty-print raw XML result
   -b,--build NVR/BUILDID   Show build
   -p,--pattern NVRPAT      Builds matching glob pattern
@@ -251,7 +254,8 @@ but the following options change the behavior:
 $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
-                         [-t|--check-remote-time] [-r|--rpm] [-N|--no-reinstall]
+                         [-t|--check-remote-time] [--rpm | --rpm-ostree | --dnf]
+                         [(-N|--no-reinstall) | (-S|--skip-existing)]
                          [-b|--prefix SUBPKGPREFIX]
                          [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
                            [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
@@ -269,8 +273,12 @@ Available options:
   -l,--list                List builds
   -L,--latest              Latest build
   -t,--check-remote-time   Check remote rpm timestamps
-  -r,--rpm                 Use rpm instead of dnf
+  --rpm                    Use rpm instead of dnf
+  --rpm-ostree             Use rpm-ostree instead of dnf
+  --dnf                    Use dnf to install [default unless ostree]
   -N,--no-reinstall        Do not reinstall existing NVRs
+  -S,--skip-existing       Ignore already installed subpackages (imples
+                           --no-reinstall)
   -b,--prefix SUBPKGPREFIX Prefix to use for subpackages [default: base package]
   -a,--all                 all subpackages
   -A,--ask                 ask for each subpackge [default if not installed]
