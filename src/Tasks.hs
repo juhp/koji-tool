@@ -67,6 +67,12 @@ data TaskResult =
               mtaskEndTime :: Maybe UTCTime
              }
 
+-- FIXME can fail mysteriously like this (after printTask?):
+--Start: Thu Aug  4 14:20:23 +08 2022
+--current duration: 1 min 5 sec
+--https://kojipkgs.fedoraproject.org/work/tasks/6438/90456438/build.log https://kojipkgs.fedoraproject.org/work/tasks/6438/90456438/build.log
+--koji-tool: Status {statusCode = 404, statusMessage = "Not Found"}
+
 -- FIXME short output option
 -- --sibling
 -- FIXME --tail-size option (eg more that 4000B)
@@ -363,16 +369,19 @@ buildlogSize debug tail' hub task = do
     let buildlog = url +/+ logFile BuildLog
     putStr $ buildlog ++ " "
     msize <- httpFileSize' buildlog
-    whenJust msize $ \size -> do
-      fprintLn ("(" % commas % "kB)") (size `div` 1000)
-      -- FIXME check if short build.log ends with srpm
-      file <-
-        if size < 1500
-        then do
-          putStrLn $ url +/+ logFile RootLog
-          return RootLog
-        else return BuildLog
-      when tail' $ displayLog url file
+    case msize of
+      Nothing -> putChar '\n'
+      Just size -> do
+        fprintLn ("(" % commas % "kB)") (size `div` 1000)
+        -- FIXME check if short build.log ends with srpm
+        file <-
+          if size < 1500
+          then do
+            putStrLn $ url +/+ logFile RootLog
+            return RootLog
+          else return BuildLog
+        when tail' $ displayLog url file
+    -- FIXME this seems redundant
     when debug $ putStrLn buildlog
   where
     displayLog :: String -> LogFile -> IO ()
