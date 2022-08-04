@@ -81,7 +81,7 @@ buildlogSize :: Struct -> IO ()
 buildlogSize child = do
   case lookupStruct "id" child :: Maybe Int of
     Nothing -> error "child taskid not found"
-    Just tid -> do
+    Just tid ->
       whenJust (lookupStruct "arch" child) $
         doGetBuildlogSize buildlog
       where
