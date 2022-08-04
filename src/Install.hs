@@ -114,16 +114,19 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
       nvrs <- map readNVR <$> kojiBuildOSBuilds debug huburl listmode latest disttag request pkgbld
       if listmode
         then do
-        if select /= PkgsReq [] []
-          then error' "selects not supported for listing build"  -- FIXME
-          else case nvrs of
-                 [nvr] -> do
-                   putStrLn (showNVR nvr)
-                   putStrLn ""
-                   bid <- kojiGetBuildID' huburl (showNVR nvr)
-                   kojiGetBuildRPMs huburl nvr bid >>=
-                     mapM_ putStrLn . sort . filter notDebugPkg
-                 _ -> mapM_ (putStrLn . showNVR) nvrs
+        case nvrs of
+          [nvr] -> do
+            putStrLn (showNVR nvr)
+            putStrLn ""
+            bid <- kojiGetBuildID' huburl (showNVR nvr)
+            nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
+            when debug $ mapM_ (putStrLn . showNVRA) nvras
+            let prefix = fromMaybe (nvrName nvr) mprefix
+            rpms <- decideRpms yes listmode noreinstall select prefix nvras
+            mapM_ printInstalled rpms
+            -- kojiGetBuildRPMs huburl nvr bid >>=
+            --   mapM_ putStrLn . sort . filter notDebugPkg
+          _ -> mapM_ (putStrLn . showNVR) nvrs
         return ("",[])
         else
         case nvrs of
@@ -233,7 +236,13 @@ decideRpms :: Yes -> Bool -> Bool -> Select -> String -> [NVRA]
 decideRpms yes listmode noreinstall select prefix nvras = do
   classified <- mapM installExists (filter isBinaryRpm nvras)
   if listmode
-    then mapM_ printInstalled classified >> return []
+    then do
+    case select of
+      PkgsReq subpkgs exclpkgs -> do
+        let install = selectRPMs False prefix (subpkgs,exclpkgs) classified
+        mapM_ printInstalled install
+      _ -> mapM_ printInstalled classified
+    return []
     else
     case select of
       All -> do
