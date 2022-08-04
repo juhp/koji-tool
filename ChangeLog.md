@@ -15,6 +15,7 @@
 - 'progress': show pkg name instead of "unknown" nvr early on
 - 'progress': only use current time if task unfinished
 - 'tasks': fix output url selection for scratch builds
+- 'tasks': check build.log exists before getting its size
 - make parsing of states strict for earlier errors
 - error if koji userid not found
 

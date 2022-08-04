@@ -67,12 +67,6 @@ data TaskResult =
               mtaskEndTime :: Maybe UTCTime
              }
 
--- FIXME can fail mysteriously like this (after printTask?):
---Start: Thu Aug  4 14:20:23 +08 2022
---current duration: 1 min 5 sec
---https://kojipkgs.fedoraproject.org/work/tasks/6438/90456438/build.log https://kojipkgs.fedoraproject.org/work/tasks/6438/90456438/build.log
---koji-tool: Status {statusCode = 404, statusMessage = "Not Found"}
-
 -- FIXME short output option
 -- --sibling
 -- FIXME --tail-size option (eg more that 4000B)
@@ -363,26 +357,31 @@ logFile RootLog = "root.log"
 logFile BuildLog = "build.log"
 
 buildlogSize :: Bool -> Bool -> String -> TaskResult -> IO ()
-buildlogSize debug tail' hub task = do
+buildlogSize _debug tail' hub task = do
   murl <- findOutputURL hub task
   whenJust murl $ \ url -> do
     let buildlog = url +/+ logFile BuildLog
-    putStr $ buildlog ++ " "
-    msize <- httpFileSize' buildlog
-    case msize of
-      Nothing -> putChar '\n'
-      Just size -> do
-        fprintLn ("(" % commas % "kB)") (size `div` 1000)
-        -- FIXME check if short build.log ends with srpm
-        file <-
-          if size < 1500
-          then do
-            putStrLn $ url +/+ logFile RootLog
-            return RootLog
-          else return BuildLog
-        when tail' $ displayLog url file
-    -- FIXME this seems redundant
-    when debug $ putStrLn buildlog
+    exists <- httpExists' buildlog
+    if exists
+      then do
+      putStr $ buildlog ++ " "
+      msize <- httpFileSize' buildlog
+      case msize of
+        Nothing -> putChar '\n'
+        Just size -> do
+          fprintLn ("(" % commas % "kB)") (size `div` 1000)
+          -- FIXME check if short build.log ends with srpm
+          file <-
+            if size < 1500
+            then do
+              putStrLn $ url +/+ logFile RootLog
+              return RootLog
+            else return BuildLog
+          when tail' $ displayLog url file
+      else do
+      let rootlog = url +/+ logFile RootLog
+      whenM (httpExists' rootlog) $
+        putStrLn rootlog
   where
     displayLog :: String -> LogFile -> IO ()
     displayLog url file = do
