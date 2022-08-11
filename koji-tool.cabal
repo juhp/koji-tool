@@ -89,4 +89,4 @@ test-suite test
     ghc-options:   -Wall
     build-depends: base >= 4 && < 5
                  , simple-cmd
-    build-tools:   koji-tool
+    build-tool-depends: koji-tool:koji-tool
