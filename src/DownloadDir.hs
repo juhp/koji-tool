@@ -38,7 +38,7 @@ setDownloadDir dryrun subdir = do
   return $
     putStrLn $
     "Packages downloaded to " ++
-    (if isRelative path then "~" </> path else path) </> subdir
+    if isRelative path then "~" </> path else path
   where
     setCWD :: FilePath -> IO FilePath
     setCWD dir = do
