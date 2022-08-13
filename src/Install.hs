@@ -175,17 +175,18 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix s
                 Nothing -> error' $ "no method found for " ++ show taskid
                 Just method ->
                   case method of
-                    "build" -> Koji.getTaskChildren huburl taskid False
+                    "build" -> Koji.getTaskChildren huburl taskid True
                     "buildArch" -> return [taskinfo]
                     _ -> error' $ "unsupport method: " ++ method
   sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
   let (archtid,archtask) =
-        case find (\t -> let march = lookupStruct "arch" t in march `elem` [Just sysarch,Just "noarch"]) tasks of
+        case find (selectBuildArch sysarch) tasks of
           Nothing -> error' $ "no " ++ sysarch ++ " task found"
           Just task' ->
             case lookupStruct "id" task' of
               Nothing -> error' "task id not found"
               Just tid -> (tid,task')
+  when debug $ mapM_ print archtask
   nvras <- getTaskNVRAs archtid
   prefix <- case mprefix of
               Just pref -> return pref
@@ -195,8 +196,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix s
                   Nothing ->
                     return $
                     either id nvrName $
-                    kojiTaskRequestPkgNVR $
-                    fromMaybe archtask mtaskinfo
+                    kojiTaskRequestPkgNVR archtask
   if listmode
     then do
     drpms <- decideRpms yes listmode existingStrategy select prefix nvras
@@ -218,6 +218,13 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix s
         printDlDir
       return (subdir,dlRpms)
   where
+    selectBuildArch :: String -> Struct -> Bool
+    selectBuildArch sysarch t =
+      let march = lookupStruct "arch" t
+          mmethod = lookupStruct "method" t
+      in march `elem` [Just sysarch,Just "noarch"] &&
+         mmethod == Just "buildArch"
+
     getTaskNVRAs :: Int -> IO [NVRA]
     getTaskNVRAs taskid' =
       sort . map readNVRA . filter notDebugPkg . filter (".rpm" `isExtensionOf`) . map fst <$>
