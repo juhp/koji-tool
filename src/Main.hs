@@ -130,9 +130,12 @@ main = do
 
     selectOpt :: Parser Select
     selectOpt =
-      flagWith' All 'a' "all" "all subpackages" <|>
-      flagWith' Ask 'A' "ask" "ask for each subpackge [default if not installed]" <|>
-      PkgsReq <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install") <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
+      flagLongWith' All "all" "all subpackages" <|>
+      flagLongWith' Ask "ask" "ask for each subpackge [default if not installed]" <|>
+      PkgsReq
+      <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install")
+      <*> many (strOptionWith 'a' "add" "SUBPKG" "Additional subpackage (glob) to install")
+      <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
 
     disttagOpt :: Parser String
     disttagOpt = startingDot <$>
@@ -169,4 +172,4 @@ main = do
     existingOpt :: Parser ExistingStrategy
     existingOpt =
       flagWith' ExistingNoReinstall 'N' "no-reinstall" "Do not reinstall existing NVRs" <|>
-      flagWith ExistingUpdate ExistingSkip 'S' "skip-existing" "Ignore already installed subpackages (imples --no-reinstall)"
+      flagWith ExistingUpdate ExistingSkip 'S' "skip-existing" "Ignore already installed subpackages (implies --no-reinstall)"

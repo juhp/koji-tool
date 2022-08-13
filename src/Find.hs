@@ -79,7 +79,7 @@ findCmd mhub debug args = do
             error' $
             "you can only specify one package - too many unknown words: " ++
             unwords other
-      installation = if install then Just (Tasks.PkgsReq [] []) else Nothing
+      installation = if install then Just (Tasks.PkgsReq [] [] []) else Nothing
   if build
     then
     let states = [BuildFailed|failure] ++ [BuildComplete|complete] ++
