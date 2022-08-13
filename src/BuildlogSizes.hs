@@ -55,10 +55,9 @@ buildlogSizesCmd nvrpat = do
           putStrLn nvr
           nvrBuildlogSizes nvr
         Nothing -> do
-          let mextra = lookupStruct "extra" bld
-              mtid =
+          let mtid =
                 lookupStruct "task_id" bld <|>
-                (mextra >>= lookupStruct "task_id")
+                (lookupStruct "extra" bld >>= lookupStruct "task_id")
           case mtid :: Maybe Int of
             Nothing -> error "no taskid found!"
             Just tid -> buildlogSizes tid
