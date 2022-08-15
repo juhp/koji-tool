@@ -102,7 +102,6 @@ main = do
       "Track running Koji tasks by buildlog size" $
       progressCmd
       <$> switchWith 'D' "debug" "Pretty-print raw XML result"
-      <*> optionalWith auto 'i' "interval" "MINUTES" "Polling interval between updates (default 2 min)" 2
       <*> switchWith 'm' "modules" "Track module builds"
       <*> many (TaskId <$> argumentWith auto "TASKID")
 

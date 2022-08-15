@@ -1,3 +1,3 @@
 [versions]
-# formatting => Cabal 2.4
-oldest = lts-13
+# time-1.9.1
+oldest = lts-16

@@ -30,7 +30,8 @@ import Data.Maybe
 import Data.Monoid ((<>))
 #endif
 import Data.Time (diffUTCTime, getCurrentTime, getCurrentTimeZone,
-                  localTimeOfDay, NominalDiffTime, TimeZone, utcToLocalTime)
+                  localTimeOfDay, NominalDiffTime, nominalDiffTimeToSeconds,
+                  TimeZone, utcToLocalTime)
 import Data.Tuple.Extra (uncurry3)
 import Data.RPM.NVR
 import Data.Text (Text)
@@ -42,9 +43,9 @@ import System.FilePath ((</>))
 import Time
 import Utils
 
-progressCmd :: Bool -> Int -> Bool -> [TaskID] -> IO ()
-progressCmd debug waitdelay modules tids = do
-  when (waitdelay < 1) $ error' "minimum interval is 1 min"
+-- FIXME if failure and no more, then stop
+progressCmd :: Bool -> Bool -> [TaskID] -> IO ()
+progressCmd debug modules tids = do
   when (modules && not (null tids)) $ error' "cannot combine --modules with tasks"
   tasks <-
     if null tids
@@ -53,7 +54,7 @@ progressCmd debug waitdelay modules tids = do
   when (null tasks) $ error' "no build tasks found"
   btasks <- mapM kojiTaskinfoRecursive tasks
   tz <- getCurrentTimeZone
-  loopBuildTasks debug tz waitdelay btasks
+  loopBuildTasks debug tz btasks
 
 -- FIXME change to (TaskID,Struct,Size,Time)
 data TaskInfoSizeTime =
@@ -98,20 +99,14 @@ kojiTaskinfoRecursive tid = do
 type TaskInfoSizeTimes =
   (Struct,(Maybe Int, Maybe UTCTime),(Maybe Int, Maybe UTCTime))
 
-loopBuildTasks :: Bool -> TimeZone -> Int -> [BuildTask] -> IO ()
-loopBuildTasks _ _  _ [] = return ()
-loopBuildTasks debug tz waitdelay bts = do
+loopBuildTasks :: Bool -> TimeZone -> [BuildTask] -> IO ()
+loopBuildTasks _ _ [] = return ()
+loopBuildTasks debug tz bts = do
   curs <- filter tasksOpen <$> mapM runProgress bts
   unless (null curs) $ do
-    threadDelayMinutes waitdelay
     news <- mapM updateBuildTask curs
-    loopBuildTasks debug tz waitdelay news
+    loopBuildTasks debug tz news
   where
-    threadDelayMinutes :: Int -> IO ()
-    threadDelayMinutes m =
-      -- convert minutes to microseconds
-      threadDelay (fromEnum (fromIntegral (m * 60) :: Micro))
-
     -- FIXME use last-modified to predict next update
     runProgress :: BuildTask -> IO BuildTask
     runProgress (BuildTask tid start mend msize tasks) =
@@ -120,18 +115,18 @@ loopBuildTasks debug tz waitdelay bts = do
           state <- kojiGetTaskState fedoraKojiHub tid
           if state `elem` map Just openTaskStates
             then do
-            threadDelayMinutes waitdelay
+            threadDelaySeconds 61
             kojiTaskinfoRecursive tid
             else return $ BuildTask tid start Nothing msize []
         (tist:_) -> do
           let task = tistTask tist
           when debug $ print task
+          sizes <- mapM (buildlogSize debug 0) tasks
           let epkgnvr = kojiTaskRequestPkgNVR task
           end <- maybe getCurrentTime return mend
           let duration = diffUTCTime end start
           logMsg $ either id showNVR epkgnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
-          sizes <- mapM buildlogSize tasks
-          printLogSizes tz waitdelay sizes
+          printLogSizes tz 120 sizes
           putStrLn ""
           let news = map (\(t,(s,ti),_) -> (TaskInfoSizeTime t s ti)) sizes
               (open,closed) = partition (\t -> getTaskState (tistTask t) `elem` map Just openTaskStates) news
@@ -163,20 +158,53 @@ loopBuildTasks debug tz waitdelay bts = do
         Nothing -> error' $ "TaskInfo not found for " ++ displayID tid
         Just new -> return (TaskInfoSizeTime new size time)
 
-buildlogSize :: TaskInfoSizeTime -> IO TaskInfoSizeTimes
-buildlogSize (TaskInfoSizeTime task oldsize oldtime) = do
+buildlogSize :: Bool -> Int -> TaskInfoSizeTime -> IO TaskInfoSizeTimes
+buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
   exists <- if isJust oldsize then return True
             else httpExists' buildlog
+  when (n>0) $ putStrLn $ "n=" ++ show n
+  waitDelay
   (msize,mtime) <- if exists
                    then httpFileSizeTime' buildlog
                    else return (Nothing,Nothing)
-  return (task,(fromInteger <$> msize,mtime),(oldsize,oldtime))
+  when debug $ print (mtime,oldtime)
+  if mtime == oldtime || isNothing mtime
+    then buildlogSize debug (if n < 15 then n+1 else 1) (TaskInfoSizeTime task oldsize oldtime)
+    else return (task,(fromInteger <$> msize,mtime),(oldsize,oldtime))
   where
     tid = show $ fromJust (readID' task)
     buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> "build.log"
     lastFew =
       let few = dropWhile (== '0') $ takeEnd 4 tid in
         if null few then "0" else few
+
+    waitDelay ::  IO ()
+    waitDelay = do
+      case oldtime of
+        Nothing -> threadDelaySeconds n
+        Just ot -> do
+          cur <- getCurrentTime
+          let delay = delayTime (diffUTCTime cur ot)
+          when debug $ print delay
+          threadDelaySeconds delay
+
+    delayTime :: NominalDiffTime -> Int
+    delayTime dt =
+      -- FIXME vary by small amounts
+      let expect = 132 :: Pico
+          lag = nominalDiffTimeToSeconds dt
+      in if lag > expect
+         then n
+         else fromEnum (expect - lag ) `div` micro
+
+    micro = million * million
+    million = 1000000
+
+threadDelaySeconds :: Int -> IO ()
+threadDelaySeconds m =
+  -- convert seconds to microseconds
+  threadDelay (fromEnum (fromIntegral m :: Micro))
+
 
 data TaskOutput = TaskOut {_outArch :: Text,
                            moutSize :: Maybe Int,

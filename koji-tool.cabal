@@ -58,7 +58,7 @@ executable koji-tool
                        simple-cmd >= 0.2.2,
                        simple-cmd-args >= 0.1.8,
                        text,
-                       time,
+                       time >= 1.9.1,
                        utf8-string,
                        xdg-userdirs
   if impl(ghc<8.4)
