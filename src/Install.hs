@@ -15,7 +15,6 @@ module Install (
 where
 
 import Control.Monad.Extra
-import Data.Char
 import Data.List.Extra
 import Data.Maybe
 import Data.RPM.NV hiding (name)
@@ -352,22 +351,9 @@ prompt yes str = do
       "no" -> return False
       _ -> prompt yes str
 
-promptChar :: Yes -> String -> IO Bool
-promptChar yes str = do
-  if yes == Yes
-    then return True
-    else do
-    putStr $ str ++ " [y/n]: "
-    c <- getChar
-    unless (c == '\n') $ putStrLn ""
-    case toLower c of
-      'y' -> return True
-      'n' -> return False
-      _ -> promptChar yes str
-
 rpmPrompt :: Yes -> (Existence,NVRA) -> IO (Maybe (Existence,NVRA))
 rpmPrompt yes (exist,nvra) = do
-  ok <- promptChar yes $ renderInstalled (exist,nvra)
+  ok <- prompt yes $ renderInstalled (exist,nvra)
   return $
     if ok
     then Just (exist,nvra)
