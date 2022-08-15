@@ -51,7 +51,7 @@ executable koji-tool
                        formatting >= 7,
                        Glob,
                        http-conduit,
-                       http-directory >= 0.1.9,
+                       http-directory >= 0.1.10,
                        koji >= 0.0.2,
                        pretty-simple,
                        rpm-nvr >= 0.1.2,
