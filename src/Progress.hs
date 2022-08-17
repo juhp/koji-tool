@@ -11,7 +11,7 @@ where
 #else
 import Control.Applicative ((<$>), (<*>))
 #endif
-import Control.Monad.Extra (liftM2, unless, when, whenJust)
+import Control.Monad.Extra (liftM2, unless, when)
 
 import Formatting
 
@@ -170,10 +170,7 @@ buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
   when debug $ print (mtime,oldtime)
   if (mtime == oldtime || isNothing mtime) && n < 6
     then buildlogSize debug (n+1) (TaskInfoSizeTime task oldsize oldtime)
-    else do
-    -- FIXME move to printer
-    whenJust oldtime $ \ ot ->
-      putStrLn $ showDuration (diffUTCTime (fromJust mtime) ot)
+    else
     return (task,
             (fromInteger <$> msize, mtime),
             (oldsize, oldtime))
@@ -202,10 +199,6 @@ buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
       in if lag > expect
          then n
          else fromEnum (expect - lag ) `div` trillion
-
-    showDuration :: NominalDiffTime -> String
-    showDuration dt =
-      show (secDuration dt) ++ "s"
 
 million, trillion :: Int
 million = 1000000
@@ -243,6 +236,7 @@ printLogSizes tz tss =
                 lpadded mxsi ' ' (optioned commas) % "kB" % " " %
                 parenthesised (optioned string) % " " %
                 optioned ("[" % lpadded mxsp ' ' commas % " B/min]") % " " %
+                optioned ("(" % shown % "s)") %
                 stext % " " %
                 optioned string % " " %
                 stext)
@@ -250,6 +244,7 @@ printLogSizes tz tss =
       ((`div` 1000) <$> msi)
       (show . localTimeOfDay . utcToLocalTime tz <$> mti)
       (liftM2 div msp mtd)
+      mtd
       st
       (renderDuration True <$> mdur)
       (abridgeMethod mth)
