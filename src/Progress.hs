@@ -11,7 +11,7 @@ where
 #else
 import Control.Applicative ((<$>), (<*>))
 #endif
-import Control.Monad.Extra (unless, when)
+import Control.Monad.Extra (liftM2, unless, when, whenJust)
 
 import Formatting
 
@@ -126,7 +126,7 @@ loopBuildTasks debug tz bts = do
           end <- maybe getCurrentTime return mend
           let duration = diffUTCTime end start
           logMsg $ either id showNVR epkgnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
-          printLogSizes tz 120 sizes
+          printLogSizes tz sizes
           putStrLn ""
           let news = map (\(t,(s,ti),_) -> (TaskInfoSizeTime t s ti)) sizes
               (open,closed) = partition (\t -> getTaskState (tistTask t) `elem` map Just openTaskStates) news
@@ -162,15 +162,21 @@ buildlogSize :: Bool -> Int -> TaskInfoSizeTime -> IO TaskInfoSizeTimes
 buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
   exists <- if isJust oldsize then return True
             else httpExists' buildlog
-  when (n>0) $ putStrLn $ "n=" ++ show n
+  when (debug && n>0) $ putChar '.'
   waitDelay
   (msize,mtime) <- if exists
                    then httpFileSizeTime' buildlog
                    else return (Nothing,Nothing)
   when debug $ print (mtime,oldtime)
-  if mtime == oldtime || isNothing mtime
-    then buildlogSize debug (if n < 15 then n+1 else 1) (TaskInfoSizeTime task oldsize oldtime)
-    else return (task,(fromInteger <$> msize,mtime),(oldsize,oldtime))
+  if (mtime == oldtime || isNothing mtime) && n < 6
+    then buildlogSize debug (n+1) (TaskInfoSizeTime task oldsize oldtime)
+    else do
+    -- FIXME move to printer
+    whenJust oldtime $ \ ot ->
+      putStrLn $ showDuration (diffUTCTime (fromJust mtime) ot)
+    return (task,
+            (fromInteger <$> msize, mtime),
+            (oldsize, oldtime))
   where
     tid = show $ fromJust (readID' task)
     buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> "build.log"
@@ -181,7 +187,7 @@ buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
     waitDelay ::  IO ()
     waitDelay = do
       case oldtime of
-        Nothing -> threadDelaySeconds n
+        Nothing -> when (n>0) $ threadDelaySeconds n
         Just ot -> do
           cur <- getCurrentTime
           let delay = delayTime (diffUTCTime cur ot)
@@ -195,10 +201,20 @@ buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
           lag = nominalDiffTimeToSeconds dt
       in if lag > expect
          then n
-         else fromEnum (expect - lag ) `div` micro
+         else fromEnum (expect - lag ) `div` trillion
 
-    micro = million * million
-    million = 1000000
+    showDuration :: NominalDiffTime -> String
+    showDuration dt =
+      show (secDuration dt) ++ "s"
+
+million, trillion :: Int
+million = 1000000
+trillion = million * million
+
+secDuration :: NominalDiffTime -> Int
+secDuration dt =
+  let lag = nominalDiffTimeToSeconds dt
+  in fromEnum lag `div` trillion
 
 threadDelaySeconds :: Int -> IO ()
 threadDelaySeconds m =
@@ -210,17 +226,19 @@ data TaskOutput = TaskOut {_outArch :: Text,
                            moutSize :: Maybe Int,
                            _moutTime :: Maybe UTCTime,
                            moutSpeed :: Maybe Int,
+                           _moutTimeStep :: Maybe Int,
                            _outState :: Text,
                            _method :: Text,
                            _mduration :: Maybe NominalDiffTime}
 
-printLogSizes :: TimeZone -> Int -> [TaskInfoSizeTimes] -> IO ()
-printLogSizes tz waitdelay tss =
-  let (mxsi, mxsp, taskoutputs) = (formatSize . map taskOutput) tss
+printLogSizes :: TimeZone -> [TaskInfoSizeTimes] -> IO ()
+printLogSizes tz tss =
+  let (mxsi, mxsp, taskoutputs) = (formatSize . mapMaybe taskOutput) tss
   in mapM_ (printTaskOut mxsi mxsp) taskoutputs
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
-    printTaskOut mxsi mxsp (TaskOut a msi mti msp st mth mdur) =
+    printTaskOut mxsi mxsp (TaskOut a msi mti msp mtd st mth mdur) =
+      unless (isNothing mtd && isJust msp) $
       fprintLn (rpadded 8 ' ' stext %
                 lpadded mxsi ' ' (optioned commas) % "kB" % " " %
                 parenthesised (optioned string) % " " %
@@ -231,7 +249,7 @@ printLogSizes tz waitdelay tss =
       a
       ((`div` 1000) <$> msi)
       (show . localTimeOfDay . utcToLocalTime tz <$> mti)
-      ((`div` waitdelay) <$> msp)
+      (liftM2 div msp mtd)
       st
       (renderDuration True <$> mdur)
       (abridgeMethod mth)
@@ -239,7 +257,6 @@ printLogSizes tz waitdelay tss =
     formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
     formatSize ts =
       let maxsi = maximum $ 0 : mapMaybe moutSize ts
-                  -- was "198,689"
           maxsp = maximum $ 0 : mapMaybe moutSpeed ts
       in (decimalLength maxsi, decimalLength maxsp, ts)
       where
@@ -252,17 +269,24 @@ printLogSizes tz waitdelay tss =
         "buildSRPMFromSCM" -> "SRPM"
         _ -> mth
 
-    taskOutput :: TaskInfoSizeTimes -> TaskOutput
-    taskOutput (task, (size,time), (oldsize,_oldtime)) =
-      let method = maybeVal "method not found" (lookupStruct "method") task :: Text
-          arch = maybeVal "arch not found" (lookupStruct "arch") task :: Text
-          diff = (-) <$> size <*> oldsize
-          state = maybeVal "No state found" getTaskState task
-          state' =
-            if state == TaskOpen
-            then ""
-            else T.pack $ show state
-        in TaskOut arch size time diff state' method (durationOfTask task)
+    taskOutput :: TaskInfoSizeTimes -> Maybe TaskOutput
+    taskOutput (task, (size,time), (oldsize,oldtime)) =
+      if time == oldtime && size == oldsize
+      then Nothing
+      else
+        let method = maybeVal "method not found" (lookupStruct "method") task :: Text
+            arch = maybeVal "arch not found" (lookupStruct "arch") task :: Text
+            sizediff = liftM2 (-) size oldsize
+            timediff = if time == oldtime
+                       then Nothing
+                       else secDuration <$> liftM2 diffUTCTime time oldtime
+            state = maybeVal "No state found" getTaskState task
+            state' =
+              if state == TaskOpen
+              then ""
+              else T.pack $ show state
+        in Just $
+           TaskOut arch size time sizediff timediff state' method (durationOfTask task)
 
 kojiListBuildTasks :: Maybe String -> IO [TaskID]
 kojiListBuildTasks muser = do
