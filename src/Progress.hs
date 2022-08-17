@@ -122,13 +122,14 @@ loopBuildTasks debug tz bts = do
           let task = tistTask tist
           when debug $ print task
           sizes <- mapM (buildlogSize debug 0) tasks
-          let epkgnvr = kojiTaskRequestPkgNVR task
           end <- maybe getCurrentTime return mend
-          let duration = diffUTCTime end start
-          logMsg $ either id showNVR epkgnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
-          printLogSizes tz sizes
-          putStrLn ""
-          let news = map (\(t,(s,ti),_) -> (TaskInfoSizeTime t s ti)) sizes
+          let header =
+                let epkgnvr = kojiTaskRequestPkgNVR task
+                    duration = diffUTCTime end start
+                in
+                  logMsg $ either id showNVR epkgnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
+          printLogSizes header tz sizes
+          let news = map (\(t,(s,ti),_) -> TaskInfoSizeTime t s ti) sizes
               (open,closed) = partition (\t -> getTaskState (tistTask t) `elem` map Just openTaskStates) news
               mlargest = if not (any (\t -> lookupStruct "method" (tistTask t) /= Just ("buildSRPMFromSCM" :: String)) closed)
                          then Nothing
@@ -224,10 +225,14 @@ data TaskOutput = TaskOut {_outArch :: Text,
                            _method :: Text,
                            _mduration :: Maybe NominalDiffTime}
 
-printLogSizes :: TimeZone -> [TaskInfoSizeTimes] -> IO ()
-printLogSizes tz tss =
+printLogSizes :: IO () -> TimeZone -> [TaskInfoSizeTimes] -> IO ()
+printLogSizes header tz tss =
   let (mxsi, mxsp, taskoutputs) = (formatSize . mapMaybe taskOutput) tss
-  in mapM_ (printTaskOut mxsi mxsp) taskoutputs
+  in
+    unless (null taskoutputs) $ do
+    header
+    mapM_ (printTaskOut mxsi mxsp) taskoutputs
+    putChar '\n'
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
     printTaskOut mxsi mxsp (TaskOut a msi mti msp mtd st mth mdur) =
