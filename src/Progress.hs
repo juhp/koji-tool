@@ -32,7 +32,6 @@ import Data.Monoid ((<>))
 import Data.Time (diffUTCTime, getCurrentTime, getCurrentTimeZone,
                   localTimeOfDay, NominalDiffTime, nominalDiffTimeToSeconds,
                   TimeZone, utcToLocalTime)
-import Data.Tuple.Extra (uncurry3)
 import Data.RPM.NVR
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -44,6 +43,7 @@ import Time
 import Utils
 
 -- FIXME if failure and no more, then stop
+-- FIXME catch HTTP exception for connection timeout
 progressCmd :: Bool -> Bool -> [TaskID] -> IO ()
 progressCmd debug modules tids = do
   when (modules && not (null tids)) $ error' "cannot combine --modules with tasks"
@@ -52,22 +52,34 @@ progressCmd debug modules tids = do
     then kojiListBuildTasks $ if modules then Just "mbs/mbs.fedoraproject.org" else Nothing
     else return tids
   when (null tasks) $ error' "no build tasks found"
-  btasks <- mapM kojiTaskinfoRecursive tasks
+  btasks <- mapM initialTaskinfo tasks
   tz <- getCurrentTimeZone
   loopBuildTasks debug tz btasks
 
--- FIXME change to (TaskID,Struct,Size,Time)
-data TaskInfoSizeTime =
-  TaskInfoSizeTime { tistTask :: Struct,
-                     tistSize :: Maybe Int,
-                     _tistTime :: Maybe UTCTime
-                   }
+data TaskStatus = TaskStatus
+                     { tstSize :: Int,
+                       tstTime :: UTCTime,
+                       tstState :: TaskState
+                     }
+  deriving Show
+
+mkTaskStatus :: Maybe Int -> Maybe UTCTime -> Maybe TaskState -> Maybe TaskStatus
+mkTaskStatus Nothing _ _ = Nothing
+mkTaskStatus _ Nothing _ = Nothing
+mkTaskStatus _ _ Nothing = Nothing
+mkTaskStatus (Just size) (Just time) (Just state) =
+  Just (TaskStatus size time state)
+
+-- FIXME change to (TaskID,Struct,Size,Time,State)
+data TaskInfoStatus = TaskInfoStatus
+                      { taskInfo :: Struct,
+                        taskStatus :: Maybe TaskStatus}
 
 data BuildTask =
-  BuildTask TaskID UTCTime (Maybe UTCTime) (Maybe Int) [TaskInfoSizeTime]
+  BuildTask TaskID UTCTime (Maybe UTCTime) (Maybe Int) [TaskInfoStatus]
 
-kojiTaskinfoRecursive :: TaskID -> IO BuildTask
-kojiTaskinfoRecursive tid = do
+initialTaskinfo :: TaskID -> IO BuildTask
+initialTaskinfo tid = do
   mtaskinfo <- kojiGetTaskInfo fedoraKojiHub tid
   case mtaskinfo of
     Nothing -> error' $ "taskinfo not found for " ++ displayID tid
@@ -93,11 +105,11 @@ kojiTaskinfoRecursive tid = do
           mend = lookupTime True taskinfo
       return $
         BuildTask tid start mend Nothing $
-        map (uncurry3 TaskInfoSizeTime) $
-        zip3 children (repeat Nothing) (repeat Nothing)
+        map (`TaskInfoStatus` Nothing) children
 
-type TaskInfoSizeTimes =
-  (Struct,(Maybe Int, Maybe UTCTime),(Maybe Int, Maybe UTCTime))
+type TaskInfoStatuses = (Struct,
+                         (Maybe Int, Maybe UTCTime),
+                         Maybe TaskStatus)
 
 loopBuildTasks :: Bool -> TimeZone -> [BuildTask] -> IO ()
 loopBuildTasks _ _ [] = return ()
@@ -107,6 +119,22 @@ loopBuildTasks debug tz bts = do
     news <- mapM updateBuildTask curs
     loopBuildTasks debug tz news
   where
+    tasksOpen :: BuildTask -> Bool
+    tasksOpen (BuildTask _ _ _ _ ts) = not (null ts)
+
+    updateBuildTask :: BuildTask -> IO BuildTask
+    updateBuildTask (BuildTask tid start mend msize ts) = do
+      news <- mapM updateTask ts
+      return (BuildTask tid start mend msize news)
+
+    updateTask :: TaskInfoStatus -> IO TaskInfoStatus
+    updateTask (TaskInfoStatus task mstatus) = do
+      let tid = fromJust (readID task)
+      mnew <- kojiGetTaskInfo fedoraKojiHub tid
+      case mnew of
+        Nothing -> error' $ "TaskInfo not found for " ++ displayID tid
+        Just new -> return (TaskInfoStatus new mstatus)
+
     -- FIXME use last-modified to predict next update
     runProgress :: BuildTask -> IO BuildTask
     runProgress (BuildTask tid start mend msize tasks) =
@@ -116,24 +144,24 @@ loopBuildTasks debug tz bts = do
           if state `elem` map Just openTaskStates
             then do
             threadDelaySeconds 61
-            kojiTaskinfoRecursive tid
+            initialTaskinfo tid
             else return $ BuildTask tid start Nothing msize []
-        (tist:_) -> do
-          let task = tistTask tist
+        ((TaskInfoStatus task _):_) -> do
           when debug $ print task
-          sizes <- mapM (buildlogSize debug 0) tasks
+          statuses <- mapM (buildlogSize debug 0) tasks
           end <- maybe getCurrentTime return mend
           let header =
                 let epkgnvr = kojiTaskRequestPkgNVR task
                     duration = diffUTCTime end start
                 in
+                  -- FIXME mostly redundant for a single build task
                   logMsg $ either id showNVR epkgnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
-          printLogSizes header tz sizes
-          let news = map (\(t,(s,ti),_) -> TaskInfoSizeTime t s ti) sizes
-              (open,closed) = partition (\t -> getTaskState (tistTask t) `elem` map Just openTaskStates) news
-              mlargest = if not (any (\t -> lookupStruct "method" (tistTask t) /= Just ("buildSRPMFromSCM" :: String)) closed)
+          printLogStatuses header tz statuses
+          let news = map (\(task',(s,t),_) -> TaskInfoStatus task' (mkTaskStatus s t (getTaskState task'))) statuses
+              (open,closed) = partition (\tis -> getTaskState (taskInfo tis) `elem` map Just openTaskStates) news
+              mlargest = if not (any (\tis -> lookupStruct "method" (taskInfo tis) /= Just ("buildSRPMFromSCM" :: String)) closed)
                          then Nothing
-                         else maximum $ map tistSize closed
+                         else Just $ maximum $ mapMaybe (fmap tstSize . taskStatus) closed
               mbiggest = case (mlargest,msize) of
                            (Just large, Just size) ->
                              Just $ max large size
@@ -143,38 +171,28 @@ loopBuildTasks debug tz bts = do
             then runProgress (BuildTask tid start mend mbiggest [])
             else return $ BuildTask tid start mend mbiggest open
 
-    tasksOpen :: BuildTask -> Bool
-    tasksOpen (BuildTask _ _ _ _ ts) = not (null ts)
+    -- getTaskState' task =
+    --   case getTaskState task of
+    --     Nothing -> error' $ "undefined task state: " ++ show task
+    --     Just st -> st
 
-    updateBuildTask :: BuildTask -> IO BuildTask
-    updateBuildTask (BuildTask tid start mend msize ts) = do
-      news <- mapM updateTask ts
-      return (BuildTask tid start mend msize news)
-
-    updateTask :: TaskInfoSizeTime -> IO TaskInfoSizeTime
-    updateTask (TaskInfoSizeTime task size time) = do
-      let tid = fromJust (readID task)
-      mnew <- kojiGetTaskInfo fedoraKojiHub tid
-      case mnew of
-        Nothing -> error' $ "TaskInfo not found for " ++ displayID tid
-        Just new -> return (TaskInfoSizeTime new size time)
-
-buildlogSize :: Bool -> Int -> TaskInfoSizeTime -> IO TaskInfoSizeTimes
-buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
-  exists <- if isJust oldsize then return True
+buildlogSize :: Bool -> Int -> TaskInfoStatus -> IO TaskInfoStatuses
+buildlogSize debug n (TaskInfoStatus task oldstatus) = do
+  exists <- if isJust oldstatus
+            then return True
             else httpExists' buildlog
   when (debug && n>0) $ putChar '.'
   waitDelay
   (msize,mtime) <- if exists
                    then httpFileSizeTime' buildlog
                    else return (Nothing,Nothing)
-  when debug $ print (mtime,oldtime)
-  if (mtime == oldtime || isNothing mtime) && n < 6
-    then buildlogSize debug (n+1) (TaskInfoSizeTime task oldsize oldtime)
+  when debug $ print (mtime,oldstatus)
+  if (mtime == fmap tstTime oldstatus || isNothing mtime) && n < 6
+    then buildlogSize debug (n+1) (TaskInfoStatus task oldstatus)
     else
     return (task,
             (fromInteger <$> msize, mtime),
-            (oldsize, oldtime))
+            oldstatus)
   where
     tid = show $ fromJust (readID' task)
     buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> "build.log"
@@ -184,7 +202,7 @@ buildlogSize debug n (TaskInfoSizeTime task oldsize oldtime) = do
 
     waitDelay ::  IO ()
     waitDelay = do
-      case oldtime of
+      case tstTime <$> oldstatus of
         Nothing -> when (n>0) $ threadDelaySeconds n
         Just ot -> do
           cur <- getCurrentTime
@@ -218,15 +236,18 @@ threadDelaySeconds m =
 
 data TaskOutput = TaskOut {_outArch :: Text,
                            moutSize :: Maybe Int,
+                           moutSizeStep :: Maybe Int,
+                           _moutSizeChanged :: Bool,
                            _moutTime :: Maybe UTCTime,
-                           moutSpeed :: Maybe Int,
                            _moutTimeStep :: Maybe Int,
+                           _moutTimeChanged :: Bool,
                            _outState :: Text,
+                           _stateChange :: Bool,
                            _method :: Text,
                            _mduration :: Maybe NominalDiffTime}
 
-printLogSizes :: IO () -> TimeZone -> [TaskInfoSizeTimes] -> IO ()
-printLogSizes header tz tss =
+printLogStatuses :: IO () -> TimeZone -> [TaskInfoStatuses] -> IO ()
+printLogStatuses header tz tss =
   let (mxsi, mxsp, taskoutputs) = (formatSize . mapMaybe taskOutput) tss
   in
     unless (null taskoutputs) $ do
@@ -235,20 +256,20 @@ printLogSizes header tz tss =
     putChar '\n'
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
-    printTaskOut maxsize maxspd (TaskOut arch msize mtime mspeed mtimediff state mthd mduration) =
-      unless (isNothing mtimediff && isJust mspeed) $
-      fprintLn (rpadded 8 ' ' stext %
+    printTaskOut maxsize maxspd (TaskOut arch msize msizediff sizechanged mtime mtimediff timechanged state statechanged mthd mduration) =
+      when (timechanged || sizechanged || statechanged) $
+      fprintLn (rpadded 7 ' ' stext %
                 lpadded maxsize ' ' (optioned commas) % "kB" % " " %
                 parenthesised (optioned string) % " " %
-                optioned ("[" % lpadded maxspd ' ' commas % " B/min]") % " " %
-                optioned ("(" % shown % "s)") %
+                optioned ("[" % lpadded maxspd ' ' commas % " B/s]") %
+                optioned (" (" % shown % "s) ") %
                 stext % " " %
                 optioned string % " " %
                 stext)
       arch
       ((`div` 1000) <$> msize)
       (show . localTimeOfDay . utcToLocalTime tz <$> mtime)
-      (liftM2 div mspeed mtimediff)
+      (liftM2 div msizediff mtimediff)
       mtimediff
       state
       (renderDuration True <$> mduration)
@@ -257,7 +278,7 @@ printLogSizes header tz tss =
     formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
     formatSize ts =
       let maxsi = maximum $ 0 : mapMaybe moutSize ts
-          maxsp = maximum $ 0 : mapMaybe moutSpeed ts
+          maxsp = maximum $ 0 : mapMaybe moutSizeStep ts
       in (decimalLength maxsi, decimalLength maxsp, ts)
       where
         decimalLength = fromIntegral . length . show
@@ -269,9 +290,14 @@ printLogSizes header tz tss =
         "buildSRPMFromSCM" -> "SRPM"
         _ -> mth
 
-    taskOutput :: TaskInfoSizeTimes -> Maybe TaskOutput
-    taskOutput (task, (size,time), (oldsize,oldtime)) =
-      if time == oldtime && size == oldsize
+    taskOutput :: TaskInfoStatuses -> Maybe TaskOutput
+    taskOutput (task, (size,time), oldstatus) =
+      let oldtime = tstTime <$> oldstatus
+          oldsize = tstSize <$> oldstatus
+          oldstate = tstState <$> oldstatus
+          mstate = getTaskState task
+      in
+      if time == oldtime && size == oldsize && mstate == oldstate
       then Nothing
       else
         let method = maybeVal "method not found" (lookupStruct "method") task :: Text
@@ -280,13 +306,15 @@ printLogSizes header tz tss =
             timediff = if time == oldtime
                        then Nothing
                        else secDuration <$> liftM2 diffUTCTime time oldtime
-            state = maybeVal "No state found" getTaskState task
             state' =
-              if state == TaskOpen
-              then ""
-              else T.pack $ show state
+              case mstate of
+                Nothing -> error' "No state found"
+                Just s ->
+                  if s == TaskOpen
+                  then ""
+                  else T.pack $ show s
         in Just $
-           TaskOut arch size time sizediff timediff state' method (durationOfTask task)
+           TaskOut arch size sizediff (size /= oldsize) time timediff (time /= oldtime) state' (mstate /= oldstate) method (durationOfTask task)
 
 kojiListBuildTasks :: Maybe String -> IO [TaskID]
 kojiListBuildTasks muser = do
