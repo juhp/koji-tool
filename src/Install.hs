@@ -16,6 +16,7 @@ where
 
 import Control.Monad.Extra
 import Data.List.Extra
+import Data.Either (partitionEithers)
 import Data.Maybe
 import Data.RPM.NV hiding (name)
 import Data.RPM.NVR
@@ -241,10 +242,11 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix s
               if null few then "0" else few
       in dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ show taskid' +/+ rpm
 
-data Existence = NVRInstalled | NVRChanged | NotInstalled
+data Existence = ExistingNVR | ChangedNVR | NotInstalled
   deriving (Eq, Ord, Show)
 
 -- FIXME ExistingStrategy isn't used, so output doesn't reflect it
+-- FIXME determine and add missing internal deps
 decideRpms :: Yes -> Bool -> ExistingStrategy -> Select -> String -> [NVRA]
            -> IO [(Existence,NVRA)]
 decideRpms yes listmode existingStrategy select prefix nvras = do
@@ -283,7 +285,7 @@ decideRpms yes listmode existingStrategy select prefix nvras = do
         (case minstalled of
            Nothing -> NotInstalled
            Just installed ->
-             if installed == showNVRA nvra then NVRInstalled else NVRChanged,
+             if installed == showNVRA nvra then ExistingNVR else ChangedNVR,
          nvra)
 
 renderInstalled :: (Existence, NVRA) -> String
@@ -438,54 +440,62 @@ setNoBuffering = do
   hSetBuffering stdin NoBuffering
   hSetBuffering stdout NoBuffering
 
+data InstallType = ReInstall | Install
+
 -- FIXME ExistingStrategy should move to decideRpms
 installRPMs :: Bool -> Bool -> Maybe PkgMgr -> ExistingStrategy -> Yes
             -> [(FilePath,[(Existence,NVRA)])] -> IO ()
 installRPMs _ _ _ _ _ [] = return ()
-installRPMs dryrun debug mmgr existingStrategy yes classified =
-  forM_ (groupClasses classified) $ \(cl,dirpkgs) ->
-  unless (null dirpkgs) $ do
-  mgr <-
-    case mmgr of
-      Nothing -> do
-        mostree <- findExecutable "rpm-ostree"
-        return $ if isJust mostree then OSTREE else DNF
-      Just m -> return m
-  let pkgmgr =
-        case mgr of
-          DNF -> "dnf"
-          RPM -> "rpm"
-          OSTREE -> "rpm-ostree"
-      mcom =
-        case cl of
-          NVRInstalled ->
-            case existingStrategy of
-              ExistingUpdate -> Just (reinstallCommand mgr)
-              _ -> Nothing
-          NVRChanged ->
-            case existingStrategy of
-              ExistingSkip -> Nothing
-              _ -> Just (installCommand mgr)
-          _ -> Just (installCommand mgr)
-    in whenJust mcom $ \com ->
-    if dryrun
-    then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile dirpkgs
-    else do
-      when debug $ mapM_ (putStrLn . showRpmFile) dirpkgs
-      (case mgr of
-        OSTREE -> cmd_
-        _ -> sudo_) pkgmgr $
-        com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && mgr == DNF]
+installRPMs dryrun debug mmgr existingStrategy yes classified = do
+  case installTypes classified of
+    ([],is) -> doInstall Install is
+    (ris,is) -> do
+      doInstall ReInstall (ris ++ is)
+      doInstall Install is
   where
-    groupClasses =
-      groupSort . concatMap mapDir
+    doInstall i dirpkgs =
+      unless (null dirpkgs) $ do
+      mgr <-
+        case mmgr of
+          Nothing -> do
+            mostree <- findExecutable "rpm-ostree"
+            return $ if isJust mostree then OSTREE else DNF
+          Just m -> return m
+      let pkgmgr =
+            case mgr of
+              DNF -> "dnf"
+              RPM -> "rpm"
+              OSTREE -> "rpm-ostree"
+          mcom =
+            case i of
+              ReInstall ->
+                case existingStrategy of
+                  ExistingUpdate -> Just (reinstallCommand mgr)
+                  _ -> Nothing
+              Install ->
+                case existingStrategy of
+                  ExistingSkip -> Nothing
+                  _ -> Just (installCommand mgr)
+        in whenJust mcom $ \com ->
+        if dryrun
+        then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile dirpkgs
+        else do
+          when debug $ mapM_ (putStrLn . showRpmFile) dirpkgs
+          (case mgr of
+            OSTREE -> cmd_
+            _ -> sudo_) pkgmgr $
+            com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && mgr == DNF]
+
+    installTypes :: [(FilePath,[(Existence,NVRA)])]
+                 -> ([(FilePath,NVRA)],[(FilePath,NVRA)])
+    installTypes = partitionEithers  . concatMap mapDir
       where
         mapDir :: (FilePath,[(Existence,NVRA)])
-               -> [(Existence,(FilePath,NVRA))]
+               -> [Either (FilePath,NVRA) (FilePath,NVRA)]
         mapDir (dir,cls) =
-          map (\(e,n) -> (combineExist e,(dir,n))) cls
+          map (\(e,n) -> combineExist e (dir,n)) cls
 
-        combineExist e = if e == NotInstalled then NVRChanged else e
+        combineExist e = if e == ExistingNVR then Left else Right
 
     reinstallCommand :: PkgMgr -> [String]
     reinstallCommand mgr =
