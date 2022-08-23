@@ -235,24 +235,24 @@ printLogSizes header tz tss =
     putChar '\n'
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
-    printTaskOut mxsi mxsp (TaskOut a msi mti msp mtd st mth mdur) =
-      unless (isNothing mtd && isJust msp) $
+    printTaskOut maxsize maxspd (TaskOut arch msize mtime mspeed mtimediff state mthd mduration) =
+      unless (isNothing mtimediff && isJust mspeed) $
       fprintLn (rpadded 8 ' ' stext %
-                lpadded mxsi ' ' (optioned commas) % "kB" % " " %
+                lpadded maxsize ' ' (optioned commas) % "kB" % " " %
                 parenthesised (optioned string) % " " %
-                optioned ("[" % lpadded mxsp ' ' commas % " B/min]") % " " %
+                optioned ("[" % lpadded maxspd ' ' commas % " B/min]") % " " %
                 optioned ("(" % shown % "s)") %
                 stext % " " %
                 optioned string % " " %
                 stext)
-      a
-      ((`div` 1000) <$> msi)
-      (show . localTimeOfDay . utcToLocalTime tz <$> mti)
-      (liftM2 div msp mtd)
-      mtd
-      st
-      (renderDuration True <$> mdur)
-      (abridgeMethod mth)
+      arch
+      ((`div` 1000) <$> msize)
+      (show . localTimeOfDay . utcToLocalTime tz <$> mtime)
+      (liftM2 div mspeed mtimediff)
+      mtimediff
+      state
+      (renderDuration True <$> mduration)
+      (abridgeMethod mthd)
 
     formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
     formatSize ts =
