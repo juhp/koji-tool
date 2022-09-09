@@ -40,8 +40,9 @@ kojiTaskRequestPkgNVR task =
                         Right $ dropArch nvra
             _ -> let base = takeBaseName src in
                    Left $
+                   -- fedora-ci_fc87dcd7db694cdfac703cf5af128a72_c1f53c859616fdbf40811058b60bebe2930e3271_0;forks:petersen:rpms:grub2.f38.src.rpm
                    if "fedora-ci_" `isPrefixOf` base
-                   then tail $ dropWhile (/= ';') base
+                   then takeWhileEnd (/= ':') $ tail $ dropWhile (/= ';') base
                    else base
     _ -> error' "could determine package from build request"
 
