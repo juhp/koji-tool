@@ -45,9 +45,10 @@ wordsList f =
 allWords :: [String]
 allWords = concatMap findWords [minBound..]
 
--- FIXME: arch
+-- FIXME: time: today, yesterday, week
 -- FIXME: method
 -- FIXME: mlt (or mlft)
+-- FIXME: separate last and latest?
 findCmd :: Maybe String -> Bool -> [String] -> IO ()
 findCmd _ _ [] = error' $ "find handles these words:\n\n" ++
                   unlines (wordsList unwords)

@@ -36,6 +36,7 @@ import SimpleCmdArgs
 import Common (commonBuildQueryOptions)
 
 -- FIXME split off arch suffix
+-- FIXME show build duration
 buildlogSizesCmd :: String -> IO ()
 buildlogSizesCmd nvrpat = do
   if all isDigit nvrpat -- check if taskid (not buildid)

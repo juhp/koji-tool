@@ -43,6 +43,7 @@
 - accept task or build url
 - cache and compare sizes with previous build(s)
 - estimate task/build ETA
+- newrepo tasks (createrepo.log)
 
 - show the build duration
 - support builds as well as tasks
