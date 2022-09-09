@@ -25,7 +25,7 @@ main = do
     "see https://github.com/juhp/koji-tool#readme" $
     subcommands
     [ Subcommand "builds"
-      "Query Koji builds (by default lists most recent builds)" $
+      "Query Koji builds (by default lists the most recent builds)" $
       buildsCmd
       <$> hubOpt
       <*> optional userOpt
@@ -45,7 +45,7 @@ main = do
            pure BuildQuery)
 
     , Subcommand "tasks"
-      "Query Koji tasks (by default lists most recent buildArch tasks)" $
+      "Query Koji tasks (by default lists the most recent buildArch tasks)" $
       tasksCmd
       <$> hubOpt
       <*> optional userOpt

@@ -5,7 +5,7 @@ with commands to query builds and tasks, install rpms,
 and check buildlog sizes.
 
 [Koji](https://pagure.io/koji/) is the RPM package buildsystem used by
-Fedora, CentOS, and some other projects.
+Fedora Linux, CentOS, and some other projects.
 
 By default Fedora Koji is used.
 
@@ -23,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.9.3
+0.9.4
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -35,9 +35,9 @@ Available options:
   --version                Show version
 
 Available commands:
-  builds                   Query Koji builds (by default lists most recent
+  builds                   Query Koji builds (by default lists the most recent
                            builds)
-  tasks                    Query Koji tasks (by default lists most recent
+  tasks                    Query Koji tasks (by default lists the most recent
                            buildArch tasks)
   latest                   Query latest Koji build for tag
   install                  Install rpm packages directly from a Koji build task
@@ -72,7 +72,7 @@ Usage: koji-tool builds [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                         [-i|--install INSTALLOPTS] [-D|--debug]
                         [(-b|--build NVR/BUILDID) | (-p|--pattern NVRPAT) |
                           PACKAGE]
-  Query Koji builds (by default lists most recent builds)
+  Query Koji builds (by default lists the most recent builds)
 
 Available options:
   -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
@@ -140,7 +140,7 @@ Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                        [-T|--tail] [-i|--install INSTALLOPTS]
                        [(-b|--build BUILD) | (-p|--pattern NVRPAT) |
                          PACKAGE|TASKID]
-  Query Koji tasks (by default lists most recent buildArch tasks)
+  Query Koji tasks (by default lists the most recent buildArch tasks)
 
 Available options:
   -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
@@ -257,9 +257,10 @@ Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-t|--check-remote-time] [--rpm | --rpm-ostree | --dnf]
                          [(-N|--no-reinstall) | (-S|--skip-existing)]
                          [-b|--prefix SUBPKGPREFIX]
-                         [(-a|--all) | (-A|--ask) | [-p|--package SUBPKG]
-                           [-x|--exclude SUBPKG]] [-d|--disttag DISTTAG]
-                         [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
+                         [--all | --ask | [-p|--package SUBPKG]
+                           [-a|--add SUBPKG] [-x|--exclude SUBPKG]]
+                         [-d|--disttag DISTTAG] [(-R|--nvr) | (-V|--nv)]
+                         PKG|NVR|TASKID...
   Install rpm packages directly from a Koji build task
 
 Available options:
@@ -277,12 +278,13 @@ Available options:
   --rpm-ostree             Use rpm-ostree instead of dnf
   --dnf                    Use dnf to install [default unless ostree]
   -N,--no-reinstall        Do not reinstall existing NVRs
-  -S,--skip-existing       Ignore already installed subpackages (imples
+  -S,--skip-existing       Ignore already installed subpackages (implies
                            --no-reinstall)
   -b,--prefix SUBPKGPREFIX Prefix to use for subpackages [default: base package]
-  -a,--all                 all subpackages
-  -A,--ask                 ask for each subpackge [default if not installed]
+  --all                    all subpackages
+  --ask                    ask for each subpackge [default if not installed]
   -p,--package SUBPKG      Subpackage (glob) to install
+  -a,--add SUBPKG          Additional subpackage (glob) to install
   -x,--exclude SUBPKG      Subpackage (glob) not to install
   -d,--disttag DISTTAG     Select a disttag different to system
   -R,--nvr                 Give an N-V-R instead of package name

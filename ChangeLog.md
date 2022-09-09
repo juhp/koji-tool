@@ -1,5 +1,17 @@
 # Version history of koji-tool
 
+## 0.9.4 (2022-09-09)
+- 'install': rework install logic to combine reinstall and install pkgs
+- 'install': do not choose rebuildSRPM subtask
+- 'install': show correct top download dir
+- 'install': --add to specify additional package
+- 'install': change rpms prompt to require Enter for consistency with dnf
+- 'progress': another major logic refactor:
+   determine poll delay from last-modified time
+- 'progress': skip wait for a build.log after [1..6] sec tries
+- 'progress': put interval times into task outputs
+- 'progress': only print task header if updated task outputs
+
 ## 0.9.3 (2022-08-03)
 - 'builds' for a package now use specified query options
 - 'builds': add --install and --tasks options
