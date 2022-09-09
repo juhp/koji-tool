@@ -260,19 +260,21 @@ printLogStatuses header tz tss =
       when (timechanged || sizechanged || statechanged) $
       fprintLn (rpadded 7 ' ' stext %
                 lpadded maxsize ' ' (optioned commas) % "kB" % " " %
-                parenthesised (optioned string) % " " %
-                optioned ("[" % lpadded maxspd ' ' commas % " B/s]") %
-                optioned (" (" % shown % "s) ") %
+                optioned (parenthesised string % " ") %
+                optioned ("[" % lpadded maxspd ' ' commas % " B/s] ") %
+                optioned (parenthesised (shown % "s") % " ") %
+                lpadded 8 ' ' (optioned (string % " ")) %
                 stext % " " %
-                optioned string % " " %
                 stext)
       arch
       ((`div` 1000) <$> msize)
       (show . localTimeOfDay . utcToLocalTime tz <$> mtime)
-      (liftM2 div msizediff mtimediff)
+      (if msizediff == Just 0
+       then Just 0
+       else liftM2 div msizediff mtimediff)
       mtimediff
-      state
       (renderDuration True <$> mduration)
+      state
       (abridgeMethod mthd)
 
     formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
