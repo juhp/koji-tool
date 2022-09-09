@@ -1,6 +1,7 @@
 module Utils (
   kojiTaskRequestNVR,
   kojiTaskRequestPkgNVR,
+  kojiTaskRequestPkg,
   kojiGetBuildID',
   kojiGetBuild',
   showValue,
@@ -9,7 +10,8 @@ module Utils (
   )
 where
 
-import Data.List.Extra (dropSuffix, isInfixOf, isPrefixOf, isSuffixOf, replace)
+import Data.List.Extra (dropSuffix, isInfixOf, isPrefixOf, isSuffixOf, replace,
+                        takeWhileEnd)
 import Data.RPM (dropArch)
 import Data.RPM.NVR
 import Data.RPM.NVRA
@@ -27,6 +29,7 @@ kojiTaskRequestNVR  task =
     _ -> Nothing
 
 -- FIXME this should really be a triple
+-- FIXME should not use on build
 kojiTaskRequestPkgNVR :: Struct -> Either String NVR
 kojiTaskRequestPkgNVR task =
   case lookupStruct "request" task of
@@ -45,6 +48,9 @@ kojiTaskRequestPkgNVR task =
                    then takeWhileEnd (/= ':') $ tail $ dropWhile (/= ';') base
                    else base
     _ -> error' "could determine package from build request"
+
+kojiTaskRequestPkg :: Struct -> String
+kojiTaskRequestPkg = either id showNVR . kojiTaskRequestPkgNVR
 
 kojiGetBuildID' :: String -> String -> IO BuildID
 kojiGetBuildID' hub nvr = do

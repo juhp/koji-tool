@@ -32,7 +32,6 @@ import Data.Monoid ((<>))
 import Data.Time (diffUTCTime, getCurrentTime, getCurrentTimeZone,
                   localTimeOfDay, NominalDiffTime, nominalDiffTimeToSeconds,
                   TimeZone, utcToLocalTime)
-import Data.RPM.NVR
 import Data.Text (Text)
 import qualified Data.Text as T
 import Distribution.Koji
@@ -151,11 +150,11 @@ loopBuildTasks debug tz bts = do
           statuses <- mapM (buildlogSize debug 0) tasks
           end <- maybe getCurrentTime return mend
           let header =
-                let epkgnvr = kojiTaskRequestPkgNVR task
+                let pkg = kojiTaskRequestPkg task
                     duration = diffUTCTime end start
                 in
                   -- FIXME mostly redundant for a single build task
-                  logMsg $ either id showNVR epkgnvr ++ " (" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
+                  logMsg $ pkg +-+ "(" ++ displayID tid ++ ")" +-+ maybe "" (\s -> show (s `div` 1000) ++ "kB,") msize +-+ renderDuration True duration
           printLogStatuses header tz statuses
           let news = map (\(task',(s,t),_) -> TaskInfoStatus task' (mkTaskStatus s t (getTaskState task'))) statuses
               (open,closed) = partition (\tis -> getTaskState (taskInfo tis) `elem` map Just openTaskStates) news
