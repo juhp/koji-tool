@@ -200,7 +200,7 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
       taskid <- lookupStruct "id" st
       method <- lookupStruct "method" st
       state <- getTaskState st
-      let pkgnvr = kojiTaskRequestPkgNVR st
+      let pkgnvr = kojiTaskRequestNVR st
           mparent' = lookupStruct "parent" st :: Maybe Int
       return $
         TaskResult pkgnvr arch method state mparent' taskid mstart_time mend_time

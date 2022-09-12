@@ -151,7 +151,7 @@ loopBuildTasks debug tz bts = do
           statuses <- mapM (buildlogSize debug 0) tasks
           end <- maybe getCurrentTime return mend
           let header =
-                let pkg = either id showNVR $ kojiTaskRequestPkgNVR task
+                let pkg = either id showNVR $ kojiTaskRequestNVR task
                     duration = diffUTCTime end start
                 in
                   -- FIXME mostly redundant for a single build task

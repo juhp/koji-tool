@@ -1,6 +1,5 @@
 module Utils (
   kojiTaskRequestNVR,
-  kojiTaskRequestPkgNVR,
   kojiTaskRequestPkg,
   kojiGetBuildID',
   kojiGetBuild',
@@ -21,17 +20,10 @@ import Network.HTTP.Directory ((+/+))
 import SimpleCmd (error')
 import System.FilePath (takeBaseName)
 
-kojiTaskRequestNVR :: Struct -> Maybe NVR
-kojiTaskRequestNVR  task =
-  case lookupStruct "request" task of
-    Just (srpm:_) ->
-      getString srpm >>= fmap dropArch . maybeNVRA
-    _ -> Nothing
-
 -- FIXME this should really be a triple
 -- FIXME should not use on build
-kojiTaskRequestPkgNVR :: Struct -> Either String NVR
-kojiTaskRequestPkgNVR task =
+kojiTaskRequestNVR :: Struct -> Either String NVR
+kojiTaskRequestNVR task =
   case lookupStruct "request" task of
     Just req@(source:_) ->
       case getString source of
@@ -50,7 +42,7 @@ kojiTaskRequestPkgNVR task =
     _ -> error' "could determine package from build request"
 
 kojiTaskRequestPkg :: Struct -> String
-kojiTaskRequestPkg = either id nvrName . kojiTaskRequestPkgNVR
+kojiTaskRequestPkg = either id nvrName . kojiTaskRequestNVR
 
 kojiGetBuildID' :: String -> String -> IO BuildID
 kojiGetBuildID' hub nvr = do
