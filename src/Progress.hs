@@ -29,6 +29,7 @@ import Data.Maybe
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
 #endif
+import Data.RPM.NVR
 import Data.Time (diffUTCTime, getCurrentTime, getCurrentTimeZone,
                   localTimeOfDay, NominalDiffTime, nominalDiffTimeToSeconds,
                   TimeZone, utcToLocalTime)
@@ -150,7 +151,7 @@ loopBuildTasks debug tz bts = do
           statuses <- mapM (buildlogSize debug 0) tasks
           end <- maybe getCurrentTime return mend
           let header =
-                let pkg = kojiTaskRequestPkg task
+                let pkg = either id showNVR $ kojiTaskRequestPkgNVR task
                     duration = diffUTCTime end start
                 in
                   -- FIXME mostly redundant for a single build task
