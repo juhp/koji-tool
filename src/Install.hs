@@ -198,7 +198,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix s
                 case find ((== "src") . rpmArch) nvras of
                   Just src -> return $ rpmName src
                   Nothing ->
-                    return $ kojiTaskRequestPkg archtask
+                    return $ either id nvrName $ kojiTaskRequestNVR archtask
   if listmode
     then do
     drpms <- decideRpms yes listmode existingStrategy select prefix nvras

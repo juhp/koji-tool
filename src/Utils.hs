@@ -1,6 +1,5 @@
 module Utils (
   kojiTaskRequestNVR,
-  kojiTaskRequestPkg,
   kojiGetBuildID',
   kojiGetBuild',
   showValue,
@@ -40,9 +39,6 @@ kojiTaskRequestNVR task =
                    then takeWhileEnd (/= ':') $ tail $ dropWhile (/= ';') base
                    else base
     _ -> error' "could determine package from build request"
-
-kojiTaskRequestPkg :: Struct -> String
-kojiTaskRequestPkg = either id nvrName . kojiTaskRequestNVR
 
 kojiGetBuildID' :: String -> String -> IO BuildID
 kojiGetBuildID' hub nvr = do
