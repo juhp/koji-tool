@@ -23,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.9.4
+0.9.5
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 

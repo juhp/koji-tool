@@ -1,5 +1,9 @@
 # Version history of koji-tool
 
+## 0.9.5 (2022-09-12)
+- 'install': fix determination of package name from srpm
+- 'progress': correctly determine NVR from srpm again
+
 ## 0.9.4 (2022-09-09)
 - 'install': rework install logic to combine reinstall and install pkgs
 - 'install': do not choose rebuildSRPM subtask
