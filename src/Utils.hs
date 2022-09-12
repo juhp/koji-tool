@@ -50,7 +50,7 @@ kojiTaskRequestPkgNVR task =
     _ -> error' "could determine package from build request"
 
 kojiTaskRequestPkg :: Struct -> String
-kojiTaskRequestPkg = either id showNVR . kojiTaskRequestPkgNVR
+kojiTaskRequestPkg = either id nvrName . kojiTaskRequestPkgNVR
 
 kojiGetBuildID' :: String -> String -> IO BuildID
 kojiGetBuildID' hub nvr = do
