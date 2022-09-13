@@ -187,7 +187,7 @@ buildlogSize debug n (TaskInfoStatus task oldstatus) = do
                    then httpFileSizeTime' buildlog
                    else return (Nothing,Nothing)
   when debug $ print (mtime,oldstatus)
-  if (mtime == fmap tstTime oldstatus || isNothing mtime) && n < 6
+  if (mtime == fmap tstTime oldstatus || isNothing mtime) && n < 5
     then buildlogSize debug (n+1) (TaskInfoStatus task oldstatus)
     else
     return (task,
