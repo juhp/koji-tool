@@ -228,7 +228,7 @@ will install all the non-devel subpackages from the task.
 
 A more complex example:
 ```shellsession
-$ koji-tool install google-noto-fonts --prefix google-noto -p 'sans-*-vf-fonts' -x 'sans-*-ui-vf-fonts'
+$ koji-tool install google-noto-fonts --prefix google-noto -p 'sans-*-vf-fonts' -e 'sans-*-ui-vf-fonts'
 ```
 installs all the Google Noto Sans variable fonts excluding UI faces.
 
@@ -241,7 +241,11 @@ but the following options change the behavior:
 
 `--package`: select subpackages by name or glob pattern (this doesn't work currently for multiple builds/tasks)
 
-`--exclude`: exclude subpackages by name or glob pattern
+`--except`: select subpackages not matching name or glob pattern
+
+`--exclude`: exclude subpackages by name or glob pattern (overrides --package and --except)
+
+`--include`: include subpackages by name or glob pattern (overrides other --except and --exclude)
 
 `--all`: install all subpackages
 

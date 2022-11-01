@@ -132,9 +132,10 @@ main = do
       flagLongWith' All "all" "all subpackages" <|>
       flagLongWith' Ask "ask" "ask for each subpackge [default if not installed]" <|>
       PkgsReq
-      <$> many (strOptionWith 'p' "package" "SUBPKG" "Subpackage (glob) to install")
-      <*> many (strOptionWith 'a' "add" "SUBPKG" "Additional subpackage (glob) to install")
-      <*> many (strOptionWith 'x' "exclude" "SUBPKG" "Subpackage (glob) not to install")
+      <$> many (strOptionWith 'p' "package" "SUBPKG" "select subpackage (glob) matches")
+      <*> many (strOptionWith 'x' "except" "SUBPKG" "select subpackages not matching (glob)")
+      <*> many (strOptionWith 'e' "exclude" "SUBPKG" "deselect subpackage (glob): overrides -p and -x")
+      <*> many (strOptionWith 'i' "include" "SUBPKG" "additional subpackage (glob) to install: overrides -x and -e")
 
     disttagOpt :: Parser String
     disttagOpt = startingDot <$>

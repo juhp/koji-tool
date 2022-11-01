@@ -29,7 +29,7 @@ tests havedist =
     (["find"],
      [["last", "failed", "build"]])
   ,
-        (["install", "-n", "-y"],
+    (["install", "-n", "-y"],
      [["podman", "-p", "podman"] ++ sysdist
      ,["-l", "coreutils"] ++ sysdist
      ,["-l", "-R", "rpmlint-2.2.0-1.fc36"]
@@ -37,10 +37,13 @@ tests havedist =
      ,["-H", "stream", "-d", "el9", "kernel", "-x", "kernel-devel*", "-x", "*-debug*"]
      ,["-l", "-H", "stream", "-d", "el9", "grep"]
      ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
-     ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist])
+     ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
+     ,["ghc9.4", "-x", "*-devel", "-x", "*-prof", "-x", "*-doc", "-e", "ghc9.4", "-e", "compiler-default", "-i", "base-devel"] ++ sysdist
+     ]
+    )
   ]
   where
-    sysdist = if havedist then [] else ["-d", "fc35"]
+    sysdist = if havedist then [] else ["-d", "fc36"]
 
 main :: IO ()
 main = do
