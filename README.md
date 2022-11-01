@@ -23,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.9.5
+0.9.6
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -222,13 +222,13 @@ and try to install it.
 Use `--disttag` suffix to select a different Fedora version.
 
 ```shellsession
-$ koji-tool install TASKID --exclude "*-devel"
+$ koji-tool install TASKID --except "*-devel"
 ```
 will install all the non-devel subpackages from the task.
 
 A more complex example:
 ```shellsession
-$ koji-tool install google-noto-fonts --prefix google-noto -p 'sans-*-vf-fonts' -e 'sans-*-ui-vf-fonts'
+$ koji-tool install google-noto-fonts --prefix google-noto --package 'sans-*-vf-fonts' --exclude 'sans-*-ui-vf-fonts'
 ```
 installs all the Google Noto Sans variable fonts excluding UI faces.
 
@@ -262,9 +262,9 @@ Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [(-N|--no-reinstall) | (-S|--skip-existing)]
                          [-b|--prefix SUBPKGPREFIX]
                          [--all | --ask | [-p|--package SUBPKG]
-                           [-a|--add SUBPKG] [-x|--exclude SUBPKG]]
-                         [-d|--disttag DISTTAG] [(-R|--nvr) | (-V|--nv)]
-                         PKG|NVR|TASKID...
+                           [-x|--except SUBPKG] [-e|--exclude SUBPKG]
+                           [-i|--include SUBPKG]] [-d|--disttag DISTTAG]
+                         [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
   Install rpm packages directly from a Koji build task
 
 Available options:
@@ -287,9 +287,11 @@ Available options:
   -b,--prefix SUBPKGPREFIX Prefix to use for subpackages [default: base package]
   --all                    all subpackages
   --ask                    ask for each subpackge [default if not installed]
-  -p,--package SUBPKG      Subpackage (glob) to install
-  -a,--add SUBPKG          Additional subpackage (glob) to install
-  -x,--exclude SUBPKG      Subpackage (glob) not to install
+  -p,--package SUBPKG      select subpackage (glob) matches
+  -x,--except SUBPKG       select subpackages not matching (glob)
+  -e,--exclude SUBPKG      deselect subpackage (glob): overrides -p and -x
+  -i,--include SUBPKG      additional subpackage (glob) to install: overrides -x
+                           and -e
   -d,--disttag DISTTAG     Select a disttag different to system
   -R,--nvr                 Give an N-V-R instead of package name
   -V,--nv                  Give an N-V instead of package name
