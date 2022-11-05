@@ -81,7 +81,7 @@ data Request = ReqName | ReqNV | ReqNVR
 data PkgMgr = DNF | RPM | OSTREE
   deriving Eq
 
-data ExistingStrategy = ExistingUpdate | ExistingNoReinstall | ExistingSkip
+data ExistingStrategy = ExistingNoReinstall | ExistingSkip
 
 -- FIXME --include devel, --exclude *
 -- FIXME specify tag or task
@@ -93,9 +93,10 @@ data ExistingStrategy = ExistingUpdate | ExistingNoReinstall | ExistingSkip
 -- FIXME offer to download subpackage deps
 -- FIXME is --check-remote-time really needed?
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Maybe PkgMgr -> ExistingStrategy -> Maybe String
-           -> Select -> Maybe String -> Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr existingStrategy mprefix select mdisttag request pkgbldtsks = do
+           -> Bool -> Bool -> Maybe PkgMgr -> Maybe ExistingStrategy
+           -> Maybe String -> Select -> Maybe String -> Request -> [String]
+           -> IO ()
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr mstrategy mprefix select mdisttag request pkgbldtsks = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -105,13 +106,13 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
   when debug printDlDir
   setNoBuffering
   buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
-  installRPMs dryrun debug mmgr existingStrategy yes buildrpms
+  installRPMs dryrun debug mmgr yes buildrpms
   where
     kojiRPMs :: String -> String -> IO () -> String
              -> IO (FilePath, [(Existence,NVRA)])
     kojiRPMs huburl pkgsurl printDlDir bldtask =
       case readMaybe bldtask of
-        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix select checkremotetime printDlDir taskid
+        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select checkremotetime printDlDir taskid
         Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
     kojiBuildRPMs :: String -> String -> IO () -> String
@@ -134,7 +135,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
             nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
             when debug $ mapM_ (putStrLn . showNVRA) nvras
             let prefix = fromMaybe (nvrName nvr) mprefix
-            rpms <- decideRpms yes listmode existingStrategy select prefix nvras
+            rpms <- decideRpms yes listmode mstrategy select prefix nvras
             mapM_ printInstalled rpms
             -- kojiGetBuildRPMs huburl nvr bid >>=
             --   mapM_ putStrLn . sort . filter notDebugPkg
@@ -149,7 +150,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
             nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
             when debug $ mapM_ (putStrLn . showNVRA) nvras
             let prefix = fromMaybe (nvrName nvr) mprefix
-            dlRpms <- decideRpms yes listmode existingStrategy select prefix nvras
+            dlRpms <- decideRpms yes listmode mstrategy select prefix nvras
             when debug $ mapM_ printInstalled dlRpms
             let subdir = showNVR nvr
             unless (dryrun || null dlRpms) $ do
@@ -172,9 +173,9 @@ notDebugPkg p =
   not ("-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p)
 
 kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool
-             -> ExistingStrategy -> Maybe String -> Select -> Bool -> IO ()
-             -> Int -> IO (FilePath, [(Existence,NVRA)])
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix select checkremotetime printDlDir taskid = do
+             -> Maybe ExistingStrategy -> Maybe String -> Select -> Bool
+             -> IO () -> Int -> IO (FilePath, [(Existence,NVRA)])
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select checkremotetime printDlDir taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
@@ -206,17 +207,17 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix s
                     return $ either id nvrName $ kojiTaskRequestNVR archtask
   if listmode
     then do
-    drpms <- decideRpms yes listmode existingStrategy select prefix nvras
+    drpms <- decideRpms yes listmode mstrategy select prefix nvras
     return ("",drpms)
     else
     if null nvras
     then do
-      (_, rpms) <- kojiTaskRPMs dryrun debug yes huburl pkgsurl True existingStrategy mprefix select checkremotetime printDlDir archtid
+      (_, rpms) <- kojiTaskRPMs dryrun debug yes huburl pkgsurl True mstrategy mprefix select checkremotetime printDlDir archtid
       mapM_ printInstalled rpms
       return ("",[])
     else do
       when debug $ print $ map showNVRA nvras
-      dlRpms <- decideRpms yes listmode existingStrategy select prefix $
+      dlRpms <- decideRpms yes listmode mstrategy select prefix $
                 filter ((/= "src") . rpmArch) nvras
       when debug $ mapM_ printInstalled dlRpms
       let subdir = show archtid
@@ -248,12 +249,11 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode existingStrategy mprefix s
 data Existence = ExistingNVR | ChangedNVR | NotInstalled
   deriving (Eq, Ord, Show)
 
--- FIXME ExistingStrategy isn't used, so output doesn't reflect it
 -- FIXME determine and add missing internal deps
-decideRpms :: Yes -> Bool -> ExistingStrategy -> Select -> String -> [NVRA]
-           -> IO [(Existence,NVRA)]
-decideRpms yes listmode existingStrategy select prefix nvras = do
-  classified <- mapM installExists (filter isBinaryRpm nvras)
+decideRpms :: Yes -> Bool -> Maybe ExistingStrategy -> Select -> String
+           -> [NVRA] -> IO [(Existence,NVRA)]
+decideRpms yes listmode mstrategy select prefix nvras = do
+  classified <- mapMaybeM installExists (filter isBinaryRpm nvras)
   if listmode
     then do
     case select of
@@ -281,15 +281,21 @@ decideRpms yes listmode existingStrategy select prefix nvras = do
         let install = selectRPMs False prefix (subpkgs,exceptpkgs,addpkgs,exclpkgs) classified
         promptPkgs yes install
   where
-    installExists :: NVRA -> IO (Existence, NVRA)
+    installExists :: NVRA -> IO (Maybe (Existence, NVRA))
     installExists nvra = do
       minstalled <- cmdMaybe "rpm" ["-q", rpmName nvra]
-      return
-        (case minstalled of
-           Nothing -> NotInstalled
-           Just installed ->
-             if installed == showNVRA nvra then ExistingNVR else ChangedNVR,
-         nvra)
+      let existence =
+            case minstalled of
+              Nothing -> NotInstalled
+              Just installed ->
+                if installed == showNVRA nvra
+                then ExistingNVR
+                else ChangedNVR
+      return $
+        case mstrategy of
+          Just ExistingSkip | existence /= NotInstalled -> Nothing
+          Just ExistingNoReinstall | existence == ExistingNVR -> Nothing
+          _ -> Just (existence, nvra)
 
 renderInstalled :: (Existence, NVRA) -> String
 renderInstalled (exist, nvra) = showNVRA nvra ++ " (" ++ show exist ++ ")"
@@ -447,18 +453,18 @@ setNoBuffering = do
 
 data InstallType = ReInstall | Install
 
--- FIXME ExistingStrategy should move to decideRpms
-installRPMs :: Bool -> Bool -> Maybe PkgMgr -> ExistingStrategy -> Yes
+installRPMs :: Bool -> Bool -> Maybe PkgMgr -> Yes
             -> [(FilePath,[(Existence,NVRA)])] -> IO ()
-installRPMs _ _ _ _ _ [] = return ()
-installRPMs dryrun debug mmgr existingStrategy yes classified = do
+installRPMs _ _ _ _ [] = return ()
+installRPMs dryrun debug mmgr yes classified = do
   case installTypes classified of
     ([],is) -> doInstall Install is
     (ris,is) -> do
-      doInstall ReInstall (ris ++ is)
-      doInstall Install is
+      doInstall ReInstall ris
+      doInstall Install (ris ++ is)
   where
-    doInstall i dirpkgs =
+    doInstall :: InstallType -> [(FilePath,NVRA)] -> IO ()
+    doInstall inst dirpkgs =
       unless (null dirpkgs) $ do
       mgr <-
         case mmgr of
@@ -471,17 +477,11 @@ installRPMs dryrun debug mmgr existingStrategy yes classified = do
               DNF -> "dnf"
               RPM -> "rpm"
               OSTREE -> "rpm-ostree"
-          mcom =
-            case i of
-              ReInstall ->
-                case existingStrategy of
-                  ExistingUpdate -> Just (reinstallCommand mgr)
-                  _ -> Nothing
-              Install ->
-                case existingStrategy of
-                  ExistingSkip -> Nothing
-                  _ -> Just (installCommand mgr)
-        in whenJust mcom $ \com ->
+          com =
+            case inst of
+              ReInstall -> reinstallCommand mgr
+              Install -> installCommand mgr
+        in
         if dryrun
         then mapM_ putStrLn $ ("would" +-+ unwords (pkgmgr : com) ++ ":") : map showRpmFile dirpkgs
         else do
