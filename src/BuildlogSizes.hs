@@ -33,43 +33,57 @@ import Network.HTTP.Directory
 
 import SimpleCmdArgs
 
-import Common (commonBuildQueryOptions)
+import Common (commonBuildQueryOptions, getBuildState)
 
 -- FIXME split off arch suffix
 -- FIXME show build duration
+-- FIXME detect package vs nvr
+-- FIXME allow buildid
 buildlogSizesCmd :: String -> IO ()
 buildlogSizesCmd nvrpat = do
-  if all isDigit nvrpat -- check if taskid (not buildid)
-    then do
-    buildlogSizes (read nvrpat)
+  if all isDigit nvrpat -- taskid
+    then buildlogSizes (read nvrpat)
     else do -- find builds
     results <- listBuilds fedoraKojiHub
                [("pattern", ValueString nvrpat),
                 commonBuildQueryOptions 5]
-    mapM_ getResult results
+    if null results
+      then putStrLn $ "no NVRs found for pattern :" ++ nvrpat
+      else mapM_ getResult results
   where
     getResult :: Struct -> IO ()
     getResult bld = do
       putStrLn ""
       case lookupStruct "nvr" bld of
         Just nvr -> do
-          putStrLn nvr
-          nvrBuildlogSizes nvr
-        Nothing -> do
-          let mtid =
-                lookupStruct "task_id" bld <|>
-                (lookupStruct "extra" bld >>= lookupStruct "task_id")
-          case mtid :: Maybe Int of
-            Nothing -> error "no taskid found!"
-            Just tid -> buildlogSizes tid
+          putStrLn $ nvr ++
+            maybe "" (\s -> " (" ++ show s ++ ")") (getBuildState bld)
+          ok <- nvrBuildlogSizes nvr
+          unless ok $ taskResult bld
+        Nothing -> taskResult bld
 
-nvrBuildlogSizes :: String -> IO ()
-nvrBuildlogSizes bld = do
-  let (NVR n (VerRel v r)) = readNVR bld
+    taskResult :: Struct -> IO ()
+    taskResult bld = do
+      let mtid =
+            lookupStruct "task_id" bld <|>
+            (lookupStruct "extra" bld >>= lookupStruct "task_id")
+      case mtid :: Maybe Int of
+        Nothing -> error "no taskid found!"
+        Just tid -> buildlogSizes tid
+
+nvrBuildlogSizes :: String -> IO Bool
+nvrBuildlogSizes nvr = do
+  let (NVR n (VerRel v r)) = readNVR nvr
       logsdir = "https://kojipkgs.fedoraproject.org/packages" +/+ n  +/+ v +/+ r +/+ "data/logs/"
-  archs <- map (T.unpack . noTrailingSlash) <$> httpDirectory' logsdir
-  forM_ archs $ \arch ->
-    doGetBuildlogSize (logsdir +/+ arch +/+ "build.log") arch
+  exists <- httpExists' logsdir
+  if exists
+    then do
+    archs <- map (T.unpack . noTrailingSlash) <$> httpDirectory' logsdir
+    forM_ archs $ \arch ->
+      doGetBuildlogSize (logsdir +/+ arch +/+ "build.log") arch
+    return True
+    else
+    return False
 
 buildlogSizes :: Int -> IO ()
 buildlogSizes tid = do
