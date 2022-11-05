@@ -45,7 +45,8 @@ Available commands:
   buildlog-sizes           Show buildlog sizes for nvr patterns
   find                     Simple quick common queries using words like: [my,
                            last, fail, complete, current, build, detail,
-                           install, tail, notail, x86_64, PACKAGE, USER\'s]
+                           install, tail, notail, hwinfo, x86_64, PACKAGE,
+                           USER\'s]
 ```
 
 ## koji-tool builds
@@ -137,7 +138,8 @@ Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                        [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
                        [-m|--method METHOD] [-d|--details] [-D|--debug]
                        [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)]
-                       [-T|--tail] [-i|--install INSTALLOPTS]
+                       [-T|--tail] [--hw-info] [-g|--grep STRING]
+                       [-i|--install INSTALLOPTS]
                        [(-b|--build BUILD) | (-p|--pattern NVRPAT) |
                          PACKAGE|TASKID]
   Query Koji tasks (by default lists the most recent buildArch tasks)
@@ -161,6 +163,8 @@ Available options:
   -P,--only-package PKG    Filter task results to specified package
   -N,--only-nvr PREFIX     Filter task results by NVR prefix
   -T,--tail                Fetch the tail of build.log
+  --hw-info                Fetch hw_info.log
+  -g,--grep STRING         Filter matching lines in log
   -i,--install INSTALLOPTS Install the package with 'install' options
   -b,--build BUILD         List child tasks of build
   -p,--pattern NVRPAT      Build tasks of matching pattern
@@ -197,8 +201,15 @@ duration: 0h 1m 57s
 https://kojipkgs.fedoraproject.org/work/tasks/5316/86685316/build.log (13kB)
 ```
 
-It is also possible to install packages from a task using `--install "..."`.
+It is also possible to install packages from a task using
+`--install "SUBPKG OPTIONS"`.
 See the install command documentation below for more details.
+
+Use `--tail` to show the tail of the build.log: it falls back to root.log
+automatically if the build.log is considered too small.
+Use `--hw-info` to display hw_info.log instead.
+Also using the `--grep` option one can filter the log output for lines matching
+the given string (accepts leading `^` and trailing `$`).
 
 ## koji-tool install
 
@@ -239,19 +250,21 @@ One can use `--hub` to specify a different Koji hub build service.
 By default only installed subpackages are downloaded and updated,
 but the following options change the behavior:
 
-`--package`: select subpackages by name or glob pattern (this doesn't work currently for multiple builds/tasks)
+`--package`: select subpackages by name or glob pattern
 
 `--except`: select subpackages not matching name or glob pattern
 
 `--exclude`: exclude subpackages by name or glob pattern (overrides --package and --except)
 
-`--include`: include subpackages by name or glob pattern (overrides other --except and --exclude)
+`--include`: include subpackages by name or glob pattern (overrides --exclude)
 
 `--all`: install all subpackages
 
 `--ask`: ask about each subpackage
 
 `--prefix`: override the subpackage prefix
+
+Subpackage selection has only been tested so far for a single build/task.
 
 ### Help
 ```shellsession
@@ -262,7 +275,7 @@ Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [(-N|--no-reinstall) | (-S|--skip-existing)]
                          [-b|--prefix SUBPKGPREFIX]
                          [--all | --ask | [-p|--package SUBPKG]
-                           [-x|--except SUBPKG] [-e|--exclude SUBPKG]
+                           [-e|--except SUBPKG] [-x|--exclude SUBPKG]
                            [-i|--include SUBPKG]] [-d|--disttag DISTTAG]
                          [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
   Install rpm packages directly from a Koji build task
@@ -270,8 +283,7 @@ Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
 Available options:
   -n,--dry-run             Don't actually download anything
   -D,--debug               More detailed output
-  -y,--yes                 Assume yes to questions (implies --all if not
-                           installed)
+  -y,--yes                 Assume yes to questions
   -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
                            rpmfusion, or URL) [default: fedora]
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
@@ -285,13 +297,12 @@ Available options:
   -S,--skip-existing       Ignore already installed subpackages (implies
                            --no-reinstall)
   -b,--prefix SUBPKGPREFIX Prefix to use for subpackages [default: base package]
-  --all                    all subpackages
-  --ask                    ask for each subpackge [default if not installed]
+  --all                    all subpackages [default if not installed]
+  --ask                    ask for each subpackage
   -p,--package SUBPKG      select subpackage (glob) matches
-  -x,--except SUBPKG       select subpackages not matching (glob)
-  -e,--exclude SUBPKG      deselect subpackage (glob): overrides -p and -x
+  -e,--except SUBPKG       select subpackages not matching (glob)
+  -x,--exclude SUBPKG      deselect subpackage (glob): overrides -p and -e
   -i,--include SUBPKG      additional subpackage (glob) to install: overrides -x
-                           and -e
   -d,--disttag DISTTAG     Select a disttag different to system
   -R,--nvr                 Give an N-V-R instead of package name
   -V,--nv                  Give an N-V instead of package name
@@ -323,6 +334,7 @@ detail details detailed
 install
 tail
 notail
+hwinfo
 x86_64 aarch64 ppc64le s390x i686 armv7hl
 PACKAGE
 USER\'s
@@ -336,18 +348,25 @@ by checking the size of their build.log files.
 This is useful for monitoring the build progress of large packages that take
 a long time to complete for which some arch's may take considerably longer.
 
+By default it shows progress of the user's builds.
+
 ### Usage
 
 ```shellsession
-$ koji-tool progress --mine
+$ koji-tool progress
 :
-$ koji-tool progress 81148584  # ← Koji taskid
-:
-23:19:19 vim-8.2.4068-1.fc36 (81148584)
-aarch64    351kB [109,133 B/min]
-armhfp     133kB [ 65,244 B/min]
-ppc64le    493kB [141,598 B/min] TaskClosed
-s390x      558kB [100,481 B/min] TaskClosed
+$ koji-tool progress 93808251  # ← Koji taskid
+21:39:41 webkitgtk-2.38.2-1.eln123 (93808251) 9h 32m
+aarch64  87,669kB (16:50:31)  3h 55m TaskClosed
+i386     88,120kB (16:33:14)  4h 21m TaskClosed
+noarch        3kB (12:11:19)  3m 28s TaskClosed SRPM
+ppc64le  85,853kB (21:25:42)
+s390x    87,692kB (21:20:43)  9h 11m TaskClosed
+x86_64   89,914kB (19:57:47)  7h 48m TaskClosed
+
+21:47:57 webkitgtk-2.38.2-1.eln123 (93808251) 89914kB, 9h 40m
+ppc64le  88,117kB (21:47:21) [  1,742 B/s] (1299s)
+
 :
 ```
 
@@ -359,8 +378,9 @@ koji-tool is packaged in Fedora
 ## Build
 `cabal-rpm builddep && cabal install || stack install`
 
-## History
-The query, install, progress, buildlog-sizes were originally separate programs
-and projects (koji-query, koji-install, koji-progress),
-and merged together into koji-install (after 0.5) and renamed
-to koji-tool. See the other original repos for their history.
+## Contributing
+koji-tool is distributed under a BSD license.
+
+Bug reports and contributions are welcomed:
+please propose suggestions and changes at:
+https://github.com/juhp/koji-tool/

@@ -1,5 +1,13 @@
 # Version history of koji-tool
 
+## 0.9.6 (2022-11-05)
+- install: completely rework subpackage selection logic
+- install: separate --except from --exclude and rename --add to --include
+- install: --no-reinstall and --skip-existing skip rpms before rpms selection
+- install: show installed states with character symbol prefixes
+- tasks: add --hw-info for hw_info.log and --grep to filter logs
+- progress: back-off up to 5 times
+
 ## 0.9.5 (2022-09-12)
 - 'install': fix determination of package name from srpm
 - 'progress': correctly determine NVR from srpm again
