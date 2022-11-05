@@ -303,7 +303,12 @@ decideRpms yes listmode mstrategy select prefix nvras = do
           _ -> Just (existence, nvra)
 
 renderInstalled :: (Existence, NVRA) -> String
-renderInstalled (exist, nvra) = showNVRA nvra ++ " (" ++ show exist ++ ")"
+renderInstalled (exist, nvra) =
+  case exist of
+    ExistingNVR -> '='
+    ChangedNVR -> '^'
+    NotInstalled -> '+'
+  : showNVRA nvra
 
 printInstalled :: (Existence, NVRA) -> IO ()
 printInstalled = putStrLn . renderInstalled
