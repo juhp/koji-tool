@@ -41,7 +41,7 @@ data Yes = No | Yes
 
 data Select = All
             | Ask
-            | PkgsReq [String] [String] [String] [String] -- include, except, add, exclude
+            | PkgsReq [String] [String] [String] [String] -- include, except, exclude, add
   deriving Eq
 
 installArgs :: String -> Select
@@ -53,27 +53,36 @@ installArgs cs =
     ["--ask"] -> Ask
     ws -> installPairs [] [] [] [] ws
   where
-    installPairs :: [String] -> [String] -> [String] -> [String] -> [String]
-                 -> Select
-    installPairs incl except add excl [] = PkgsReq incl except add excl
-    installPairs incl except add excl (w:ws)
+    installPairs :: [String] -> [String] -> [String] -> [String]
+                 -> [String] -> Select
+    installPairs incl except excl add [] = PkgsReq incl except excl add
+    installPairs incl except excl add (w:ws)
       | w `elem` ["-p","--package"] =
           case ws of
             [] -> error' "--install-opts --package missing value"
-            (w':ws') -> installPairs (w':incl) except add excl ws'
-      | w `elem` ["-x","--except"] =
+            (w':ws') -> checkPat w' $
+                        installPairs (w':incl) except excl add ws'
+      | w `elem` ["-e","--except"] =
           case ws of
             [] -> error' "--install-opts --exclude missing value"
-            (w':ws') -> installPairs incl (w':except) add excl ws'
+            (w':ws') -> checkPat w' $
+                        installPairs incl (w':except) excl add ws'
+      | w `elem` ["-x","--exclude"] =
+          case ws of
+            [] -> error' "--install-opts --exclude missing value"
+            (w':ws') -> checkPat w' $
+                        installPairs incl except (w':excl) add ws'
       | w `elem` ["-i","--include"] =
           case ws of
             [] -> error' "--install-opts --add missing value"
-            (w':ws') -> installPairs incl except (w':add) excl ws'
-      | w `elem` ["-e","--exclude"] =
-          case ws of
-            [] -> error' "--install-opts --exclude missing value"
-            (w':ws') -> installPairs incl except add (w':excl) ws'
+            (w':ws') -> checkPat w' $
+                        installPairs incl except excl (w':add) ws'
       | otherwise = error' "invalid --install-opts"
+
+    checkPat w' f =
+      if null w'
+      then error' "empty pattern!"
+      else f
 
 data Request = ReqName | ReqNV | ReqNVR
   deriving Eq
@@ -83,8 +92,8 @@ data PkgMgr = DNF | RPM | OSTREE
 
 data ExistingStrategy = ExistingNoReinstall | ExistingSkip
 
--- FIXME --include devel, --exclude *
 -- FIXME specify tag or task
+-- FIXME support --latest
 -- FIXME support enterprise builds
 -- FIXME --arch (including src)
 -- FIXME --debuginfo
@@ -97,6 +106,7 @@ installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
            -> Maybe String -> Select -> Maybe String -> Request -> [String]
            -> IO ()
 installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr mstrategy mprefix select mdisttag request pkgbldtsks = do
+  checkSelection select
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -105,9 +115,15 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
   printDlDir <- setDownloadDir dryrun "rpms"
   when debug printDlDir
   setNoBuffering
-  buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) pkgbldtsks
+  buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) $ nubOrd pkgbldtsks
   installRPMs dryrun debug mmgr yes buildrpms
   where
+    checkSelection :: Monad m => Select -> m ()
+    checkSelection (PkgsReq ps es xs is) =
+      forM_ (ps ++ es ++ xs ++ is) $ \s ->
+      when (null s) $ error' "empty package pattern not allowed"
+    checkSelection _ = return ()
+
     kojiRPMs :: String -> String -> IO () -> String
              -> IO (FilePath, [(Existence,NVRA)])
     kojiRPMs huburl pkgsurl printDlDir bldtask =
@@ -257,29 +273,18 @@ decideRpms yes listmode mstrategy select prefix nvras = do
   if listmode
     then do
     case select of
-      PkgsReq subpkgs exceptpkgs addpkgs exclpkgs -> do
-        let install = selectRPMs False prefix (subpkgs,exceptpkgs,addpkgs,exclpkgs) classified
-        mapM_ printInstalled install
+      PkgsReq subpkgs exceptpkgs exclpkgs addpkgs ->
+        mapM_ printInstalled $
+        selectRPMs prefix (subpkgs,exceptpkgs,exclpkgs,addpkgs) classified
       _ -> mapM_ printInstalled classified
     return []
     else
     case select of
-      All -> do
-        promptPkgs yes classified
+      All -> promptPkgs yes classified
       Ask -> mapMaybeM (rpmPrompt yes) classified
-      PkgsReq [] [] addpkgs [] ->
-        let add = selectRPMs False prefix ([],[],addpkgs,[]) classified
-        in
-          if all ((== NotInstalled) . fst) classified && yes /= Yes
-          then (add ++) <$> decideRpms yes listmode existingStrategy Ask prefix nvras
-          else do
-            let install = add ++ filter ((/= NotInstalled) . fst) classified
-            if yes == Yes
-              then return install
-              else promptPkgs yes install
-      PkgsReq subpkgs exceptpkgs addpkgs exclpkgs -> do
-        let install = selectRPMs False prefix (subpkgs,exceptpkgs,addpkgs,exclpkgs) classified
-        promptPkgs yes install
+      PkgsReq subpkgs exceptpkgs exclpkgs addpkgs ->
+        promptPkgs yes $
+        selectRPMs prefix (subpkgs,exceptpkgs,exclpkgs,addpkgs) classified
   where
     installExists :: NVRA -> IO (Maybe (Existence, NVRA))
     installExists nvra = do
@@ -303,20 +308,35 @@ renderInstalled (exist, nvra) = showNVRA nvra ++ " (" ++ show exist ++ ")"
 printInstalled :: (Existence, NVRA) -> IO ()
 printInstalled = putStrLn . renderInstalled
 
-selectRPMs :: Bool -> String
-           -> ([String],[String],[String],[String]) -- (subpkgs,except,addpkgs,exclpkgs)
-           -> [(Existence,NVRA)] -> [(Existence,NVRA)]
-selectRPMs recurse prefix (subpkgs,[],[],[]) rpms =
-  sort . mconcat $
-  flip map subpkgs $ \ pkgpat ->
-  case filter (match (compile pkgpat) . rpmName . snd) rpms of
-    [] -> if head pkgpat /= '*' && not recurse
-          then selectRPMs True prefix ([prefix ++ '-' : pkgpat],[],[],[]) rpms
+defaultRPMs :: [(Existence,NVRA)] -> [(Existence,NVRA)]
+defaultRPMs rpms =
+  let installed = filter ((/= NotInstalled) . fst) rpms
+  in if null installed
+     then rpms
+     else installed
+
+matchingRPMs :: String -> [String] -> [(Existence,NVRA)] -> [(Existence,NVRA)]
+matchingRPMs prefix subpkgs rpms =
+  nubSort . mconcat $
+  flip map (nubOrd subpkgs) $ \ pkgpat ->
+  case getMatches pkgpat of
+    [] -> if head pkgpat /= '*'
+          then
+            case getMatches (prefix ++ '-' : pkgpat) of
+              [] -> error' $ "no subpackage match for " ++ pkgpat
+              result -> result
           else error' $ "no subpackage match for " ++ pkgpat
     result -> result
-selectRPMs _ prefix ([], subpkgs, [], []) rpms =
+  where
+    getMatches :: String -> [(Existence,NVRA)]
+    getMatches pkgpat =
+      filter (match (compile pkgpat) . rpmName . snd) rpms
+
+nonMatchingRPMs :: String -> [String] -> [(Existence,NVRA)] -> [(Existence,NVRA)]
+nonMatchingRPMs _ [] _ = []
+nonMatchingRPMs prefix subpkgs rpms =
   -- FIXME somehow determine unused excludes
-  foldl' (exclude subpkgs) [] rpms
+  nubSort $ foldl' (exclude (nubOrd subpkgs)) [] rpms
   where
     rpmnames = map (rpmName . snd) rpms
 
@@ -336,12 +356,19 @@ selectRPMs _ prefix ([], subpkgs, [], []) rpms =
                   pat `notElem` rpmnames &&
                   (prefix ++ '-' : pat) == rpmname
              else match comppat rpmname
-selectRPMs recurse prefix (subpkgs,exceptpkgs,addpkgs,exclpkgs) rpms =
-  let needed = selectRPMs recurse prefix (subpkgs,[],[],[]) rpms
-      added = selectRPMs recurse prefix (addpkgs,[],[],[]) rpms
-      excepted = selectRPMs recurse prefix ([], exceptpkgs,[],[]) rpms
-      excluded = selectRPMs recurse prefix (exclpkgs,[],[],[]) rpms
-  in nub . sort $ ((added ++ excepted) \\ excluded) ++ needed
+
+selectRPMs :: String
+           -> ([String],[String],[String],[String]) -- (subpkgs,except,exclpkgs,addpkgs)
+           -> [(Existence,NVRA)] -> [(Existence,NVRA)]
+selectRPMs prefix (subpkgs,exceptpkgs,exclpkgs,addpkgs) rpms =
+  let excluded = matchingRPMs prefix exclpkgs rpms
+      included = matchingRPMs prefix addpkgs rpms
+      matching =
+        if null subpkgs && null exceptpkgs
+        then defaultRPMs rpms
+        else matchingRPMs prefix subpkgs rpms
+      nonmatching = nonMatchingRPMs prefix exceptpkgs rpms
+  in nubSort $ ((matching ++ nonmatching) \\ excluded) ++ included
 
 promptPkgs :: Yes -> [(Existence,NVRA)] -> IO [(Existence,NVRA)]
 promptPkgs yes classified = do

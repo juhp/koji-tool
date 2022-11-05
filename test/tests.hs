@@ -38,7 +38,13 @@ tests havedist =
      ,["-l", "-H", "stream", "-d", "el9", "grep"]
      ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
      ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
-     ,["ghc9.4", "-x", "*-devel", "-x", "*-prof", "-x", "*-doc", "-e", "ghc9.4", "-e", "compiler-default", "-i", "base-devel"] ++ sysdist
+     ,["ghc9.4",
+       "-e", "*-devel",
+       "-x", "*-prof",
+       "-x", "*-doc",
+       "-x", "ghc9.4",
+       "-x", "compiler-default",
+       "-i", "base-devel"] ++ sysdist
      ]
     )
   ]

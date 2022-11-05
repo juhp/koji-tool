@@ -82,7 +82,8 @@ main = do
       installCmd
       <$> switchWith 'n' "dry-run" "Don't actually download anything"
       <*> switchWith 'D' "debug" "More detailed output"
-      <*> flagWith No Yes 'y' "yes" "Assume yes to questions (implies --all if not installed)"
+      -- FIXME add --no
+      <*> flagWith No Yes 'y' "yes" "Assume yes to questions"
       <*> hubOpt
       <*> optional (strOptionWith 'P' "packages-url" "URL"
                     "KojiFiles packages url [default: Fedora]")
@@ -129,13 +130,13 @@ main = do
 
     selectOpt :: Parser Select
     selectOpt =
-      flagLongWith' All "all" "all subpackages" <|>
-      flagLongWith' Ask "ask" "ask for each subpackge [default if not installed]" <|>
+      flagLongWith' All "all" "all subpackages [default if not installed]" <|>
+      flagLongWith' Ask "ask" "ask for each subpackage" <|>
       PkgsReq
       <$> many (strOptionWith 'p' "package" "SUBPKG" "select subpackage (glob) matches")
-      <*> many (strOptionWith 'x' "except" "SUBPKG" "select subpackages not matching (glob)")
-      <*> many (strOptionWith 'e' "exclude" "SUBPKG" "deselect subpackage (glob): overrides -p and -x")
-      <*> many (strOptionWith 'i' "include" "SUBPKG" "additional subpackage (glob) to install: overrides -x and -e")
+      <*> many (strOptionWith 'e' "except" "SUBPKG" "select subpackages not matching (glob)")
+      <*> many (strOptionWith 'x' "exclude" "SUBPKG" "deselect subpackage (glob): overrides -p and -e")
+      <*> many (strOptionWith 'i' "include" "SUBPKG" "additional subpackage (glob) to install: overrides -x")
 
     disttagOpt :: Parser String
     disttagOpt = startingDot <$>

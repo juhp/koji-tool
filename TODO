@@ -56,5 +56,9 @@
 
 - screen mode inplace tui
 
+# install
+- put package lists into Set's
+
+# misc
 - list binary packages (install does this, but not obvious)
 - diff build command
