@@ -62,6 +62,8 @@ main = do
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
+      <*> switchLongWith "hw-info" "Fetch hw_info.log"
+      <*> optional (strOptionWith 'g' "grep" "STRING" "Filter matching lines in log")
       -- FIXME any way to pass --help to install?
       <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> (Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"

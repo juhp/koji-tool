@@ -75,8 +75,9 @@ data TaskResult =
 -- FIXME parent tasks need not have limit
 tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
          -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
-         -> Maybe TaskFilter -> Bool -> Maybe Select -> TaskReq -> IO ()
-tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' tail' minstall taskreq = do
+         -> Maybe TaskFilter -> Bool -> Bool -> Maybe String -> Maybe Select
+         -> TaskReq -> IO ()
+tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall taskreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -93,7 +94,7 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
           if hasparent
             then whenJust minstall $ \installopts ->
             installCmd False debug No mhub Nothing False False False Nothing Nothing Nothing installopts Nothing ReqName [show taskid]
-            else tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
+            else tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
     Build bld -> do
       when (isJust mdate || isJust mfilter') $
         error' "cannot use --build together with timedate or filter"
@@ -101,7 +102,7 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild hub (InfoID (read bld))
                 else kojiGetBuildTaskID hub bld
       whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
+        tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
     Package pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package " ++ pkg
@@ -117,7 +118,7 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
           forM_ builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
+              tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
     Pattern pat -> do
       let buildquery = [("pattern", ValueString pat),
                         commonBuildQueryOptions limit]
@@ -127,7 +128,7 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
       forM_ builds $ \bld -> do
         let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
         whenJust mtaskid $ \(TaskId taskid) ->
-          tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' minstall (Parent taskid)
+          tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
     _ -> do
       query <- setupQuery
       let queryopts = commonQueryOptions limit "-id"
@@ -231,9 +232,11 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
         putStrLn ""
         -- FIX for parent/build method show children (like we do with taskid)
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
-        buildlogSize debug tail' hub task
-        else
+        buildlogSize debug tail' hwinfo mgrep hub task
+        else do
         (putStrLn . compactTaskResult hub tz) task
+        when (tail' || hwinfo || isJust mgrep) $
+          buildlogSize debug tail' hwinfo mgrep hub task
 
     pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
@@ -309,7 +312,7 @@ parseTaskState s =
     _ -> error' $! "unknown task state: " ++ s
 #endif
 
-data LogFile = BuildLog | RootLog
+data LogFile = BuildLog | RootLog | HWInfo
   deriving Eq
 
 data OutputLocation = PackagesOutput | WorkOutput
@@ -355,9 +358,11 @@ tailLogUrl hub taskid file =
 logFile :: LogFile -> String
 logFile RootLog = "root.log"
 logFile BuildLog = "build.log"
+logFile HWInfo = "hw_info.log"
 
-buildlogSize :: Bool -> Bool -> String -> TaskResult -> IO ()
-buildlogSize _debug tail' hub task = do
+buildlogSize :: Bool -> Bool -> Bool -> Maybe String -> String -> TaskResult
+             -> IO ()
+buildlogSize _debug tail' hwinfo mgrep hub task = do
   murl <- findOutputURL hub task
   whenJust murl $ \ url -> do
     let buildlog = url +/+ logFile BuildLog
@@ -372,12 +377,17 @@ buildlogSize _debug tail' hub task = do
           fprintLn ("(" % commas % "kB)") (size `div` 1000)
           -- FIXME check if short build.log ends with srpm
           file <-
-            if size < 1500
+            if hwinfo
             then do
-              putStrLn $ url +/+ logFile RootLog
-              return RootLog
-            else return BuildLog
-          when tail' $ displayLog url file
+              putStrLn $ url +/+ logFile HWInfo
+              return HWInfo
+            else
+              if size < 1500
+              then do
+                putStrLn $ url +/+ logFile RootLog
+                return RootLog
+              else return BuildLog
+          when (tail' || hwinfo || isJust mgrep) $ displayLog url file
       else do
       let rootlog = url +/+ logFile RootLog
       whenM (httpExists' rootlog) $
@@ -387,28 +397,48 @@ buildlogSize _debug tail' hub task = do
     displayLog url file = do
       let logurl =
             case file of
-              RootLog -> url +/+  logFile file
               BuildLog -> tailLogUrl hub (taskId task) file
+              _ -> url +/+  logFile file
       req <- parseRequest logurl
       resp <- httpLBS req
       let out = U.toString $ getResponseBody resp
           ls = lines out
       putStrLn ""
-      if file == RootLog
-        then
-        let excluded = ["Executing command:", "Child return code was: 0",
-                        "child environment: None", "ensuring that dir exists:",
-                        "touching file:", "creating dir:", "kill orphans"]
-        in putStr $ unlines $ map (dropPrefix "DEBUG ") $ takeEnd 30 $
-           filter (\l -> not (any (`isInfixOf` l) excluded)) ls
-        else
-        if last ls == "Child return code was: 0"
-        then putStr out
-        else putStr . unlines $
-          case breakOnEnd ["Child return code was: 1"] ls of
-            ([],ls') -> ls'
-            (ls',_) -> ls'
+      let output
+            | file == RootLog =
+              let excluded = ["Executing command:",
+                              "Child return code was: 0",
+                              "child environment: None",
+                              "ensuring that dir exists:",
+                              "touching file:",
+                              "creating dir:",
+                              "kill orphans"]
+              in
+                map (dropPrefix "DEBUG ") $ takeEnd 30 $
+                filter (\l -> not (any (`isInfixOf` l) excluded)) ls
+            | last ls == "Child return code was: 0" = ls
+            | otherwise =
+                case breakOnEnd ["Child return code was: 1"] ls of
+                  ([],ls') -> ls'
+                  (ls',_) -> ls'
+      putStr $ unlines $
+        case mgrep of
+          Nothing -> output
+          Just needle ->
+            filter (match needle) ls
       putStrLn $ "\n" ++ logurl
+      where
+        match :: String -> String -> Bool
+        match "" _ = error' "empty grep string not allowed"
+        match _ "" = False
+        match ('^':needle) ls =
+          if last needle == '$'
+          then needle == ls
+          else needle `isPrefixOf` ls
+        match needle ls =
+          if last needle == '$'
+          then needle `isSuffixOf` ls
+          else needle `isInfixOf` ls
 
 kojiMethods :: [String]
 kojiMethods =

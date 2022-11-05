@@ -27,10 +27,8 @@
 
 ## tasks
 - determine username for non-Fedora
-- build pattern
 - different hubs put builds in different locations
 - html output
-- grep buildlog
 
 ## builds
 - --show-tags

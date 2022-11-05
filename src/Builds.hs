@@ -184,7 +184,7 @@ printBuild hub tz details minstall build = do
   whenJust (mbuildTaskId build) $ \taskid -> do
     when (details == DetailedTasks) $ do
       putStrLn ""
-      Tasks.tasksCmd (Just hub) Nothing 7 [] [] Nothing Nothing False False Nothing False Nothing (Tasks.Parent taskid)
+      Tasks.tasksCmd (Just hub) Nothing 7 [] [] Nothing Nothing False False Nothing False False Nothing Nothing (Tasks.Parent taskid)
     whenJust minstall $ \installopts -> do
       putStrLn ""
       installCmd False False No (Just hub) Nothing False False False Nothing Nothing Nothing installopts Nothing ReqName [show taskid]

@@ -20,7 +20,7 @@ import qualified Tasks
 import User ( UserOpt(User, UserSelf) )
 
 data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
-           | Install | Tail | NoTail | Arch
+           | Install | Tail | NoTail | Hwinfo | Arch
   deriving (Enum,Bounded)
 
 findWords :: Words -> [String]
@@ -36,6 +36,7 @@ findWords Detail = ["detail","details","detailed"]
 findWords Install = ["install"]
 findWords Tail = ["tail"]
 findWords NoTail = ["notail"]
+findWords Hwinfo = ["hwinfo"]
 findWords Arch = ["x86_64", "aarch64", "ppc64le", "s390x", "i686", "armv7hl"]
 
 wordsList :: ([String] -> String) -> [String]
@@ -71,6 +72,7 @@ findCmd mhub debug args = do
       install = hasWord Install
       tail' = hasWord Tail
       notail = hasWord NoTail
+      hwinfo = hasWord Hwinfo
       mpkg =
         case removeUsers (args \\ allWords) of
           [] -> Nothing
@@ -94,7 +96,7 @@ findCmd mhub debug args = do
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub user limit states archs Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) installation taskreq
+    in Tasks.tasksCmd mhub user limit states archs Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) hwinfo Nothing installation taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args
