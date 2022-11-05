@@ -3,12 +3,14 @@ module Common (
   hubURL,
   commonQueryOptions,
   commonBuildQueryOptions,
-  webUrl
+  webUrl,
+  getBuildState
   )
 where
 
 import Data.List.Extra (dropSuffix, isPrefixOf)
-import Distribution.Koji (fedoraKojiHub, Value(..))
+import Distribution.Koji (fedoraKojiHub, Value(..), Struct, BuildState,
+                          readBuildState)
 import SimpleCmd (error')
 
 -- mbox kojihub is locked
@@ -38,3 +40,6 @@ commonBuildQueryOptions limit =
 
 webUrl :: String -> String
 webUrl = dropSuffix "hub"
+
+getBuildState :: Struct -> Maybe BuildState
+getBuildState st = readBuildState <$> lookup "state" st

@@ -223,9 +223,6 @@ parseBuildState s =
     _ -> error' $! "unknown build state: " ++ s
 #endif
 
-getBuildState :: Struct -> Maybe BuildState
-getBuildState st = readBuildState <$> lookup "state" st
-
 kojiBuildTypes :: [String]
 kojiBuildTypes = ["all", "image", "maven", "module", "rpm", "win"]
 
