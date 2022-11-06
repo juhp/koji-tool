@@ -15,7 +15,7 @@ import Control.Monad.Extra
 
 import Data.Char (isDigit)
 import Data.RPM.NVR
-import Data.List (sortOn)
+import Data.List.Extra (sortOn, splitOn)
 --import Data.Maybe
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
@@ -37,18 +37,23 @@ import Common (commonBuildQueryOptions, getBuildState)
 
 -- FIXME split off arch suffix
 -- FIXME show build duration
--- FIXME detect package vs nvr
 -- FIXME allow buildid
 buildlogSizesCmd :: String -> IO ()
 buildlogSizesCmd nvrpat = do
   if all isDigit nvrpat -- taskid
     then buildlogSizes (read nvrpat)
     else do -- find builds
+    let pat =
+          if '*' `notElem` nvrpat && length (splitOn "-" nvrpat) < 3
+          then nvrpat ++ "*"
+          else nvrpat
     results <- listBuilds fedoraKojiHub
-               [("pattern", ValueString nvrpat),
+               [("pattern", ValueString pat),
                 commonBuildQueryOptions 5]
     if null results
-      then putStrLn $ "no NVRs found for pattern :" ++ nvrpat
+      then if '*' `notElem` pat
+           then buildlogSizesCmd $ nvrpat ++ "*"
+           else putStrLn $ "no NVRs found for pattern: " ++ pat
       else mapM_ getResult results
   where
     getResult :: Struct -> IO ()

@@ -109,7 +109,7 @@ main = do
       <*> many (TaskId <$> argumentWith auto "TASKID")
 
     , Subcommand "buildlog-sizes" "Show buildlog sizes for nvr patterns" $
-      buildlogSizesCmd <$> strArg "NVRPATTERN|TASKID"
+      buildlogSizesCmd <$> strArg "NVRPATTERN|PKG|TASKID"
 
     , Subcommand "find"
       ("Simple quick common queries using words like: [" ++
