@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
 
 module Time (
   compactZonedTime,
@@ -16,6 +16,7 @@ import Data.Time.Clock.System
 import Data.Time.Format
 import Data.Time.LocalTime
 import Distribution.Koji.API (Struct, lookupStruct)
+import Formatting
 
 readTime' :: Double -> UTCTime
 readTime' =
@@ -34,7 +35,7 @@ lookupTime completion str = do
       lookupStruct (prefix ++ "_time") str >>=
       parseTimeM False defaultTimeLocale "%Y-%m-%d %H:%M:%S%Q%EZ"
   where
-    prefix = if completion then "completion" else "start"
+    prefix = if completion then "completion" else "create"
 
 lookupTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
 lookupTimes str = do
@@ -59,7 +60,9 @@ durationOfTask str = do
 
 formatLocalTime :: Bool -> TimeZone -> UTCTime -> String
 formatLocalTime start tz t =
-  formatTime defaultTimeLocale (if start then "Start: %c" else "End:   %c") $
+  -- FIXME format time with formatting
+  formatTime defaultTimeLocale
+  (formatToString (rpadded 11 ' ' string % "%c") (if start then "Created:" else "Completed:")) $
   utcToZonedTime tz t
 
 renderDuration :: Bool -> NominalDiffTime -> String

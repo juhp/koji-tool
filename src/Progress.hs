@@ -100,7 +100,7 @@ initialTaskinfo tid = do
       let start =
             case lookupTime False taskinfo of
               Nothing ->
-                error' $ "task " ++ displayID tid ++ " has no start time"
+                error' $ "task " ++ displayID tid ++ " has no create time"
               Just t -> t
           mend = lookupTime True taskinfo
       return $
