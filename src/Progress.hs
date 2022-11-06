@@ -104,7 +104,7 @@ initialTaskinfo tid = do
               Just t -> t
           mend = lookupTime True taskinfo
       return $
-        BuildTask tid start mend Nothing $
+        BuildTask parent start mend Nothing $
         map (`TaskInfoStatus` Nothing) children
 
 type TaskInfoStatuses = (Struct,
