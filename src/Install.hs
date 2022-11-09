@@ -492,8 +492,8 @@ installRPMs dryrun debug mmgr yes classified = do
   case installTypes classified of
     ([],is) -> doInstall Install is
     (ris,is) -> do
-      doInstall ReInstall ris
-      doInstall Install (ris ++ is)
+      doInstall ReInstall (ris ++ is) -- include any new deps
+      doInstall Install is            -- install any non-deps
   where
     doInstall :: InstallType -> [(FilePath,NVRA)] -> IO ()
     doInstall inst dirpkgs =
