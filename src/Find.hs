@@ -47,7 +47,7 @@ allWords :: [String]
 allWords = concatMap findWords [minBound..]
 
 -- FIXME: time: today, yesterday, week
--- FIXME: method
+-- FIXME: methods
 -- FIXME: mlt (or mlft)
 -- FIXME: separate last and latest?
 findCmd :: Maybe String -> Bool -> [String] -> IO ()
@@ -96,7 +96,7 @@ findCmd mhub debug args = do
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub user limit states archs Nothing Nothing detail debug Nothing ((tail' || failure) && not notail) hwinfo Nothing installation taskreq
+    in Tasks.tasksCmd mhub (Tasks.QueryOpts user limit states archs Nothing Nothing debug Nothing) detail ((tail' || failure) && not notail) hwinfo Nothing taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args

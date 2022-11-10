@@ -100,7 +100,7 @@ buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildre
       nvr <- lookupStruct "nvr" bld
       state <- readBuildState <$> lookupStruct "state" bld
       let date =
-            case lookupTimes bld of
+            case lookupBuildTimes bld of
               Nothing -> ""
               Just (start,mend) ->
                 compactZonedTime tz $ fromMaybe start mend
@@ -163,7 +163,7 @@ data BuildResult =
 
 maybeBuildResult :: Struct -> Maybe BuildResult
 maybeBuildResult st = do
-  (start,mend) <- lookupTimes st
+  (start,mend) <- lookupBuildTimes st
   buildid <- lookupStruct "build_id" st
   -- buildContainer has no task_id
   let mtaskid = lookupStruct "task_id" st
@@ -184,7 +184,7 @@ printBuild hub tz details minstall build = do
   whenJust (mbuildTaskId build) $ \taskid -> do
     when (details == DetailedTasks) $ do
       putStrLn ""
-      Tasks.tasksCmd (Just hub) Nothing 7 [] [] Nothing Nothing False False Nothing False False Nothing Nothing (Tasks.Parent taskid)
+      Tasks.tasksCmd (Just hub) (Tasks.QueryOpts Nothing 7 [] [] Nothing Nothing False Nothing) False False False Nothing (Tasks.Parent taskid)
     whenJust minstall $ \installopts -> do
       putStrLn ""
       installCmd False False No (Just hub) Nothing False False False Nothing Nothing Nothing installopts Nothing ReqName [show taskid]

@@ -2,9 +2,11 @@
 
 module Time (
   compactZonedTime,
+  TimeEvent(..),
   lookupTime,
-  lookupTimes,
-  lookupTimes',
+  lookupBuildTimes,
+  lookupTaskTimes,
+  strictLookupTimes,
   durationOfTask,
   formatLocalTime,
   renderDuration,
@@ -27,34 +29,48 @@ compactZonedTime :: TimeZone -> UTCTime -> String
 compactZonedTime tz =
   formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z" . utcToZonedTime tz
 
-lookupTime :: Bool -> Struct -> Maybe UTCTime
-lookupTime completion str = do
-  case lookupStruct (prefix ++ "_ts") str of
-    Just ts -> return $ readTime' ts
-    Nothing ->
-      lookupStruct (prefix ++ "_time") str >>=
-      parseTimeM False defaultTimeLocale "%Y-%m-%d %H:%M:%S%Q%EZ"
-  where
-    prefix = if completion then "completion" else "create"
+data TimeEvent = CreateEvent | StartEvent | CompletionEvent
 
-lookupTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
-lookupTimes str = do
-  start <- lookupTime False str
-  let mend = lookupTime True str
+showEvent :: TimeEvent -> String
+showEvent CreateEvent = "create"
+showEvent StartEvent = "start"
+showEvent CompletionEvent = "completion"
+
+lookupTime :: TimeEvent -> Struct -> Maybe UTCTime
+lookupTime event str = do
+  let ev = showEvent event
+    in
+    case lookupStruct (ev ++ "_ts") str of
+      Just ts -> return $ readTime' ts
+      Nothing ->
+        lookupStruct (ev ++ "_time") str >>=
+        parseTimeM False defaultTimeLocale "%Y-%m-%d %H:%M:%S%Q%EZ"
+
+lookupTaskTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
+lookupTaskTimes str = do
+  start <- lookupTime CreateEvent str
+  let mend = lookupTime CompletionEvent str
   return (start,mend)
 
-lookupTimes' :: Struct -> (UTCTime, UTCTime)
-lookupTimes' str =
-  case lookupTimes str of
-    Nothing -> error "no start time for task"
+lookupBuildTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
+lookupBuildTimes str = do
+  start <- lookupTime StartEvent str
+  let mend = lookupTime CompletionEvent str
+  return (start,mend)
+
+strictLookupTimes :: (Struct -> Maybe (UTCTime, Maybe UTCTime))
+                  -> Struct -> (UTCTime, UTCTime)
+strictLookupTimes lf st =
+  case lf st of
+    Nothing -> error "no start time" -- for build/task
     Just (start,mend) ->
       case mend of
-        Nothing -> error "no end time for task"
+        Nothing -> error "no end time" -- for build/task
         Just end -> (start,end)
 
 durationOfTask :: Struct -> Maybe NominalDiffTime
 durationOfTask str = do
-  (start,mend) <- lookupTimes str
+  (start,mend) <- lookupTaskTimes str
   end <- mend
   return $ diffUTCTime end start
 

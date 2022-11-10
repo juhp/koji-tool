@@ -92,6 +92,7 @@ data PkgMgr = DNF | RPM | OSTREE
 
 data ExistingStrategy = ExistingNoReinstall | ExistingSkip
 
+-- FIXME support buildid
 -- FIXME specify tag or task
 -- FIXME support --latest
 -- FIXME support enterprise builds
@@ -172,7 +173,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
             unless (dryrun || null dlRpms) $ do
               bld <- kojiGetBuild' huburl nvr
               -- FIXME should be NVRA ideally
-              downloadRpms debug checkremotetime (lookupTimes' bld) subdir (buildURL nvr) dlRpms
+              downloadRpms debug checkremotetime (strictLookupTimes lookupBuildTimes bld) subdir (buildURL nvr) dlRpms
               -- FIXME once we check file size - can skip if no downloads
               printDlDir
             return (subdir,dlRpms)
@@ -238,7 +239,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select c
       when debug $ mapM_ printInstalled dlRpms
       let subdir = show archtid
       unless (dryrun || null dlRpms) $ do
-        downloadRpms debug checkremotetime (lookupTimes' archtask) subdir (taskRPMURL archtid) dlRpms
+        downloadRpms debug checkremotetime (strictLookupTimes lookupTaskTimes archtask) subdir (taskRPMURL archtid) dlRpms
         printDlDir
       return (subdir,dlRpms)
   where

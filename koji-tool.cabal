@@ -1,5 +1,5 @@
 name:                koji-tool
-version:             0.9.6
+version:             1.0
 synopsis:            Koji CLI tool for querying tasks and installing builds
 description:
         koji-tool is a CLI interface to Koji with commands to query

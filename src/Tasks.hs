@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, CPP, OverloadedStrings #-}
+{-# LANGUAGE CPP, OverloadedStrings, RecordWildCards #-}
 
 -- SPDX-License-Identifier: BSD-3-Clause
 
@@ -6,7 +6,9 @@ module Tasks (
   TaskFilter(..),
   TaskReq(..),
   BeforeAfter(..),
+  QueryOpts(..),
   tasksCmd,
+  getTasks,
   parseTaskState,
   kojiMethods,
   fedoraKojiHub,
@@ -67,148 +69,39 @@ data TaskResult =
               mtaskEndTime :: Maybe UTCTime
              }
 
+data QueryOpts = QueryOpts {
+  qmUserOpt :: Maybe UserOpt,
+  qLimit :: Int,
+  qStates :: ![TaskState],
+  qArchs :: ![String],
+  qmDate :: Maybe BeforeAfter,
+  qmMethod :: Maybe String,
+  qDebug :: Bool,
+  qmFilter :: Maybe TaskFilter}
+
 -- FIXME short output option
 -- --sibling
 -- FIXME --tail-size option (eg more that 4000B)
 -- FIXME --output-fields
 -- FIXME default to 'build' for install or try 'build' after 'buildarch'?
 -- FIXME parent tasks need not have limit
-tasksCmd :: Maybe String -> Maybe UserOpt -> Int -> [TaskState]
-         -> [String] -> Maybe BeforeAfter -> Maybe String -> Bool -> Bool
-         -> Maybe TaskFilter -> Bool -> Bool -> Maybe String -> Maybe Select
+tasksCmd :: Maybe String -> QueryOpts -> Bool -> Bool -> Bool -> Maybe String
          -> TaskReq -> IO ()
-tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall taskreq = do
-  when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
+tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep taskreq = do
+  when (hub /= fedoraKojiHub && qmUserOpt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
-  case taskreq of
-    Task taskid -> do
-      when (isJust museropt || isJust mdate || isJust mfilter') $
-        error' "cannot use --task together with --user, timedate, or filter"
-      mtask <- kojiGetTaskInfo hub (TaskId taskid)
-      whenJust mtask$ \task -> do
-        when debug $ pPrintCompact task
-        whenJust (maybeTaskResult task) $ \res -> do
-          let hasparent = isJust $ mtaskParent res
-          printTask hasparent tz res
-          if hasparent
-            then whenJust minstall $ \installopts ->
-            installCmd False debug No mhub Nothing False False False Nothing Nothing Nothing installopts Nothing ReqName [show taskid]
-            else tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
-    Build bld -> do
-      when (isJust mdate || isJust mfilter') $
-        error' "cannot use --build together with timedate or filter"
-      mtaskid <- if all isDigit bld
-                then ((fmap TaskId . lookupStruct "task_id") =<<) <$> getBuild hub (InfoID (read bld))
-                else kojiGetBuildTaskID hub bld
-      whenJust mtaskid $ \(TaskId taskid) ->
-        tasksCmd (Just hub) museropt limit states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
-    Package pkg -> do
-      when (head pkg == '-') $
-        error' $ "bad combination: not a package " ++ pkg
-      when (isJust mdate || isJust mfilter') $
-        error' "cannot use --package together with timedate or filter"
-      mpkgid <- getPackageID hub pkg
-      case mpkgid of
-        Nothing -> error' $ "no package id found for " ++ pkg
-        Just pkgid -> do
-          builds <- listBuilds hub
-                    [("packageID", ValueInt pkgid),
-                     commonBuildQueryOptions limit]
-          forM_ builds $ \bld -> do
-            let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
-            whenJust mtaskid $ \(TaskId taskid) ->
-              tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
-    Pattern pat -> do
-      let buildquery = [("pattern", ValueString pat),
-                        commonBuildQueryOptions limit]
-      when debug $ print buildquery
-      builds <- listBuilds hub buildquery
-      when debug $ print builds
-      forM_ builds $ \bld -> do
-        let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
-        whenJust mtaskid $ \(TaskId taskid) ->
-          tasksCmd (Just hub) museropt 10 states archs mdate mmethod details debug mfilter' tail' hwinfo mgrep minstall (Parent taskid)
-    _ -> do
-      query <- setupQuery
-      let queryopts = commonQueryOptions limit "-id"
-      when debug $ print $ query ++ queryopts
-      tasks <- listTasks hub query queryopts
-      when debug $ mapM_ pPrintCompact tasks
-      let exact = length tasks == 1
-          detailed = details || exact
-      (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
-      whenJust minstall $ \args ->
-        if exact
-        then installCmd False debug No mhub Nothing False False False Nothing Nothing Nothing args Nothing ReqName [show (i :: Int) | i <- mapMaybe (lookupStruct "id") tasks]
-        else error' "cannot install more than one task"
+  tasks <- getTasks tz hub queryopts taskreq
+  when qDebug $ mapM_ pPrintCompact tasks
+  let exact = length tasks == 1
+      detailed = details || exact
+  (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
   where
     hub = maybe fedoraKojiHub hubURL mhub
 
-    setupQuery = do
-      case taskreq of
-        Parent parent ->
-          return $ ("parent", ValueInt parent) : commonParams
-        _ -> do
-          mdatestring <-
-            case mdate of
-              Nothing -> return Nothing
-              Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
-          when (isNothing mmethod) $
-            warning "buildArch tasks"
-          whenJust mdatestring $ \date ->
-            warning $ maybe "" show mdate +-+ date
-          mowner <- maybeGetKojiUser hub museropt
-          return $
-            [("owner", ValueInt (getID owner)) | Just owner <- [mowner]] ++
-            [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]] ++
-            commonParams
-        where
-          commonParams =
-            [("decode", ValueBool True)]
-            ++ [("state", ValueArray (map taskStateToValue states)) | notNull states]
-            ++ [("arch", ValueArray (map (ValueString . kojiArch) archs)) | notNull archs]
-            ++ [("method", ValueString method) | let method = fromMaybe "buildArch" mmethod]
-
-          capitalize :: String -> String
-          capitalize "" = ""
-          capitalize (h:t) = toUpper h : t
-
-          kojiArch :: String -> String
-          kojiArch "i686" = "i386"
-          kojiArch "armv7hl" = "armhfp"
-          kojiArch a = a
-
-    dateString :: BeforeAfter -> String
-    -- make time refer to past not future
-    dateString beforeAfter =
-      let timedate = getTimedate beforeAfter
-      in case words timedate of
-           [t] | t `elem` ["hour", "day", "week", "month", "year"] ->
-                 "last " ++ t
-           [t] | t `elem` ["today", "yesterday"] ->
-                 t ++ " 00:00"
-           [t] | any (lower t `isPrefixOf`) ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] ->
-                 "last " ++ t ++ " 00:00"
-           [n,_unit] | all isDigit n -> timedate ++ " ago"
-           _ -> timedate
-
-    maybeTaskResult :: Struct -> Maybe TaskResult
-    maybeTaskResult st = do
-      arch <- lookupStruct "arch" st
-      let mstart_time = lookupTime False st
-          mend_time = lookupTime True st
-      taskid <- lookupStruct "id" st
-      method <- lookupStruct "method" st
-      state <- getTaskState st
-      let pkgnvr = kojiTaskRequestNVR st
-          mparent' = lookupStruct "parent" st :: Maybe Int
-      return $
-        TaskResult pkgnvr arch method state mparent' taskid mstart_time mend_time
-
     filterResults :: [TaskResult] -> [TaskResult]
     filterResults ts =
-      case mfilter' of
+      case qmFilter of
         Nothing -> ts
         Just (TaskPackage pkg) ->
           filter (isPackage pkg . taskPackage) ts
@@ -232,20 +125,150 @@ tasksCmd mhub museropt limit !states archs mdate mmethod details debug mfilter' 
         putStrLn ""
         -- FIX for parent/build method show children (like we do with taskid)
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
-        buildlogSize debug tail' hwinfo mgrep hub task
+        buildlogSize qDebug tail' hwinfo mgrep hub task
         else do
         (putStrLn . compactTaskResult hub tz) task
         when (tail' || hwinfo || isJust mgrep) $
-          buildlogSize debug tail' hwinfo mgrep hub task
+          buildlogSize qDebug tail' hwinfo mgrep hub task
 
-    pPrintCompact =
+maybeTaskResult :: Struct -> Maybe TaskResult
+maybeTaskResult st = do
+  arch <- lookupStruct "arch" st
+  let mstart_time = lookupTime CreateEvent st
+      mend_time = lookupTime CompletionEvent st
+  taskid <- lookupStruct "id" st
+  method <- lookupStruct "method" st
+  state <- getTaskState st
+  let pkgnvr = kojiTaskRequestNVR st
+      mparent' = lookupStruct "parent" st :: Maybe Int
+  return $
+    TaskResult pkgnvr arch method state mparent' taskid mstart_time mend_time
+
+pPrintCompact :: Struct -> IO ()
+pPrintCompact =
 #if MIN_VERSION_pretty_simple(4,0,0)
-      pPrintOpt CheckColorTty
-      (defaultOutputOptionsDarkBg {outputOptionsCompact = True,
-                                   outputOptionsCompactParens = True})
+  pPrintOpt CheckColorTty
+  (defaultOutputOptionsDarkBg {outputOptionsCompact = True,
+                               outputOptionsCompactParens = True})
 #else
-      pPrint
+  pPrint
 #endif
+
+-- FIXME more debug output
+getTasks :: TimeZone -> String -> QueryOpts -> TaskReq -> IO [Struct]
+getTasks tz hub queryopts@QueryOpts {..} req =
+  do
+  case req of
+    Task taskid -> do
+      when (isJust qmUserOpt || isJust qmDate || isJust qmFilter) $
+        error' "cannot use taskid together with --user, timedate, or filter"
+      mtask <- kojiGetTaskInfo hub (TaskId taskid)
+      case mtask of
+        Nothing -> error $ "taskid not found: " ++ show taskid
+        Just task -> do
+          when qDebug $ pPrintCompact task
+          case maybeTaskResult task of
+            Nothing -> error' $ "failed to read task: " ++ show task
+            Just res -> do
+              let hasparent = isJust $ mtaskParent res
+              -- printTask hasparent tz res
+              if hasparent
+                then return [task]
+                else getTasks tz hub queryopts $ Parent taskid
+    Build bld -> do
+      when (isJust qmDate || isJust qmFilter) $
+        error' "cannot use --build together with timedate or filter"
+      mtaskid <- if all isDigit bld
+                then ((fmap TaskId . lookupStruct "task_id") =<<) <$>
+                     getBuild hub (InfoID (read bld))
+                else kojiGetBuildTaskID hub bld
+      case mtaskid of
+        Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
+        Nothing -> error' $ "no taskid found for build " ++ bld
+    Package pkg -> do
+      when (head pkg == '-') $
+        error' $ "bad combination: not a package " ++ pkg
+      when (isJust qmDate || isJust qmFilter) $
+        -- FIXME why not?
+        error' "cannot use package together with timedate or filter"
+      mpkgid <- getPackageID hub pkg
+      case mpkgid of
+        Nothing -> error' $ "no package id found for " ++ pkg
+        Just pkgid -> do
+          builds <- listBuilds hub
+                    [("packageID", ValueInt pkgid),
+                     commonBuildQueryOptions qLimit]
+          fmap concat <$>
+            forM builds $ \bld -> do
+            let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
+            case mtaskid of
+              Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
+              Nothing -> return []
+    Pattern pat -> do
+      let buildquery = [("pattern", ValueString pat),
+                        commonBuildQueryOptions qLimit]
+      when qDebug $ print buildquery
+      builds <- listBuilds hub buildquery
+      when qDebug $ print builds
+      fmap concat <$>
+        forM builds $ \bld -> do
+        let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
+        case mtaskid of
+          Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
+          Nothing -> return []
+    _ -> do
+      query <- setupQuery
+      let qopts = commonQueryOptions qLimit "-id"
+      when qDebug $ print $ query ++ qopts
+      listTasks hub query qopts
+  where
+    setupQuery = do
+      case req of
+        Parent parent ->
+          return $ ("parent", ValueInt parent) : commonParams
+        _ -> do
+          mdatestring <-
+            case qmDate of
+              Nothing -> return Nothing
+              Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
+          when (isNothing qmMethod) $
+            warning "buildArch tasks"
+          whenJust mdatestring $ \date ->
+            warning $ maybe "" show qmDate +-+ date
+          mowner <- maybeGetKojiUser hub qmUserOpt
+          return $
+            [("owner", ValueInt (getID owner)) | Just owner <- [mowner]] ++
+            [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [qmDate], Just datestring <- [mdatestring]] ++
+            commonParams
+        where
+          commonParams =
+            [("decode", ValueBool True)]
+            ++ [("state", ValueArray (map taskStateToValue qStates)) | notNull qStates]
+            ++ [("arch", ValueArray (map (ValueString . kojiArch) qArchs)) | notNull qArchs]
+            ++ [("method", ValueString method) | let method = fromMaybe "buildArch" qmMethod]
+
+          capitalize :: String -> String
+          capitalize "" = ""
+          capitalize (h:t) = toUpper h : t
+
+          kojiArch :: String -> String
+          kojiArch "i686" = "i386"
+          kojiArch "armv7hl" = "armhfp"
+          kojiArch a = a
+
+          dateString :: BeforeAfter -> String
+          -- make time refer to past not future
+          dateString beforeAfter =
+            let timedate = getTimedate beforeAfter
+            in case words timedate of
+                 [t] | t `elem` ["hour", "day", "week", "month", "year"] ->
+                       "last " ++ t
+                 [t] | t `elem` ["today", "yesterday"] ->
+                       t ++ " 00:00"
+                 [t] | any (lower t `isPrefixOf`) ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] ->
+                       "last " ++ t ++ " 00:00"
+                 [n,_unit] | all isDigit n -> timedate ++ " ago"
+                 _ -> timedate
 
 taskinfoUrl :: String -> Int -> String
 taskinfoUrl hub tid =

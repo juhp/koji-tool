@@ -11,7 +11,7 @@ where
 #else
 import Control.Applicative ((<$>), (<*>))
 #endif
-import Control.Monad.Extra (liftM2, unless, when)
+import Control.Monad.Extra (forM, liftM2, unless, when)
 
 import Formatting
 
@@ -39,20 +39,36 @@ import Distribution.Koji
 import SimpleCmd
 import System.FilePath ((</>))
 
+import Tasks
 import Time
 import Utils
 
+-- FIXME check parent status (not children) to drop
 -- FIXME if failure and no more, then stop
 -- FIXME catch HTTP exception for connection timeout
-progressCmd :: Bool -> Bool -> [TaskID] -> IO ()
-progressCmd debug modules tids = do
-  when (modules && not (null tids)) $ error' "cannot combine --modules with tasks"
-  tasks <-
-    if null tids
-    then kojiListBuildTasks $ if modules then Just "mbs/mbs.fedoraproject.org" else Nothing
-    else return tids
+-- FIXME allow builds
+-- FIXME pick up new user builds (if none specified)
+progressCmd :: Bool -> Bool -> QueryOpts -> TaskReq -> IO ()
+progressCmd debug modules queryopts taskreq = do
+  tasks <- do
+    tz <- getCurrentTimeZone
+    ts <- getTasks tz fedoraKojiHub queryopts taskreq
+    if null ts
+      then do
+      tids <- kojiListBuildTasks $
+              if modules
+              then Just "mbs/mbs.fedoraproject.org"
+              else Nothing
+      forM tids $ \tid -> do
+        mtaskinfo <- kojiGetTaskInfo fedoraKojiHub tid
+        case mtaskinfo of
+          Nothing -> error' $ "taskinfo not found for " ++ displayID tid
+          Just taskinfo -> return taskinfo
+      else do
+      when modules $ error' "cannot combine --modules with tasks"
+      return ts
   when (null tasks) $ error' "no build tasks found"
-  btasks <- mapM initialTaskinfo tasks
+  btasks <- mapM initialBuildTask tasks
   tz <- getCurrentTimeZone
   loopBuildTasks debug tz btasks
 
@@ -78,34 +94,33 @@ data TaskInfoStatus = TaskInfoStatus
 data BuildTask =
   BuildTask TaskID UTCTime (Maybe UTCTime) (Maybe Int) [TaskInfoStatus]
 
-initialTaskinfo :: TaskID -> IO BuildTask
-initialTaskinfo tid = do
-  mtaskinfo <- kojiGetTaskInfo fedoraKojiHub tid
-  case mtaskinfo of
-    Nothing -> error' $ "taskinfo not found for " ++ displayID tid
-    Just taskinfo -> do
-      let parent =
-            case lookupStruct "method" taskinfo :: Maybe String of
-              Nothing -> error' $ "no method found for " ++ displayID tid
-              Just method ->
-                case method of
-                  "build" -> tid
-                  "buildArch" ->
-                    case lookupStruct "parent" taskinfo of
-                      Nothing -> error' $ "no parent found for " ++ displayID tid
-                      Just par -> TaskId par
-                  _ -> error' $ "unsupported method: " ++ method
-      children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
-                          kojiGetTaskChildren fedoraKojiHub parent True
-      let start =
-            case lookupTime False taskinfo of
-              Nothing ->
-                error' $ "task " ++ displayID tid ++ " has no create time"
-              Just t -> t
-          mend = lookupTime True taskinfo
-      return $
-        BuildTask parent start mend Nothing $
-        map (`TaskInfoStatus` Nothing) children
+initialBuildTask :: Struct -> IO BuildTask
+initialBuildTask taskinfo = do
+  let tid = case lookupStruct "id" taskinfo of
+              Just tid' -> TaskId tid'
+              Nothing -> error' $ "no taskid found for:" ++ show taskinfo
+      parent =
+        case lookupStruct "method" taskinfo :: Maybe String of
+          Nothing -> error' $ "no method found for " ++ displayID tid
+          Just method ->
+            case method of
+              "build" -> tid
+              "buildArch" ->
+                case lookupStruct "parent" taskinfo of
+                  Nothing -> error' $ "no parent found for " ++ displayID tid
+                  Just par -> TaskId par
+              _ -> error' $ "unsupported method: " ++ method
+  children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
+                      kojiGetTaskChildren fedoraKojiHub parent True
+  let start =
+        case lookupTime CreateEvent taskinfo of
+          Nothing ->
+            error' $ "task " ++ displayID tid ++ " has no create time"
+          Just t -> t
+      mend = lookupTime CompletionEvent taskinfo
+  return $
+    BuildTask parent start mend Nothing $
+    map (`TaskInfoStatus` Nothing) children
 
 type TaskInfoStatuses = (Struct,
                          (Maybe Int, Maybe UTCTime),
@@ -144,7 +159,10 @@ loopBuildTasks debug tz bts = do
           if state `elem` map Just openTaskStates
             then do
             threadDelaySeconds 61
-            initialTaskinfo tid
+            mtaskinfo <- kojiGetTaskInfo fedoraKojiHub tid
+            case mtaskinfo of
+              Nothing -> error' $ "no taskinfo for " ++ show tid
+              Just taskinfo -> initialBuildTask taskinfo
             else return $ BuildTask tid start Nothing msize []
         ((TaskInfoStatus task _):_) -> do
           when debug $ print task
