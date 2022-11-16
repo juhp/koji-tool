@@ -276,8 +276,9 @@ printLogStatuses header tz tss =
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
     printTaskOut maxsize maxspd (TaskOut arch msize msizediff sizechanged mtime mtimediff timechanged state statechanged mthd mduration) =
       when (timechanged || sizechanged || statechanged) $
-      fprintLn (rpadded 7 ' ' stext %
-                lpadded maxsize ' ' (optioned commas) % "kB" % " " %
+      fprintLn (rpadded 8 ' ' stext %
+                lpadded (max 6 (maxsize+2)) ' ' (optioned commas) % "kB" %
+                " " %
                 optioned (parenthesised string % " ") %
                 optioned ("[" % lpadded maxspd ' ' commas % " B/s] ") %
                 optioned (parenthesised (shown % "s") % " ") %
@@ -297,7 +298,7 @@ printLogStatuses header tz tss =
 
     formatSize :: [TaskOutput] -> (Int64, Int64,[TaskOutput])
     formatSize ts =
-      let maxsi = maximum $ 0 : mapMaybe moutSize ts
+      let maxsi = maximum $ 0 : mapMaybe (fmap (`div` 1000) . moutSize) ts
           maxsp = maximum $ 0 : mapMaybe moutSizeStep ts
       in (decimalLength maxsi, decimalLength maxsp, ts)
       where
