@@ -9,7 +9,7 @@ module Tasks (
   QueryOpts(..),
   tasksCmd,
   getTasks,
-  parseTaskState,
+  parseTaskState',
   kojiMethods,
   fedoraKojiHub,
   taskinfoUrl,
@@ -319,9 +319,10 @@ showPackage (Right nvr) = showNVR nvr
 #if !MIN_VERSION_koji(0,0,3)
 taskStateToValue :: TaskState -> Value
 taskStateToValue = ValueInt . fromEnum
+#endif
 
-parseTaskState :: String -> TaskState
-parseTaskState s =
+parseTaskState' :: String -> TaskState
+parseTaskState' s =
   case lower s of
     "free" -> TaskFree
     "open" -> TaskOpen
@@ -332,8 +333,8 @@ parseTaskState s =
     "assigned" -> TaskAssigned
     "fail" -> TaskFailed
     "failed" -> TaskFailed
-    _ -> error' $! "unknown task state: " ++ s
-#endif
+    _ -> error' $! "unknown task state: " ++ s ++
+         "\nknown states: free, open, closed, canceled, assigned, failed"
 
 data LogFile = BuildLog | RootLog | HWInfo
   deriving Eq

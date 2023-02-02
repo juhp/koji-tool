@@ -6,7 +6,7 @@ module Builds (
   BuildReq(..),
   Details(..),
   buildsCmd,
-  parseBuildState,
+  parseBuildState',
   fedoraKojiHub,
   kojiBuildTypes,
   latestCmd
@@ -209,9 +209,10 @@ formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mend
 #if !MIN_VERSION_koji(0,0,3)
 buildStateToValue :: BuildState -> Value
 buildStateToValue = ValueInt . fromEnum
+#endif
 
-parseBuildState :: String -> BuildState
-parseBuildState s =
+parseBuildState' :: String -> BuildState
+parseBuildState' s =
   case lower s of
     "building" -> BuildBuilding
     "complete" -> BuildComplete
@@ -220,8 +221,8 @@ parseBuildState s =
     "failed" -> BuildFailed
     "cancel" -> BuildCanceled
     "canceled" -> BuildCanceled
-    _ -> error' $! "unknown build state: " ++ s
-#endif
+    _ -> error' $! "unknown build state: " ++ s ++
+         "\nknown states are: building, complete, deleted, failed, canceled"
 
 kojiBuildTypes :: [String]
 kojiBuildTypes = ["all", "image", "maven", "module", "rpm", "win"]
