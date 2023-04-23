@@ -1,3 +1,8 @@
+use koji --profile !
+
+'tasks' lists too many tasks for package
+- eg koji-tool tasks -l2 ghc9.2 -a x86_64 -m buildarch
+
 # hubs
 - hub configurations
 - determine urls for logs etc by parsing html
@@ -29,6 +34,7 @@
 - determine username for non-Fedora
 - different hubs put builds in different locations
 - html output
+- --rootlog
 
 ## builds
 - --show-tags
@@ -60,3 +66,4 @@
 # misc
 - list binary packages (install does this, but not obvious)
 - diff build command
+- diff root.log

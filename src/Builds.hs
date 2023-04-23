@@ -48,7 +48,6 @@ capitalize (h:t) = toUpper h : t
 data Details = DetailDefault | Detailed | DetailedTasks
   deriving Eq
 
--- FIXME add --install
 buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Details
           -> Maybe Tasks.Select -> Bool -> BuildReq -> IO ()

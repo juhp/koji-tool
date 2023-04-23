@@ -85,6 +85,7 @@ data QueryOpts = QueryOpts {
 -- FIXME --output-fields
 -- FIXME default to 'build' for install or try 'build' after 'buildarch'?
 -- FIXME parent tasks need not have limit
+-- FIXME `-# 2` etc to select second result
 tasksCmd :: Maybe String -> QueryOpts -> Bool -> Bool -> Bool -> Maybe String
          -> TaskReq -> IO ()
 tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep taskreq = do
@@ -175,6 +176,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
           when qDebug $ pPrintCompact task
           case maybeTaskResult task of
             Nothing -> error' $ "failed to read task: " ++ show task
+            -- FIXME maybe should have way to list parent or children
             Just _res -> return [task]
     Build bld -> do
       when (isJust qmDate || isJust qmFilter) $
@@ -204,6 +206,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
             forM builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             case mtaskid of
+              -- FIXME gives too many tasks (parent builds):
               Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
               Nothing -> return []
     Pattern pat -> do
@@ -467,6 +470,7 @@ buildlogSize _debug tail' hwinfo mgrep hub task = do
           then needle `isSuffixOf` ls
           else needle `isInfixOf` ls
 
+-- FIXME turn into a type?
 kojiMethods :: [String]
 kojiMethods =
   nub . sort $

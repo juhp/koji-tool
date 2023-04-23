@@ -50,7 +50,7 @@ main = do
       <$> hubOpt
       <*> queryOpts
       <*> switchWith 'd' "details" "Show more details of builds"
--- FIXME error if integer (eg mistakenly taskid)
+      -- FIXME error if integer (eg mistakenly taskid)
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
       <*> switchLongWith "hw-info" "Fetch hw_info.log"
       <*> optional (strOptionWith 'g' "grep" "STRING" "Filter matching log lines")
