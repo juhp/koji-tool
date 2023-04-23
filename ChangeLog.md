@@ -1,5 +1,26 @@
 # Version history of koji-tool
 
+## 1.0 (2023-04-23)
+ 'install': allow installing from an ongoing build; add kojiGetBuildTaskRPMs
+ 'install': change download dir to (xdg) ~/Downloads/koji-tool/
+ 'install': curl don't need/print progress for debug
+ 'install': error if no rpms found
+ 'progress': correctly use parent taskid when given child id
+ 'progress': drop redundant duplicate debug option
+ 'progress': when given build don't query with state/method/user
+ 'progress': improve size formatting
+ 'progress': no longer hide archs nor repeat output when no progress
+ 'tasks': improved request logic
+ 'tasks': increase log tail size to 6000B
+ 'tasks': bump root.log threshold to <4000
+ 'tasks': separate taskid errors for --user, time, and filter
+ 'buildlog-sizes': handle ongoing builds and show build states
+ 'buildlog-sizes': try appending a * to pattern: might be a package name
+ DownloadDir: simplify the logic considerably
+ Install installRPMs: revert to old 0.9.5 reinstall behavior
+ base times off `create_time` rather than `start_time`
+ getTasks factored from tasksCmd for progress; lookupTime changes
+
 ## 0.9.6 (2022-11-05)
 - install: completely rework subpackage selection logic
 - install: separate --except from --exclude and rename --add to --include

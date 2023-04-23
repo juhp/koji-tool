@@ -10,7 +10,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Jens Petersen <petersen@redhat.com>
 maintainer:          Jens Petersen <petersen@redhat.com>
-copyright:           2021-2022  Jens Petersen <petersen@redhat.com>
+copyright:           2021-2023  Jens Petersen <petersen@redhat.com>
 category:            Utility
 homepage:            https://github.com/juhp/koji-tool
 bug-reports:         https://github.com/juhp/koji-tool/issues
@@ -19,11 +19,12 @@ extra-doc-files:     README.md
                      ChangeLog.md
                      TODO
 cabal-version:       1.18
-tested-with:         GHC== 8.4.4
-                     || == 8.6.5
+tested-with:         GHC== 8.6.5
                      || == 8.8.4
                      || == 8.10.7
                      || == 9.0.2
+                     || == 9.2.7
+                     || == 9.4.4
 
 source-repository head
   type:                git

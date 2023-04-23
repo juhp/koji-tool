@@ -23,11 +23,12 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-0.9.6
+1.0
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
 Usage: koji-tool [--version] COMMAND
+
   see https://github.com/juhp/koji-tool#readme
 
 Available options:
@@ -73,6 +74,7 @@ Usage: koji-tool builds [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                         [-i|--install INSTALLOPTS] [-D|--debug]
                         [(-b|--build NVR/BUILDID) | (-p|--pattern NVRPAT) |
                           PACKAGE]
+
   Query Koji builds (by default lists the most recent builds)
 
 Available options:
@@ -136,12 +138,12 @@ Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                        [(-L|--latest) | (-l|--limit INT)] [-s|--state STATE]
                        [-a|--arch ARCH]
                        [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
-                       [-m|--method METHOD] [-d|--details] [-D|--debug]
+                       [-m|--method METHOD] [-D|--debug]
                        [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)]
-                       [-T|--tail] [--hw-info] [-g|--grep STRING]
-                       [-i|--install INSTALLOPTS]
+                       [-d|--details] [-T|--tail] [--hw-info] [-g|--grep STRING]
                        [(-b|--build BUILD) | (-p|--pattern NVRPAT) |
                          PACKAGE|TASKID]
+
   Query Koji tasks (by default lists the most recent buildArch tasks)
 
 Available options:
@@ -158,14 +160,13 @@ Available options:
   -F,--from TIMESTAMP      Tasks completed after timedate
   -m,--method METHOD       Select tasks by method (default 'buildArch'):
                            all,appliance,build,buildArch,buildContainer,buildMaven,buildNotification,buildSRPMFromSCM,chainbuild,chainmaven,createAppliance,createContainer,createImage,createLiveCD,createLiveMedia,createdistrepo,createrepo,dependantTask,distRepo,image,indirectionimage,livecd,livemedia,maven,newRepo,rebuildSRPM,runroot,tagBuild,tagNotification,vmExec,waitrepo,winbuild,wrapperRPM
-  -d,--details             Show more details of builds
   -D,--debug               Pretty-print raw XML result
   -P,--only-package PKG    Filter task results to specified package
   -N,--only-nvr PREFIX     Filter task results by NVR prefix
+  -d,--details             Show more details of builds
   -T,--tail                Fetch the tail of build.log
   --hw-info                Fetch hw_info.log
-  -g,--grep STRING         Filter matching lines in log
-  -i,--install INSTALLOPTS Install the package with 'install' options
+  -g,--grep STRING         Filter matching log lines
   -b,--build BUILD         List child tasks of build
   -p,--pattern NVRPAT      Build tasks of matching pattern
   -h,--help                Show this help text
@@ -278,6 +279,7 @@ Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                            [-e|--except SUBPKG] [-x|--exclude SUBPKG]
                            [-i|--include SUBPKG]] [-d|--disttag DISTTAG]
                          [(-R|--nvr) | (-V|--nv)] PKG|NVR|TASKID...
+
   Install rpm packages directly from a Koji build task
 
 Available options:
