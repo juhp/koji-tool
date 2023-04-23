@@ -90,8 +90,7 @@ main = do
     , Subcommand "progress"
       "Track running Koji tasks by buildlog size" $
       progressCmd
-      <$> switchWith 'D' "debug" "Pretty-print raw XML result"
-      <*> switchWith 'm' "modules" "Track module builds"
+      <$> switchWith 'm' "modules" "Track module builds"
       <*> queryOpts
       <*> taskReqOpt
 

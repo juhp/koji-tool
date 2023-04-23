@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP, OverloadedStrings, RecordWildCards #-}
 
 module Progress (
   progressCmd,
@@ -48,8 +47,8 @@ import Utils
 -- FIXME catch HTTP exception for connection timeout
 -- FIXME allow builds
 -- FIXME pick up new user builds (if none specified)
-progressCmd :: Bool -> Bool -> QueryOpts -> TaskReq -> IO ()
-progressCmd debug modules queryopts taskreq = do
+progressCmd :: Bool -> QueryOpts -> TaskReq -> IO ()
+progressCmd modules queryopts@QueryOpts{..} taskreq = do
   tasks <- do
     tz <- getCurrentTimeZone
     ts <- getTasks tz fedoraKojiHub queryopts taskreq
@@ -70,7 +69,7 @@ progressCmd debug modules queryopts taskreq = do
   when (null tasks) $ error' "no build tasks found"
   btasks <- mapM initialBuildTask tasks
   tz <- getCurrentTimeZone
-  loopBuildTasks debug tz btasks
+  loopBuildTasks qDebug tz btasks
 
 data TaskStatus = TaskStatus
                      { tstSize :: Int,
