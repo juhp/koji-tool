@@ -19,6 +19,7 @@ import Network.HTTP.Directory
 import Control.Concurrent (threadDelay)
 
 import Data.Fixed
+import Data.Functor ((<&>))
 import Data.Int (Int64)
 import Data.List.Extra
 import Data.Maybe
@@ -82,11 +83,16 @@ progressCmd modules queryopts@QueryOpts{..} taskreq = do
   tz <- getCurrentTimeZone
   loopBuildTasks qDebug tz btasks
 
+data LogStatus = LogStatus
+                 { logSize :: Int,
+                   logTime :: UTCTime
+                 }
+  deriving Show
+
 data TaskStatus = TaskStatus
-                     { tstSize :: Int,
-                       tstTime :: UTCTime,
-                       tstState :: TaskState
-                     }
+                  { tstLog :: Maybe LogStatus,
+                    tstState :: TaskState
+                  }
   deriving Show
 
 mkTaskStatus :: Maybe Int -> Maybe UTCTime -> Maybe TaskState -> Maybe TaskStatus
@@ -94,7 +100,7 @@ mkTaskStatus Nothing _ _ = Nothing
 mkTaskStatus _ Nothing _ = Nothing
 mkTaskStatus _ _ Nothing = Nothing
 mkTaskStatus (Just size) (Just time) (Just state) =
-  Just (TaskStatus size time state)
+  Just (TaskStatus (Just (LogStatus size time)) state)
 
 -- FIXME change to (TaskID,Struct,Size,Time,State)
 data TaskInfoStatus = TaskInfoStatus
@@ -189,12 +195,8 @@ loopBuildTasks debug tz bts = do
               (open,closed) = partition (\tis -> getTaskState (taskInfo tis) `elem` map Just openTaskStates) news
               mlargest = if not (any (\tis -> lookupStruct "method" (taskInfo tis) /= Just ("buildSRPMFromSCM" :: String)) closed)
                          then Nothing
-                         else Just $ maximum $ mapMaybe (fmap tstSize . taskStatus) closed
-              mbiggest = case (mlargest,msize) of
-                           (Just large, Just size) ->
-                             Just $ max large size
-                           (Just large, Nothing) -> Just large
-                           (Nothing,_) -> msize
+                         else Just $ maximum $ mapMaybe (\t -> taskStatus t >>= tstLog <&> logSize) closed
+              mbiggest = max mlargest msize
           if null open
             then runProgress (BuildTask tid start mend mbiggest [])
             else return $ BuildTask tid start mend mbiggest open
@@ -205,8 +207,9 @@ loopBuildTasks debug tz bts = do
     --     Just st -> st
 
 buildlogSize :: Bool -> Int -> TaskInfoStatus -> IO TaskInfoStatuses
-buildlogSize debug n (TaskInfoStatus task oldstatus) = do
-  exists <- if isJust oldstatus
+buildlogSize debug n (TaskInfoStatus task moldstatus) = do
+  when debug $ putStrLn buildlog
+  exists <- if isJust moldstatus
             then return True
             else httpExists' buildlog
   when (debug && n>0) $ putChar '.'
@@ -214,13 +217,13 @@ buildlogSize debug n (TaskInfoStatus task oldstatus) = do
   (msize,mtime) <- if exists
                    then httpFileSizeTime' buildlog
                    else return (Nothing,Nothing)
-  when debug $ print (mtime,oldstatus)
-  if (mtime == fmap tstTime oldstatus || isNothing mtime) && n < 5
-    then buildlogSize debug (n+1) (TaskInfoStatus task oldstatus)
+  when debug $ print (mtime,moldstatus)
+  if (mtime == fmap logTime moldlog || isNothing mtime) && n < 5
+    then buildlogSize debug (n+1) (TaskInfoStatus task moldstatus)
     else
     return (task,
             (fromInteger <$> msize, mtime),
-            oldstatus)
+            moldstatus)
   where
     tid = show $ fromJust (readID' task)
     buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> "build.log"
@@ -228,9 +231,11 @@ buildlogSize debug n (TaskInfoStatus task oldstatus) = do
       let few = dropWhile (== '0') $ takeEnd 4 tid in
         if null few then "0" else few
 
+    moldlog = moldstatus >>= tstLog :: Maybe LogStatus
+
     waitDelay ::  IO ()
     waitDelay = do
-      case tstTime <$> oldstatus of
+      case logTime <$> moldlog of
         Nothing -> when (n>0) $ threadDelaySeconds n
         Just ot -> do
           cur <- getCurrentTime
@@ -265,27 +270,27 @@ threadDelaySeconds m =
 data TaskOutput = TaskOut {_outArch :: Text,
                            moutSize :: Maybe Int,
                            moutSizeStep :: Maybe Int,
-                           _moutSizeChanged :: Bool,
+                           outSizeChanged :: Bool,
                            _moutTime :: Maybe UTCTime,
                            _moutTimeStep :: Maybe Int,
-                           _moutTimeChanged :: Bool,
+                           outTimeChanged :: Bool,
                            _outState :: Text,
-                           _stateChange :: Bool,
+                           outStateChanged :: Bool,
                            _method :: Text,
                            _mduration :: Maybe NominalDiffTime}
 
 printLogStatuses :: IO () -> TimeZone -> [TaskInfoStatuses] -> IO ()
 printLogStatuses header tz tss =
-  let (mxsi, mxsp, taskoutputs) = (formatSize . mapMaybe taskOutput) tss
+  let (mxsi, mxsp, taskoutputs) = (formatSize . map taskOutput) tss
   in
     unless (null taskoutputs) $ do
-    header
-    mapM_ (printTaskOut mxsi mxsp) taskoutputs
-    putChar '\n'
+    when (any (\t -> outTimeChanged t || outSizeChanged t || outStateChanged t) taskoutputs) $ do
+      header
+      mapM_ (printTaskOut mxsi mxsp) taskoutputs
+      putChar '\n'
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
-    printTaskOut maxsize maxspd (TaskOut arch msize msizediff sizechanged mtime mtimediff timechanged state statechanged mthd mduration) =
-      when (timechanged || sizechanged || statechanged) $
+    printTaskOut maxsize maxspd (TaskOut arch msize msizediff _sizechanged mtime mtimediff _timechanged state _statechanged mthd mduration) =
       fprintLn (rpadded 8 ' ' stext %
                 lpadded (max 6 (maxsize+2)) ' ' (optioned commas) % "kB" %
                 " " %
@@ -321,16 +326,14 @@ printLogStatuses header tz tss =
         "buildSRPMFromSCM" -> "SRPM"
         _ -> mth
 
-    taskOutput :: TaskInfoStatuses -> Maybe TaskOutput
-    taskOutput (task, (size,time), oldstatus) =
-      let oldtime = tstTime <$> oldstatus
-          oldsize = tstSize <$> oldstatus
-          oldstate = tstState <$> oldstatus
+    taskOutput :: TaskInfoStatuses -> TaskOutput
+    taskOutput (task, (size,time), moldstatus) =
+      let moldlog = moldstatus >>= tstLog
+          oldtime = logTime <$> moldlog
+          oldsize = logSize <$> moldlog
+          oldstate = tstState <$> moldstatus
           mstate = getTaskState task
       in
-      if time == oldtime && size == oldsize && mstate == oldstate
-      then Nothing
-      else
         let method = maybeVal "method not found" (lookupStruct "method") task :: Text
             arch = maybeVal "arch not found" (lookupStruct "arch") task :: Text
             sizediff = liftM2 (-) size oldsize
@@ -344,8 +347,7 @@ printLogStatuses header tz tss =
                   if s == TaskOpen
                   then ""
                   else T.pack $ show s
-        in Just $
-           TaskOut arch size sizediff (size /= oldsize) time timediff (time /= oldtime) state' (mstate /= oldstate) method (durationOfTask task)
+        in TaskOut arch size sizediff (size /= oldsize) time timediff (time /= oldtime) state' (mstate /= oldstate) method (durationOfTask task)
 
 kojiListBuildTasks :: Maybe String -> IO [TaskID]
 kojiListBuildTasks muser = do
