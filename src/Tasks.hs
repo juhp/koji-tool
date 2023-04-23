@@ -154,14 +154,20 @@ pPrintCompact =
   pPrint
 #endif
 
+defaultTaskMethod :: String
+defaultTaskMethod = "buildArch"
+
 -- FIXME more debug output
 getTasks :: TimeZone -> String -> QueryOpts -> TaskReq -> IO [Struct]
 getTasks tz hub queryopts@QueryOpts {..} req =
-  do
   case req of
     Task taskid -> do
-      when (isJust qmUserOpt || isJust qmDate || isJust qmFilter) $
-        error' "cannot use taskid together with --user, timedate, or filter"
+      when (isJust qmUserOpt) $
+        error' "cannot use taskid together with --user"
+      when (isJust qmDate) $
+        error' "cannot use taskid together with timedate"
+      when (isJust qmFilter) $
+        error' "cannot use taskid together with filter"
       mtask <- kojiGetTaskInfo hub (TaskId taskid)
       case mtask of
         Nothing -> error $ "taskid not found: " ++ show taskid
