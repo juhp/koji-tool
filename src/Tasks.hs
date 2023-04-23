@@ -185,9 +185,10 @@ getTasks tz hub queryopts@QueryOpts {..} req =
       when (isJust qmDate || isJust qmFilter) $
         error' "cannot use --build together with timedate or filter"
       mtaskid <- if all isDigit bld
-                then ((fmap TaskId . lookupStruct "task_id") =<<) <$>
-                     getBuild hub (InfoID (read bld))
-                else kojiGetBuildTaskID hub bld
+                    -- FIXME use kojiGetBuildIdTaskID after next koji release
+                 then ((fmap TaskId . lookupStruct "task_id") =<<) <$>
+                      getBuild hub (InfoID (read bld))
+                 else kojiGetBuildTaskID hub bld
       case mtaskid of
         Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
         Nothing -> error' $ "no taskid found for build " ++ bld
