@@ -412,7 +412,8 @@ buildlogSize _debug tail' hwinfo mgrep hub task = do
               putStrLn $ url +/+ logFile HWInfo
               return HWInfo
             else
-              if size < 1500
+              -- for buildroot failure build.log could be ~3082 bytes
+              if size < 4000
               then do
                 putStrLn $ url +/+ logFile RootLog
                 return RootLog
