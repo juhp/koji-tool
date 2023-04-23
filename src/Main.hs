@@ -53,7 +53,7 @@ main = do
 -- FIXME error if integer (eg mistakenly taskid)
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
       <*> switchLongWith "hw-info" "Fetch hw_info.log"
-      <*> optional (strOptionWith 'g' "grep" "STRING" "Filter matching lines in log")
+      <*> optional (strOptionWith 'g' "grep" "STRING" "Filter matching log lines")
       -- -- FIXME any way to pass --help to install?
       -- <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> taskReqOpt
