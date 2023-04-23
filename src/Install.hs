@@ -113,7 +113,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
   when debug $ do
     putStrLn huburl
     putStrLn pkgsurl
-  printDlDir <- setDownloadDir dryrun "rpms"
+  printDlDir <- setDownloadDir dryrun "koji-tool"
   when debug printDlDir
   setNoBuffering
   buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) $ nubOrd pkgbldtsks
