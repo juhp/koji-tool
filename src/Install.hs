@@ -215,6 +215,8 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select c
               Just tid -> (tid,task')
   when debug $ mapM_ print archtask
   nvras <- getTaskNVRAs archtid
+  when (null nvras) $
+    error' $ "no rpms found for" +-+ show archtid
   prefix <- case mprefix of
               Just pref -> return pref
               Nothing ->
@@ -226,12 +228,6 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select c
     then do
     drpms <- decideRpms yes listmode mstrategy select prefix nvras
     return ("",drpms)
-    else
-    if null nvras
-    then do
-      (_, rpms) <- kojiTaskRPMs dryrun debug yes huburl pkgsurl True mstrategy mprefix select checkremotetime printDlDir archtid
-      mapM_ printInstalled rpms
-      return ("",[])
     else do
       when debug $ print $ map showNVRA nvras
       dlRpms <- decideRpms yes listmode mstrategy select prefix $
@@ -377,6 +373,7 @@ selectRPMs prefix (subpkgs,exceptpkgs,exclpkgs,addpkgs) rpms =
   in nubSort $ ((matching ++ nonmatching) \\ excluded) ++ included
 
 promptPkgs :: Yes -> [(Existence,NVRA)] -> IO [(Existence,NVRA)]
+promptPkgs _ [] = error' "no rpms found"
 promptPkgs yes classified = do
   mapM_ printInstalled classified
   ok <- prompt yes "install above"
@@ -457,6 +454,7 @@ packageOfPattern request pat =
       case readNVR pat of
         NVR n _ -> (n, True)
 
+-- empty until build finishes
 kojiGetBuildRPMs :: String -> NVR -> BuildID -> IO [String]
 kojiGetBuildRPMs huburl nvr (BuildId bid) = do
   rpms <- Koji.listBuildRPMs huburl bid
