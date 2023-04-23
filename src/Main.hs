@@ -19,7 +19,7 @@ import Find
 import Tasks
 
 main :: IO ()
-main = do
+main =
   simpleCmdArgs (Just Paths_koji_tool.version)
     "Query and track Koji tasks, and install rpms from Koji."
     "see https://github.com/juhp/koji-tool#readme" $
@@ -28,7 +28,7 @@ main = do
       "Query Koji builds (by default lists the most recent builds)" $
       buildsCmd
       <$> hubOpt
-      <*> optional userOpt
+      <*> optional (userOpt False)
       <*> (flagWith' 1 'L' "latest" "Latest build" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 10]" 10)
       <*> many (parseBuildState' <$> strOptionWith 's' "state" "STATE" "Filter builds by state (building,complete,deleted,fail(ed),cancel(ed)")
@@ -48,7 +48,7 @@ main = do
       "Query Koji tasks (by default lists the most recent buildArch tasks)" $
       tasksCmd
       <$> hubOpt
-      <*> queryOpts
+      <*> queryOpts False "buildArch"
       <*> switchWith 'd' "details" "Show more details of builds"
       -- FIXME error if integer (eg mistakenly taskid)
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
@@ -91,7 +91,7 @@ main = do
       "Track running Koji tasks by buildlog size" $
       progressCmd
       <$> switchWith 'm' "modules" "Track module builds"
-      <*> queryOpts
+      <*> queryOpts True "build"
       <*> taskReqOpt
 
     , Subcommand "buildlog-sizes" "Show buildlog sizes for nvr patterns" $
@@ -111,10 +111,10 @@ main = do
                         intercalate ", " knownHubs ++
                         ") [default: fedora]"))
 
-    userOpt :: Parser UserOpt
-    userOpt =
+    userOpt :: Bool -> Parser UserOpt
+    userOpt mine =
       User <$> strOptionWith 'u' "user" "USER" "Koji user"
-      <|> flagWith' UserSelf 'M' "mine" "Your tasks (krb fasid)"
+      <|> if mine then pure UserSelf else flagWith' UserSelf 'M' "mine" "Your tasks (krb fasid)"
 
     selectOpt :: Parser Select
     selectOpt =
@@ -163,17 +163,17 @@ main = do
       flagWith' ExistingNoReinstall 'N' "no-reinstall" "Do not reinstall existing NVRs" <|>
       flagWith' ExistingSkip 'S' "skip-existing" "Ignore already installed subpackages (implies --no-reinstall)"
 
-    queryOpts :: Parser QueryOpts
-    queryOpts =
+    queryOpts :: Bool -> String -> Parser QueryOpts
+    queryOpts mine defaultMethod =
       QueryOpts
-      <$> optional userOpt
+      <$> optional (userOpt mine)
       <*> (flagWith' 1 'L' "latest" "Latest build or task" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 10]" 10)
       <*> many (fmap parseTaskState' $! strOptionWith 's' "state" "STATE" "Filter tasks by state (open,close(d),cancel(ed),fail(ed),assigned,free)")
       <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate")
-      <*> (fmap normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" ("Select tasks by method (default 'buildArch'): " ++ intercalate "," kojiMethods)))
+      <*> (fmap normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" ("Select tasks by method (default '" ++ defaultMethod ++ "'): " ++ intercalate "," kojiMethods)))
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
