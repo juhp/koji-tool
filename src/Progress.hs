@@ -6,10 +6,7 @@ module Progress (
   )
 where
 
-#if (defined(MIN_VERSION_base) && MIN_VERSION_base(4,8,0))
-#else
-import Control.Applicative ((<$>), (<*>))
-#endif
+import Control.Applicative ((<|>))
 import Control.Monad.Extra (forM, liftM2, unless, when)
 
 import Formatting
@@ -45,13 +42,27 @@ import Utils
 -- FIXME check parent status (not children) to drop
 -- FIXME if failure and no more, then stop
 -- FIXME catch HTTP exception for connection timeout
--- FIXME allow builds
 -- FIXME pick up new user builds (if none specified)
 progressCmd :: Bool -> QueryOpts -> TaskReq -> IO ()
 progressCmd modules queryopts@QueryOpts{..} taskreq = do
   tasks <- do
     tz <- getCurrentTimeZone
-    ts <- getTasks tz fedoraKojiHub queryopts taskreq
+    let states =
+          case taskreq of
+            TaskQuery ->
+              if null qStates
+              then openTaskStates
+              else qStates
+            _ -> []
+        mmethod =
+          case taskreq of
+            TaskQuery -> qmMethod <|> Just "build"
+            _ -> Nothing
+        muser =
+          case taskreq of
+            TaskQuery -> qmUserOpt
+            _ -> Nothing
+    ts <- getTasks tz fedoraKojiHub queryopts {qStates = states, qmMethod = mmethod, qmUserOpt = muser} taskreq
     if null ts
       then do
       tids <- kojiListBuildTasks $
