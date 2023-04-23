@@ -383,7 +383,7 @@ taskOutputUrl task =
 
 tailLogUrl :: String -> Int -> LogFile -> String
 tailLogUrl hub taskid file =
-  webUrl hub +/+ "getfile?taskID=" ++ show taskid ++ "&name=" ++ logFile file ++ "&offset=-4000"
+  webUrl hub +/+ "getfile?taskID=" ++ show taskid ++ "&name=" ++ logFile file ++ "&offset=-6000"
 
 logFile :: LogFile -> String
 logFile RootLog = "root.log"
