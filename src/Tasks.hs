@@ -63,7 +63,7 @@ data TaskResult =
               taskArch :: String,
               _taskMethod :: String,
               _taskState :: TaskState,
-              mtaskParent :: Maybe Int,
+              _mtaskParent :: Maybe Int,
               taskId :: Int,
               _mtaskStartTime :: Maybe UTCTime,
               mtaskEndTime :: Maybe UTCTime
@@ -175,12 +175,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
           when qDebug $ pPrintCompact task
           case maybeTaskResult task of
             Nothing -> error' $ "failed to read task: " ++ show task
-            Just res -> do
-              let hasparent = isJust $ mtaskParent res
-              -- printTask hasparent tz res
-              if hasparent
-                then return [task]
-                else getTasks tz hub queryopts $ Parent taskid
+            Just _res -> return [task]
     Build bld -> do
       when (isJust qmDate || isJust qmFilter) $
         error' "cannot use --build together with timedate or filter"
