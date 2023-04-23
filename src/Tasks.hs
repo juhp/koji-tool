@@ -238,7 +238,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
               Nothing -> return Nothing
               Just date -> Just <$> cmd "date" ["+%F %T%z", "--date=" ++ dateString date]
           when (isNothing qmMethod) $
-            warning "buildArch tasks"
+            warning $ defaultTaskMethod +-+ "tasks"
           whenJust mdatestring $ \date ->
             warning $ maybe "" show qmDate +-+ date
           mowner <- maybeGetKojiUser hub qmUserOpt
@@ -251,7 +251,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
             [("decode", ValueBool True)]
             ++ [("state", ValueArray (map taskStateToValue qStates)) | notNull qStates]
             ++ [("arch", ValueArray (map (ValueString . kojiArch) qArchs)) | notNull qArchs]
-            ++ [("method", ValueString method) | let method = fromMaybe "buildArch" qmMethod]
+            ++ [("method", ValueString method) | let method = fromMaybe defaultTaskMethod qmMethod]
 
           capitalize :: String -> String
           capitalize "" = ""
