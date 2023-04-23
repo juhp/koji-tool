@@ -148,16 +148,10 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
           [nvr] -> do
             putStrLn (showNVR nvr)
             putStrLn ""
-            bid <- kojiGetBuildID' huburl (showNVR nvr)
-            nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
-            when debug $ mapM_ (putStrLn . showNVRA) nvras
-            let prefix = fromMaybe (nvrName nvr) mprefix
-            rpms <- decideRpms yes listmode mstrategy select prefix nvras
-            mapM_ printInstalled rpms
-            -- kojiGetBuildRPMs huburl nvr bid >>=
-            --   mapM_ putStrLn . sort . filter notDebugPkg
-          _ -> mapM_ (putStrLn . showNVR) nvrs
-        return ("",[])
+            kojiGetBuildTaskRPMs nvr
+          _ -> do
+            mapM_ (putStrLn . showNVR) nvrs
+            return ("",[])
         else
         case nvrs of
           [] -> error' $ pkgbld ++ " not found for " ++ disttag
@@ -165,18 +159,21 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
             putStrLn $ showNVR nvr ++ "\n"
             bid <- kojiGetBuildID' huburl (showNVR nvr)
             nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
-            when debug $ mapM_ (putStrLn . showNVRA) nvras
-            let prefix = fromMaybe (nvrName nvr) mprefix
-            dlRpms <- decideRpms yes listmode mstrategy select prefix nvras
-            when debug $ mapM_ printInstalled dlRpms
-            let subdir = showNVR nvr
-            unless (dryrun || null dlRpms) $ do
-              bld <- kojiGetBuild' huburl nvr
-              -- FIXME should be NVRA ideally
-              downloadRpms debug checkremotetime (strictLookupTimes lookupBuildTimes bld) subdir (buildURL nvr) dlRpms
+            if null nvras
+              then kojiGetBuildTaskRPMs nvr
+              else do
+              when debug $ mapM_ (putStrLn . showNVRA) nvras
+              let prefix = fromMaybe (nvrName nvr) mprefix
+              dlRpms <- decideRpms yes listmode mstrategy select prefix nvras
+              when debug $ mapM_ printInstalled dlRpms
+              let subdir = showNVR nvr
+              unless (dryrun || null dlRpms) $ do
+                bld <- kojiGetBuild' huburl nvr
+                -- FIXME should be NVRA ideally
+                downloadRpms debug checkremotetime (strictLookupTimes lookupBuildTimes bld) subdir (buildURL nvr) dlRpms
               -- FIXME once we check file size - can skip if no downloads
-              printDlDir
-            return (subdir,dlRpms)
+                printDlDir
+              return (subdir,dlRpms)
           _ -> error $ "multiple build founds for " ++ pkgbld ++ ": " ++
                unwords (map showNVR nvrs)
         where
@@ -184,6 +181,15 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
           buildURL (NVR n (VerRel v r)) rpm =
              let arch = rpmArch (readNVRA rpm)
              in pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
+
+          kojiGetBuildTaskRPMs :: NVR
+                               -> IO (FilePath, [(Existence,NVRA)])
+          kojiGetBuildTaskRPMs nvr = do
+            mtid <- kojiGetBuildTaskID huburl (showNVR nvr)
+            case mtid of
+              Just (TaskId tid) ->
+                kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select checkremotetime printDlDir tid
+              Nothing -> error' $ "task id not found for" +-+ showNVR nvr
 
 notDebugPkg :: String -> Bool
 notDebugPkg p =
@@ -196,13 +202,14 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select c
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
-            Just taskinfo -> do
-              when debug $ mapM_ print taskinfo
+            Just taskinfo ->
               case lookupStruct "method" taskinfo :: Maybe String of
                 Nothing -> error' $ "no method found for " ++ show taskid
                 Just method ->
                   case method of
-                    "build" -> Koji.getTaskChildren huburl taskid True
+                    "build" -> do
+                      when debug $ mapM_ print taskinfo >> putStrLn ""
+                      Koji.getTaskChildren huburl taskid True
                     "buildArch" -> return [taskinfo]
                     _ -> error' $ "unsupport method: " ++ method
   sysarch <- cmd "rpm" ["--eval", "%{_arch}"]
@@ -426,7 +433,6 @@ kojiBuildOSBuilds debug hub listmode latest disttag request pkgpat = do
                   then id
                   else (("pattern", ValueString (if full then pkgpat else dropSuffix "*" pkgpat ++ "*" ++ disttag ++ "*")) :))
                  [("packageID", ValueInt pkgid),
-                  ("state", ValueInt (fromEnum BuildComplete)),
                   commonBuildQueryOptions
                   (if listmode && not latest || oldkoji then 20 else 1)]
       when debug $ print opts
