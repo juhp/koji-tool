@@ -60,25 +60,25 @@ installArgs cs =
     installPairs incl except excl add (w:ws)
       | w `elem` ["-p","--package"] =
           case ws of
-            [] -> error' "--install-opts --package missing value"
+            [] -> error' "--install opts: --package missing value"
             (w':ws') -> checkPat w' $
                         installPairs (w':incl) except excl add ws'
       | w `elem` ["-e","--except"] =
           case ws of
-            [] -> error' "--install-opts --exclude missing value"
+            [] -> error' "--install opts: --except missing value"
             (w':ws') -> checkPat w' $
                         installPairs incl (w':except) excl add ws'
       | w `elem` ["-x","--exclude"] =
           case ws of
-            [] -> error' "--install-opts --exclude missing value"
+            [] -> error' "--install opts: --exclude missing value"
             (w':ws') -> checkPat w' $
                         installPairs incl except (w':excl) add ws'
       | w `elem` ["-i","--include"] =
           case ws of
-            [] -> error' "--install-opts --add missing value"
+            [] -> error' "--install opts: --include missing value"
             (w':ws') -> checkPat w' $
                         installPairs incl except excl (w':add) ws'
-      | otherwise = error' "invalid --install-opts"
+      | otherwise = error' "invalid --install opts"
 
     checkPat w' f =
       if null w'
