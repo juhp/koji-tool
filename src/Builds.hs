@@ -63,7 +63,7 @@ buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildre
                     then InfoID (read bld)
                     else InfoString bld
       mbld <- getBuild hub bldinfo
-      whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz details minstall
+      whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz details debug minstall
     BuildPackage pkg -> do
       when (head pkg == '-') $
         error' $ "bad combination: not a package: " ++ pkg
@@ -80,7 +80,7 @@ buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildre
           builds <- listBuilds hub fullquery
           when debug $ mapM_ pPrintCompact builds
           if details /= DetailDefault || length builds == 1
-            then mapM_ (printBuild hub tz details minstall) $ mapMaybe maybeBuildResult builds
+            then mapM_ (printBuild hub tz details debug minstall) $ mapMaybe maybeBuildResult builds
             else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
       query <- setupQuery
@@ -89,7 +89,7 @@ buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildre
       builds <- listBuilds hub fullquery
       when debug $ mapM_ pPrintCompact builds
       if details /= DetailDefault || length builds == 1
-        then mapM_ (printBuild hub tz details minstall) $ mapMaybe maybeBuildResult builds
+        then mapM_ (printBuild hub tz details debug minstall) $ mapMaybe maybeBuildResult builds
         else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
   where
     hub = maybe fedoraKojiHub hubURL mhub
@@ -171,9 +171,9 @@ maybeBuildResult st = do
   return $
     BuildResult nvr state buildid mtaskid start mend
 
-printBuild :: String -> TimeZone -> Details -> Maybe Tasks.Select
+printBuild :: String -> TimeZone -> Details -> Bool -> Maybe Tasks.Select
            -> BuildResult -> IO ()
-printBuild hub tz details minstall build = do
+printBuild hub tz details debug minstall build = do
   putStrLn ""
   let mendtime = mbuildEndTime build
   time <- maybe getCurrentTime return mendtime
@@ -232,4 +232,4 @@ latestCmd mhub debug tag pkg = do
   mbld <- kojiLatestBuild hub tag pkg
   when debug $ print mbld
   tz <- getCurrentTimeZone
-  whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz Detailed Nothing
+  whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz Detailed debug Nothing
