@@ -15,6 +15,7 @@ module Install (
 where
 
 import Control.Monad.Extra
+import Data.Functor ((<&>))
 import Data.List.Extra
 import Data.Either (partitionEithers)
 import Data.Maybe
@@ -255,9 +256,9 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select c
 
     getTaskNVRAs :: Int -> IO [NVRA]
     getTaskNVRAs taskid' =
-      sort . map readNVRA . filter notDebugPkg . filter (".rpm" `isExtensionOf`) . map fst <$>
       -- FIXME get stats to show size
-      Koji.listTaskOutput huburl taskid' False True False
+      Koji.listTaskOutput huburl taskid' False True False <&>
+      sort . map readNVRA . filter notDebugPkg . filter (".rpm" `isExtensionOf`) . map fst
 
     taskRPMURL :: Int -> String -> String
     taskRPMURL taskid' rpm =
