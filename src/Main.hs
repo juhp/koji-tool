@@ -79,6 +79,7 @@ main =
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
       <*> optional pkgMgrOpt
+      <*> optional archOpt
       <*> optional existingOpt
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
       <*> selectOpt
@@ -163,6 +164,9 @@ main =
       flagWith' ExistingNoReinstall 'N' "no-reinstall" "Do not reinstall existing NVRs" <|>
       flagWith' ExistingSkip 'S' "skip-existing" "Ignore already installed subpackages (implies --no-reinstall)"
 
+    -- FIXME check valid arch (eg i686 not i386)
+    archOpt = strOptionWith 'a' "arch" "ARCH" "Task arch"
+
     queryOpts :: Bool -> String -> Parser QueryOpts
     queryOpts mine defaultMethod =
       QueryOpts
@@ -170,7 +174,7 @@ main =
       <*> (flagWith' 1 'L' "latest" "Latest build or task" <|>
            optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 10]" 10)
       <*> many (fmap parseTaskState' $! strOptionWith 's' "state" "STATE" "Filter tasks by state (open,close(d),cancel(ed),fail(ed),assigned,free)")
-      <*> many (strOptionWith 'a' "arch" "ARCH" "Task arch")
+      <*> many archOpt
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Tasks completed after timedate")
       <*> (fmap normalizeMethod <$> optional (strOptionWith 'm' "method" "METHOD" ("Select tasks by method (default '" ++ defaultMethod ++ "'): " ++ intercalate "," kojiMethods)))
