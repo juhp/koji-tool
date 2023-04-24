@@ -273,6 +273,7 @@ $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
                          [-t|--check-remote-time] [--rpm | --rpm-ostree | --dnf]
+                         [-a|--arch ARCH]
                          [(-N|--no-reinstall) | (-S|--skip-existing)]
                          [-b|--prefix SUBPKGPREFIX]
                          [--all | --ask | [-p|--package SUBPKG]
@@ -295,6 +296,7 @@ Available options:
   --rpm                    Use rpm instead of dnf
   --rpm-ostree             Use rpm-ostree instead of dnf
   --dnf                    Use dnf to install [default unless ostree]
+  -a,--arch ARCH           Task arch
   -N,--no-reinstall        Do not reinstall existing NVRs
   -S,--skip-existing       Ignore already installed subpackages (implies
                            --no-reinstall)
