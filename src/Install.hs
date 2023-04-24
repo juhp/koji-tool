@@ -143,54 +143,50 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
             dist <- cmd "rpm" ["--eval", "%{dist}"]
             return $ if dist == "%{dist}" then "" else dist
       nvrs <- map readNVR <$> kojiBuildOSBuilds debug huburl listmode latest disttag request pkgbld
-      if listmode
-        then do
-        case nvrs of
-          [nvr] -> do
-            putStrLn (showNVR nvr)
-            putStrLn ""
-            kojiGetBuildTaskRPMs nvr
-          _ -> do
-            mapM_ (putStrLn . showNVR) nvrs
-            return ("",[])
-        else
-        case nvrs of
-          [] -> error' $ pkgbld ++ " not found for " ++ disttag
-          [nvr] -> do
-            putStrLn $ showNVR nvr ++ "\n"
-            bid <- kojiGetBuildID' huburl (showNVR nvr)
-            nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
+      case nvrs of
+        [] -> error' $ pkgbld ++ " not found for " ++ disttag
+        [nvr] -> do
+          putStrLn $ showNVR nvr ++ "\n"
+          bid <- kojiGetBuildID' huburl (showNVR nvr)
+          nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr bid
+          results <-
             if null nvras
-              then kojiGetBuildTaskRPMs nvr
+              then do
+              mtid <- kojiGetBuildTaskID huburl (showNVR nvr)
+              case mtid of
+                Just (TaskId tid) ->
+                  kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select checkremotetime printDlDir tid
+                Nothing -> error' $ "task id not found for" +-+ showNVR nvr
               else do
               when debug $ mapM_ (putStrLn . showNVRA) nvras
               let prefix = fromMaybe (nvrName nvr) mprefix
               dlRpms <- decideRpms yes listmode mstrategy select prefix nvras
               when debug $ mapM_ printInstalled dlRpms
               let subdir = showNVR nvr
-              unless (dryrun || null dlRpms) $ do
-                bld <- kojiGetBuild' huburl nvr
-                -- FIXME should be NVRA ideally
-                downloadRpms debug checkremotetime (strictLookupTimes lookupBuildTimes bld) subdir (buildURL nvr) dlRpms
-              -- FIXME once we check file size - can skip if no downloads
-                printDlDir
+              unless listmode $ do
+                unless (dryrun || null dlRpms) $ do
+                  bld <- kojiGetBuild' huburl nvr
+                  -- FIXME should be NVRA ideally
+                  downloadRpms debug checkremotetime (strictLookupTimes lookupBuildTimes bld) subdir (buildURL nvr) dlRpms
+                -- FIXME once we check file size - can skip if no downloads
+                  printDlDir
               return (subdir,dlRpms)
-          _ -> error $ "multiple build founds for " ++ pkgbld ++ ": " ++
+          return $
+            if listmode
+            then ("",[])
+            else results
+        _ ->
+          if listmode
+          then do
+            mapM_ (putStrLn . showNVR) nvrs
+            return ("",[])
+          else error $ "multiple build founds for " ++ pkgbld ++ ": " ++
                unwords (map showNVR nvrs)
         where
           buildURL :: NVR -> String -> String
           buildURL (NVR n (VerRel v r)) rpm =
              let arch = rpmArch (readNVRA rpm)
              in pkgsurl +/+ n  +/+ v +/+ r +/+ arch +/+ rpm
-
-          kojiGetBuildTaskRPMs :: NVR
-                               -> IO (FilePath, [(Existence,NVRA)])
-          kojiGetBuildTaskRPMs nvr = do
-            mtid <- kojiGetBuildTaskID huburl (showNVR nvr)
-            case mtid of
-              Just (TaskId tid) ->
-                kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode mstrategy mprefix select checkremotetime printDlDir tid
-              Nothing -> error' $ "task id not found for" +-+ showNVR nvr
 
 notDebugPkg :: String -> Bool
 notDebugPkg p =
