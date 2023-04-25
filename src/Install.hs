@@ -103,10 +103,10 @@ data ExistingStrategy = ExistingNoReinstall | ExistingSkip
 -- FIXME offer to download subpackage deps
 -- FIXME is --check-remote-time really needed?
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Maybe PkgMgr -> Maybe String
+           -> Bool -> Bool -> Maybe PkgMgr -> [String]
            -> Maybe ExistingStrategy -> Maybe String -> Select -> Maybe String
            -> Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr march mstrategy mprefix select mdisttag request pkgbldtsks = do
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr archs mstrategy mprefix select mdisttag request pkgbldtsks = do
   checkSelection select
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
@@ -129,7 +129,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
              -> IO (FilePath, [(Existence,NVRA)])
     kojiRPMs huburl pkgsurl printDlDir bldtask =
       case readMaybe bldtask of
-        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode march mstrategy mprefix select checkremotetime printDlDir taskid
+        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime printDlDir taskid
         Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
 
     kojiBuildRPMs :: String -> String -> IO () -> String
@@ -147,14 +147,15 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
         [nvr] -> do
           putStrLn $ showNVR nvr ++ "\n"
           bid <- kojiGetBuildID' huburl (showNVR nvr)
-          nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr march bid
+          -- FIXME should we try kojiTaskRPMs first?
+          nvras <- sort . map readNVRA . filter notDebugPkg <$> kojiGetBuildRPMs huburl nvr archs bid
           results <-
             if null nvras
               then do
               mtid <- kojiGetBuildTaskID huburl (showNVR nvr)
               case mtid of
                 Just (TaskId tid) ->
-                  kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode march mstrategy mprefix select checkremotetime printDlDir tid
+                  kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime printDlDir tid
                 Nothing -> error' $ "task id not found for" +-+ showNVR nvr
               else do
               when debug $ mapM_ (putStrLn . showNVRA) nvras
@@ -191,10 +192,10 @@ notDebugPkg :: String -> Bool
 notDebugPkg p =
   not ("-debuginfo-" `isInfixOf` p || "-debugsource-" `isInfixOf` p)
 
-kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> Maybe String
+kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> [String]
              -> Maybe ExistingStrategy -> Maybe String -> Select -> Bool
              -> IO () -> Int -> IO (FilePath, [(Existence,NVRA)])
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode march mstrategy mprefix select checkremotetime printDlDir taskid = do
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime printDlDir taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
@@ -208,13 +209,10 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode march mstrategy mprefix se
                       Koji.getTaskChildren huburl taskid True
                     "buildArch" -> return [taskinfo]
                     _ -> error' $ "unsupport method: " ++ method
-  arch <-
-    case march of
-      Nothing -> cmd "rpm" ["--eval", "%{_arch}"]
-      Just ar -> return ar
+  totalarchs <- getArchs archs
   let (archtid,archtask) =
-        case find (selectBuildArch arch) tasks of
-          Nothing -> error' $ "no " ++ arch ++ " task found"
+        case find (selectBuildArch totalarchs) tasks of
+          Nothing -> error' $ "no task found for" +-+ unwords totalarchs
           Just task' ->
             case lookupStruct "id" task' of
               Nothing -> error' "task id not found"
@@ -245,12 +243,12 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode march mstrategy mprefix se
         printDlDir
       return (subdir,dlRpms)
   where
-    selectBuildArch :: String -> Struct -> Bool
-    selectBuildArch arch t =
-      let march' = lookupStruct "arch" t
-          mmethod = lookupStruct "method" t
-      in march' `elem` [Just arch,Just "noarch"] &&
-         mmethod == Just "buildArch"
+    selectBuildArch :: [String] -> Struct -> Bool
+    selectBuildArch archs' t =
+      case lookupStruct "arch" t of
+        Just arch -> arch `elem` "noarch" : archs' &&
+                     lookupStruct "method" t == Just "buildArch"
+        Nothing -> False
 
     getTaskNVRAs :: Int -> IO [NVRA]
     getTaskNVRAs taskid' =
@@ -264,6 +262,12 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode march mstrategy mprefix se
             let few = dropWhile (== '0') $ takeEnd 4 (show taskid') in
               if null few then "0" else few
       in dropSuffix "packages" pkgsurl +/+ "work/tasks/" ++ lastFew +/+ show taskid' +/+ rpm
+
+getArchs :: [String] -> IO [String]
+getArchs archs =
+  case archs of
+    [] -> cmdLines "rpm" ["--eval", "%{_arch}"]
+    ars -> return ars
 
 data Existence = ExistingNVR | ChangedNVR | NotInstalled
   deriving (Eq, Ord, Show)
@@ -460,19 +464,16 @@ packageOfPattern request pat =
         NVR n _ -> (n, True)
 
 -- empty until build finishes
-kojiGetBuildRPMs :: String -> NVR -> Maybe String -> BuildID -> IO [String]
-kojiGetBuildRPMs huburl nvr march (BuildId bid) = do
+kojiGetBuildRPMs :: String -> NVR -> [String] -> BuildID -> IO [String]
+kojiGetBuildRPMs huburl nvr archs (BuildId bid) = do
   rpms <- Koji.listBuildRPMs huburl bid
-  arch <-
-    case march of
-      Nothing -> cmd "rpm" ["--eval", "%{_arch}"]
-      Just ar -> return ar
-  return $ map getNVRA $ filter (forArch arch) rpms
+  totalarchs <- getArchs archs
+  return $ map getNVRA $ filter (forArch totalarchs) rpms
   where
-    forArch :: String -> Struct -> Bool
-    forArch arch st =
+    forArch :: [String] -> Struct -> Bool
+    forArch archs' st =
       case lookupStruct "arch" st of
-        Just a -> a `elem` [arch, "noarch"]
+        Just a -> a `elem` "noarch" : archs'
         Nothing -> error $ "No arch found for rpm for: " ++ showNVR nvr
 
     getNVRA :: Struct -> String

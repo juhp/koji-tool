@@ -79,7 +79,7 @@ main =
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
       <*> optional pkgMgrOpt
-      <*> optional archOpt
+      <*> many archOpt
       <*> optional existingOpt
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
       <*> selectOpt
