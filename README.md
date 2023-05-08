@@ -23,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-1.0
+1.0.1
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -47,7 +47,7 @@ Available commands:
   find                     Simple quick common queries using words like: [my,
                            last, fail, complete, current, build, detail,
                            install, tail, notail, hwinfo, x86_64, PACKAGE,
-                           USER\'s]
+                           USER\'s, LIMIT]
 ```
 
 ## koji-tool builds
@@ -342,6 +342,7 @@ hwinfo
 x86_64 aarch64 ppc64le s390x i686 armv7hl
 PACKAGE
 USER\'s
+LIMIT
 
 ```
 

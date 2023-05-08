@@ -1,5 +1,9 @@
 # Version history of koji-tool
 
+## 1.0.1 (2023-05-08)
+- 'install' now supports multiple arch options (#4)
+- 'find': interpret small number as a limit (default still 10 results)
+
 ## 1.0 (2023-04-24)
 - 'builds': fix --install to use nvr instead of taskid
 - 'install': allow installing from an ongoing build; add kojiGetBuildTaskRPMs
