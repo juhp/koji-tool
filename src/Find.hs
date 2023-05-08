@@ -13,7 +13,7 @@ import Data.List.Extra ((\\), dropSuffix, isSuffixOf)
 import Distribution.Koji
     ( BuildState(BuildBuilding, BuildFailed, BuildComplete),
       TaskState(TaskOpen, TaskFailed, TaskClosed) )
-import SimpleCmd (error')
+import SimpleCmd (error', (+-+))
 
 import qualified Builds
 import qualified Tasks
@@ -41,7 +41,7 @@ findWords Arch = ["x86_64", "aarch64", "ppc64le", "s390x", "i686", "armv7hl"]
 
 wordsList :: ([String] -> String) -> [String]
 wordsList f =
-  map (f . findWords) [minBound..] ++ ["PACKAGE","USER\\'s"]
+  map (f . findWords) [minBound..] ++ ["PACKAGE","USER\\'s","LIMIT"]
 
 allWords :: [String]
 allWords = concatMap findWords [minBound..]
@@ -63,7 +63,7 @@ findCmd mhub debug args = do
                             unwords more
       archs = if hasWord Arch
               then filter (`elem` findWords Arch) args else []
-      limit = if hasWord Limit then 1 else 10
+      defaultlimit = if hasWord Limit then 1 else 10
       failure = hasWord Failure
       complete = hasWord Complete
       current = hasWord Current
@@ -73,11 +73,17 @@ findCmd mhub debug args = do
       tail' = hasWord Tail
       notail = hasWord NoTail
       hwinfo = hasWord Hwinfo
-      mpkg =
+      (limit,mpkg) =
         case removeUsers (args \\ allWords) of
-          [] -> Nothing
+          [] -> (defaultlimit, Nothing)
+          [num] | all isDigit num && not (hasWord Limit) ->
+                  let number = read num
+                  in if number < 1000
+                     then (number, Nothing)
+                     else error' $ "is" +-+ num +-+
+                          "an id? Use 'tasks' for very large limits"
           -- FIXME allow pattern?
-          [pkg] | all isPkgNameChar pkg -> Just pkg
+          [pkg] | all isPkgNameChar pkg -> (defaultlimit, Just pkg)
           other ->
             error' $
             "you can only specify one package - too many unknown words: " ++
