@@ -295,12 +295,14 @@ decideRpms yes listmode mstrategy select prefix nvras = do
   where
     installExists :: NVRA -> IO (Maybe (Existence, NVRA))
     installExists nvra = do
-      minstalled <- cmdMaybe "rpm" ["-q", rpmName nvra]
+      -- FIXME this will fail for noarch changes
+      -- FIXME check kernel
+      minstalled <- cmdMaybe "rpm" ["-q", rpmName nvra <.> rpmArch nvra]
       let existence =
             case minstalled of
               Nothing -> NotInstalled
               Just installed ->
-                if installed == showNVRA nvra
+                if showNVRA nvra `elem` lines installed
                 then ExistingNVR
                 else ChangedNVR
       return $
