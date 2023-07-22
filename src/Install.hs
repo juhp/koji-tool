@@ -89,7 +89,7 @@ installArgs cs =
 data Request = ReqName | ReqNV | ReqNVR
   deriving Eq
 
-data PkgMgr = DNF | RPM | OSTREE
+data PkgMgr = DNF3 | DNF5 | RPM | OSTREE
   deriving Eq
 
 data ExistingStrategy = ExistingNoReinstall | ExistingSkip
@@ -502,13 +502,18 @@ installRPMs dryrun debug mmgr yes classified = do
       unless (null dirpkgs) $ do
       mgr <-
         case mmgr of
+          Just m -> return m
           Nothing -> do
             mostree <- findExecutable "rpm-ostree"
-            return $ if isJust mostree then OSTREE else DNF
-          Just m -> return m
+            case mostree of
+              Just _ -> return OSTREE
+              Nothing -> do
+                mdnf5 <- findExecutable "dnf5"
+                return $ maybe DNF3 (const DNF5) mdnf5
       let pkgmgr =
             case mgr of
-              DNF -> "dnf"
+              DNF3 -> "dnf-3"
+              DNF5 -> "dnf5"
               RPM -> "rpm"
               OSTREE -> "rpm-ostree"
           com =
@@ -523,7 +528,7 @@ installRPMs dryrun debug mmgr yes classified = do
           (case mgr of
             OSTREE -> cmd_
             _ -> sudo_) pkgmgr $
-            com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && mgr == DNF]
+            com ++ map showRpmFile dirpkgs ++ ["--assumeyes" | yes == Yes && mgr `elem` [DNF3,DNF5]]
 
     installTypes :: [(FilePath,[(Existence,NVRA)])]
                  -> ([(FilePath,NVRA)],[(FilePath,NVRA)])
@@ -539,14 +544,16 @@ installRPMs dryrun debug mmgr yes classified = do
     reinstallCommand :: PkgMgr -> [String]
     reinstallCommand mgr =
       case mgr of
-        DNF -> ["reinstall"]
+        DNF3 -> ["reinstall"]
+        DNF5 -> ["reinstall"]
         RPM -> ["-Uvh","--replacepkgs"]
         OSTREE -> ["install"]
 
     installCommand :: PkgMgr -> [String]
     installCommand mgr =
       case mgr of
-        DNF -> ["localinstall"]
+        DNF3 -> ["localinstall"]
+        DNF5 -> ["install"]
         RPM -> ["-ivh"]
         OSTREE -> ["install"]
 

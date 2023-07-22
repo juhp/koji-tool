@@ -157,7 +157,8 @@ main =
     pkgMgrOpt =
       flagLongWith' RPM "rpm" "Use rpm instead of dnf" <|>
       flagLongWith' OSTREE "rpm-ostree" "Use rpm-ostree instead of dnf" <|>
-      flagLongWith' DNF "dnf" "Use dnf to install [default unless ostree]"
+      flagLongWith' DNF5 "dnf5" "Use dnf5 to install" <|>
+      flagLongWith' DNF3 "dnf3" "Use dnf-3 to install [default dnf unless ostree]"
 
     existingOpt :: Parser ExistingStrategy
     existingOpt =
