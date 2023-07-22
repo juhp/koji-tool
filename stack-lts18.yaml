@@ -4,3 +4,4 @@ extra-deps:
   - pretty-simple-4.1.1.0
   - simple-cmd-args-0.1.8
   - http-directory-0.1.10
+  - simple-prompt-0.2.0.1

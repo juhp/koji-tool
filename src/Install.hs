@@ -26,6 +26,7 @@ import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
 import Network.HTTP.Directory (httpFileSize', httpLastModified', (+/+))
 import SimpleCmd
+import SimplePrompt (yesNoDefault)
 import System.Directory
 import System.FilePath
 import System.FilePath.Glob
@@ -395,16 +396,7 @@ prompt :: Yes -> String -> IO Bool
 prompt yes str = do
   if yes == Yes
     then return True
-    else do
-    putStr $ str ++ " [Y/n]: "
-    inp <- trim <$> getLine
-    case lower inp of
-      "" -> return True
-      "y" -> return True
-      "yes" -> return True
-      "n" -> return False
-      "no" -> return False
-      _ -> prompt yes str
+    else yesNoDefault True str
 
 rpmPrompt :: Yes -> (Existence,NVRA) -> IO (Maybe (Existence,NVRA))
 rpmPrompt yes (exist,nvra) = do

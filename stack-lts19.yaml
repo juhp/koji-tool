@@ -1,3 +1,4 @@
 resolver: lts-19.33
 extra-deps:
   - pretty-simple-4.1.2.0
+  - simple-prompt-0.2.0.1
