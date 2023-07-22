@@ -61,7 +61,7 @@ getTimedate (After s) = s
 data TaskResult =
   TaskResult {taskPackage :: Either String NVR,
               taskArch :: String,
-              _taskMethod :: String,
+              taskMethod :: String,
               _taskState :: TaskState,
               _mtaskParent :: Maybe Int,
               taskId :: Int,
@@ -126,7 +126,11 @@ tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep taskreq = do
         putStrLn ""
         -- FIX for parent/build method show children (like we do with taskid)
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
-        buildlogSize qDebug tail' hwinfo mgrep hub task
+        if taskMethod task == "build"
+          then do
+          getTasks tz hub queryopts (Parent $ taskId task) >>=
+            mapM_ (printTask detailed tz) . mapMaybe maybeTaskResult
+          else buildlogSize qDebug tail' hwinfo mgrep hub task
         else do
         (putStrLn . compactTaskResult hub tz) task
         when (tail' || hwinfo || isJust mgrep) $
