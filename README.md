@@ -5,7 +5,7 @@ with commands to query builds and tasks, install rpms,
 and check buildlog sizes.
 
 [Koji](https://pagure.io/koji/) is the RPM package buildsystem used by
-Fedora Linux, CentOS, and some other projects.
+Fedora Linux, CentOS Stream, RHEL, and some other projects.
 
 By default Fedora Koji is used.
 
@@ -23,7 +23,7 @@ shows the last successful build with a url and other details.
 ## Commands
 ```shellsession
 $ koji-tool --version
-1.0.1
+1.1
 $ koji-tool --help
 Query and track Koji tasks, and install rpms from Koji.
 
@@ -272,7 +272,8 @@ Subpackage selection has only been tested so far for a single build/task.
 $ koji-tool install --help
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
-                         [-t|--check-remote-time] [--rpm | --rpm-ostree | --dnf]
+                         [-t|--check-remote-time]
+                         [--rpm | --rpm-ostree | --dnf5 | --dnf3]
                          [-a|--arch ARCH]
                          [(-N|--no-reinstall) | (-S|--skip-existing)]
                          [-b|--prefix SUBPKGPREFIX]
@@ -295,7 +296,8 @@ Available options:
   -t,--check-remote-time   Check remote rpm timestamps
   --rpm                    Use rpm instead of dnf
   --rpm-ostree             Use rpm-ostree instead of dnf
-  --dnf                    Use dnf to install [default unless ostree]
+  --dnf5                   Use dnf5 to install
+  --dnf3                   Use dnf-3 to install [default dnf unless ostree]
   -a,--arch ARCH           Task arch
   -N,--no-reinstall        Do not reinstall existing NVRs
   -S,--skip-existing       Ignore already installed subpackages (implies
@@ -387,5 +389,5 @@ koji-tool is packaged in Fedora
 koji-tool is distributed under a BSD license.
 
 Bug reports and contributions are welcomed:
-please propose suggestions and changes at:
+please report issues and suggestions at:
 https://github.com/juhp/koji-tool/

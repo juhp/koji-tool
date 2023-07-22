@@ -1,5 +1,11 @@
 # Version history of koji-tool
 
+## 1.1 (2023-07-22)
+- tasks: now shows children of 'build' task
+- install: correctly handle arch for installed packages (#4)
+- install: support dnf5 and dnf-3 (default dnf)
+- use simple-prompt
+
 ## 1.0.1 (2023-05-08)
 - 'install' now supports multiple arch options (#4)
 - 'find': interpret small number as a limit (default still 10 results)

@@ -35,6 +35,7 @@ use koji --profile !
 - different hubs put builds in different locations
 - html output
 - --rootlog
+- maybe smaller number as buildid and larger as taskid
 
 ## builds
 - --show-tags

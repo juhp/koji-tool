@@ -94,6 +94,7 @@ data PkgMgr = DNF3 | DNF5 | RPM | OSTREE
 
 data ExistingStrategy = ExistingNoReinstall | ExistingSkip
 
+-- FIXME autodetect NVR, NV, etc
 -- FIXME support buildid
 -- FIXME specify tag or task
 -- FIXME support --latest
