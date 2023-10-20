@@ -104,7 +104,7 @@ buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildre
               Just (start,mend) ->
                 compactZonedTime tz $ fromMaybe start mend
           mbid = lookupStruct "build_id" bld
-      return $ nvr +-+ show state +-+ date +-+ maybe "" (buildinfoUrl hub) mbid
+      return $ date +-+ maybe "" (buildinfoUrl hub) mbid +-+ show state +-+ nvr
 
     setupQuery = do
       mdatestring <-
