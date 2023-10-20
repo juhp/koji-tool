@@ -488,6 +488,8 @@ setNoBuffering = do
 
 data InstallType = ReInstall | Install
 
+-- FIXME support options per build: install ibus imsettings -i plasma
+-- (or don't error if multiple packages)
 installRPMs :: Bool -> Bool -> Maybe PkgMgr -> Yes
             -> [(FilePath,[(Existence,NVRA)])] -> IO ()
 installRPMs _ _ _ _ [] = return ()

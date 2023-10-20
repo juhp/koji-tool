@@ -44,6 +44,7 @@ import Utils
 -- FIXME if failure and no more, then stop
 -- FIXME catch HTTP exception for connection timeout
 -- FIXME pick up new user builds (if none specified)
+-- FIXME noarch tasks shown with build arch
 progressCmd :: Bool -> QueryOpts -> TaskReq -> IO ()
 progressCmd modules queryopts@QueryOpts{..} taskreq = do
   tasks <- do
@@ -125,6 +126,9 @@ initialBuildTask taskinfo = do
                 case lookupStruct "parent" taskinfo of
                   Nothing -> error' $ "no parent found for " ++ displayID tid
                   Just par -> TaskId par
+              -- FIXME support newrepo
+              -- https://koji.fedoraproject.org/koji/taskinfo?taskID=104446426
+              -- https://kojipkgs.fedoraproject.org//work/tasks/6426/104446426/
               _ -> error' $ "unsupported method: " ++ method
   children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
                       kojiGetTaskChildren fedoraKojiHub parent True
