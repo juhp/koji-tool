@@ -292,11 +292,12 @@ compactTaskResult hub tz (TaskResult pkg arch method state _mparent taskid mstar
           Nothing -> maybe "" (compactZonedTime tz) mstart
   in
     unwords $
-    [showPackage pkg ++ if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method,
-     show state,
-     time] ++
+    [time,
+     taskinfoUrl hub taskid] ++
     ["(" ++ renderDuration True dur ++ ")" | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start] ++
-    [taskinfoUrl hub taskid]
+    [show state,
+     showPackage pkg ++ if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method]
+
 
 -- FIXME show task owner
 formatTaskResult :: String -> Maybe UTCTime -> TimeZone -> TaskResult -> [String]
