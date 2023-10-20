@@ -21,10 +21,13 @@ shows details of your last buildArch failure and the tail of the build.log
 shows the last successful build with a url and other details.
 
 ## Commands
-```shellsession
-$ koji-tool --version
-1.1
-$ koji-tool --help
+`$ koji-tool --version`
+```
+1.1.1
+```
+
+`$ koji-tool --help`
+```
 Query and track Koji tasks, and install rpms from Koji.
 
 Usage: koji-tool [--version] COMMAND
@@ -65,8 +68,8 @@ Note results are ordered by build_id (not time) for speed.
 
 By default lists up to 10 Fedora Koji builds.
 
-```shellsession
-$ koji-tool builds --help
+`$ koji-tool builds --help`
+```
 Usage: koji-tool builds [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                         [(-L|--latest) | (-l|--limit INT)] [-s|--state STATE]
                         [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
@@ -132,8 +135,8 @@ Note results are ordered by task id (not time) for speed.
 
 By default it lists 10 most recent Fedora Koji buildArch tasks.
 
-```shellsession
-$ koji-tool tasks --help
+`$ koji-tool tasks --help`
+```
 Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
                        [(-L|--latest) | (-l|--limit INT)] [-s|--state STATE]
                        [-a|--arch ARCH]
@@ -268,8 +271,8 @@ but the following options change the behavior:
 Subpackage selection has only been tested so far for a single build/task.
 
 ### Help
-```shellsession
-$ koji-tool install --help
+`$ koji-tool install --help`
+```
 Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
                          [-P|--packages-url URL] [-l|--list] [-L|--latest]
                          [-t|--check-remote-time]
@@ -355,7 +358,7 @@ by checking the size of their build.log files.
 This is useful for monitoring the build progress of large packages that take
 a long time to complete for which some arch's may take considerably longer.
 
-By default it shows progress of the user's builds.
+By default it shows progress of the user's open build tasks.
 
 ### Usage
 
@@ -382,12 +385,28 @@ The `buildlog-sizes` command is similar but runs once over nvr patterns.
 ## Installation
 koji-tool is packaged in Fedora
 
-## Build
-`cabal-rpm builddep && cabal install || stack install`
+## Building from git/source
+Either use `cabal-install` or `stack`.
+Either way you need a ghc compiler installed, of course.
+
+### Build from source with cabal
+
+With cabal, you can save a lot of time by first running `cabal-rpm builddep`
+to install distro deps, and then:
+
+```
+$ cabal install
+```
+
+### Build from source with stack
+
+```
+$ stack init --resolver lts
+$ stack install
+```
 
 ## Contributing
 koji-tool is distributed under a BSD license.
 
-Bug reports and contributions are welcomed:
-please report issues and suggestions at:
-https://github.com/juhp/koji-tool/
+Bug reports, suggestions and contributions are welcomed:
+please open an issue at: https://github.com/juhp/koji-tool/
