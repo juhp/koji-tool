@@ -505,12 +505,12 @@ installRPMs dryrun debug mmgr yes classified = do
         case mmgr of
           Just m -> return m
           Nothing -> do
-            mostree <- findExecutable "rpm-ostree"
-            case mostree of
-              Just _ -> return OSTREE
-              Nothing -> do
-                mdnf5 <- findExecutable "dnf5"
-                return $ maybe DNF3 (const DNF5) mdnf5
+            ostree <- doesDirectoryExist "/sysroot/ostree"
+            if ostree
+              then return OSTREE
+              else do
+              mdnf5 <- findExecutable "dnf5"
+              return $ maybe DNF3 (const DNF5) mdnf5
       let pkgmgr =
             case mgr of
               DNF3 -> "dnf-3"
