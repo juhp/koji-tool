@@ -1,5 +1,11 @@
 # Version history of koji-tool
 
+## 1.1.1 (2023-10-20)
+- 'builds': reformat short build result to align better
+- 'install': detect ostree with "/sysroot/ostree" not rpm-ostree
+- 'tasks': reorder output format for better alignment
+- Time compactZonedTime: add space before timezone
+
 ## 1.1 (2023-07-22)
 - tasks: now shows children of 'build' task
 - install: correctly handle arch for installed packages (#4)

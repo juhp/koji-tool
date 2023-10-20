@@ -9,6 +9,7 @@ use koji --profile !
 
 # misc
 - api-version command
+- swap '-M' (--mine) and '-m' (--method) ?
 
 # install
 - autodetect nvr
@@ -64,7 +65,7 @@ use koji --profile !
 # install
 - put package lists into Set's
 
-# misc
+# other
 - list binary packages (install does this, but not obvious)
 - diff build command
 - diff root.log
