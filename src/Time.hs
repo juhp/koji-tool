@@ -27,7 +27,7 @@ readTime' =
 
 compactZonedTime :: TimeZone -> UTCTime -> String
 compactZonedTime tz =
-  formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S%Z" . utcToZonedTime tz
+  formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S %Z" . utcToZonedTime tz
 
 data TimeEvent = CreateEvent | StartEvent | CompletionEvent
 
