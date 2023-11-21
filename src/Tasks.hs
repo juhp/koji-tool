@@ -79,6 +79,7 @@ data QueryOpts = QueryOpts {
   qDebug :: Bool,
   qmFilter :: Maybe TaskFilter}
 
+-- FIXME 'koji-tool tasks <taskid> -s fail -m buildarch' should not print build task
 -- FIXME short output option
 -- --sibling
 -- FIXME --tail-size option (eg more that 4000B)
