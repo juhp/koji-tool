@@ -95,5 +95,5 @@ renderDuration short dur =
     hrs = if short then "h" else " hours"
 #else
 renderDuration short dur =
-  show dur ++ if short then "" else "ec"
+  show dur ++ if short then "" else "sec"
 #endif
