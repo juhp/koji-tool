@@ -139,7 +139,7 @@ tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep taskreq = do
 
 maybeTaskResult :: Struct -> Maybe TaskResult
 maybeTaskResult st = do
-  arch <- lookupStruct "arch" st
+  arch <- lookupStruct "label" st <|> lookupStruct "arch" st
   let mstart_time = lookupTime CreateEvent st
       mend_time = lookupTime CompletionEvent st
   taskid <- lookupStruct "id" st
