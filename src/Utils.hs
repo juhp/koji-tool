@@ -4,12 +4,14 @@ module Utils (
   kojiGetBuild',
   showValue,
   buildOutputURL,
-  hubToPkgsURL
+  hubToPkgsURL,
+  buildlogUrlfromTaskId,
+  worktaskDirUrlfromTaskID
   )
 where
 
 import Data.List.Extra (dropSuffix, isInfixOf, isPrefixOf, isSuffixOf, replace,
-                        takeWhileEnd)
+                        takeEnd, takeWhileEnd)
 import Data.RPM (dropArch)
 import Data.RPM.NVR
 import Data.RPM.NVRA
@@ -78,3 +80,17 @@ hubToPkgsURL url =
       if "kojihub" `isSuffixOf` url
       then replace "kojihub" "kojifiles" url +/+ "packages"
       else error' $ "use --files-url to specify kojifiles url for " ++ url
+
+buildlogUrlfromTaskId :: Int -> String
+buildlogUrlfromTaskId tid =
+  worktaskDirUrlfromTaskID tid +/+ "build.log"
+
+worktaskDirUrlfromTaskID :: Int -> String
+worktaskDirUrlfromTaskID tid =
+  "https://kojipkgs.fedoraproject.org/work/tasks" +/+ lastFew +/+ taskid
+  where
+    taskid = show tid
+
+    lastFew =
+      let few = dropWhile (== '0') $ takeEnd 4 taskid in
+        if null few then "0" else few

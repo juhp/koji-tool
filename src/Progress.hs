@@ -34,7 +34,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Distribution.Koji
 import SimpleCmd
-import System.FilePath ((</>))
 
 import Tasks
 import Time
@@ -212,6 +211,8 @@ loopBuildTasks debug tz bts = do
 
 buildlogSize :: Bool -> Int -> TaskInfoStatus -> IO TaskInfoStatuses
 buildlogSize debug n (TaskInfoStatus task moldstatus) = do
+  let tid = fromJust (lookupStruct "id" task)
+      buildlog = buildlogUrlfromTaskId tid
   when debug $ putStrLn buildlog
   exists <- if isJust moldstatus
             then return True
@@ -229,12 +230,6 @@ buildlogSize debug n (TaskInfoStatus task moldstatus) = do
             (fromInteger <$> msize, mtime),
             moldstatus)
   where
-    tid = show $ fromJust (readID' task)
-    buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid </> "build.log"
-    lastFew =
-      let few = dropWhile (== '0') $ takeEnd 4 tid in
-        if null few then "0" else few
-
     moldlog = moldstatus >>= tstLog :: Maybe LogStatus
 
     waitDelay ::  IO ()

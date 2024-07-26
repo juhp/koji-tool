@@ -34,6 +34,7 @@ import Network.HTTP.Directory
 import SimpleCmdArgs
 
 import Common (commonBuildQueryOptions, getBuildState)
+import Utils (buildlogUrlfromTaskId)
 
 -- FIXME split off arch suffix
 -- FIXME show build duration
@@ -104,10 +105,7 @@ buildlogSize child = do
       whenJust (lookupStruct "arch" child) $
         doGetBuildlogSize buildlog
       where
-        buildlog = "https://kojipkgs.fedoraproject.org/work/tasks" +/+ lastFew +/+ show tid +/+ "build.log"
-        lastFew =
-          let few = dropWhile (== '0') $ drop 4 (show tid) in
-            if null few then "0" else few
+        buildlog = buildlogUrlfromTaskId tid
 
 doGetBuildlogSize :: String -> String -> IO ()
 doGetBuildlogSize buildlog arch = do
