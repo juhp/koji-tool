@@ -99,13 +99,13 @@ findCmd mhub args = do
     let states = [BuildFailed|failure] ++ [BuildComplete|complete] ++
                  [BuildBuilding|current]
         buildreq = maybe Builds.BuildQuery Builds.BuildPackage mpkg
-        detailed = if detail then Builds.Detailed else Builds.DetailDefault
+        detailed = if detail then Just Builds.Detailed else Nothing
     in Builds.buildsCmd mhub user limit states Nothing (Just "rpm") detailed installation debug buildreq
     else
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub (Tasks.QueryOpts user limit states archs Nothing Nothing debug Nothing) detail ((tail' || failure) && not notail) hwinfo Nothing installation taskreq
+    in Tasks.tasksCmd mhub (Tasks.QueryOpts user limit states archs Nothing Nothing debug Nothing) (if detail then Just Tasks.Detailed else Nothing) ((tail' || failure) && not notail) hwinfo Nothing installation taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args

@@ -35,8 +35,9 @@ main =
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
       <*> (fmap normalizeBuildType <$> optional (strOptionWith 'T' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
-      <*> (flagWith' Detailed 'd' "details" "Show more build details" <|>
-           flagWith DetailDefault DetailedTasks 't' "tasks" "Show details and tasks")
+      <*> optional
+      (flagWith' Builds.Detailed 'd' "details" "Show more build details" <|>
+       flagWith' Builds.DetailedTasks 't' "tasks" "Show details and tasks")
       <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       <*> (BuildBuild <$> strOptionWith 'b' "build" "NVR/BUILDID" "Show build" <|>
@@ -49,7 +50,9 @@ main =
       tasksCmd
       <$> hubOpt
       <*> queryOpts False "buildArch"
-      <*> switchWith 'd' "details" "Show more details of builds"
+      <*> optional
+      (flagWith' Tasks.Detailed 'd' "details" "Show more task details" <|>
+       flagWith' Tasks.Concise 'c' "concise" "Compact task output")
       -- FIXME error if integer (eg mistakenly taskid)
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
       <*> switchLongWith "hw-info" "Fetch hw_info.log"

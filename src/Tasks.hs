@@ -7,6 +7,7 @@ module Tasks (
   TaskReq(..),
   BeforeAfter(..),
   QueryOpts(..),
+  Details(..),
   tasksCmd,
   getTasks,
   parseTaskState',
@@ -80,6 +81,9 @@ data QueryOpts = QueryOpts {
   qDebug :: Bool,
   qmFilter :: Maybe TaskFilter}
 
+data Details = Detailed | Concise
+  deriving Eq
+
 -- FIXME 'koji-tool tasks <taskid> -s fail -m buildarch' should not print build task
 -- FIXME short output option
 -- --sibling
@@ -88,17 +92,20 @@ data QueryOpts = QueryOpts {
 -- FIXME default to 'build' for install or try 'build' after 'buildarch'?
 -- FIXME parent tasks need not have limit
 -- FIXME `-# 2` etc to select second result
-tasksCmd :: Maybe String -> QueryOpts -> Bool -> Bool -> Bool -> Maybe String
-         -> Maybe Select -> TaskReq -> IO ()
-tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep minstall taskreq = do
+tasksCmd :: Maybe String -> QueryOpts -> Maybe Details -> Bool -> Bool
+         -> Maybe String -> Maybe Select -> TaskReq -> IO ()
+tasksCmd mhub queryopts@QueryOpts{..} mdetails tail' hwinfo mgrep minstall taskreq = do
   when (hub /= fedoraKojiHub && qmUserOpt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
   tasks <- getTasks tz hub queryopts taskreq
   when qDebug $ mapM_ pPrintCompact tasks
-  let exact = length tasks == 1
-      detailed = details || exact
-  (mapM_ (printTask detailed tz) . filterResults . mapMaybe maybeTaskResult) tasks
+  let details =
+        case mdetails of
+          Nothing ->
+            if length tasks == 1 then Detailed else Concise
+          Just detail -> detail
+  (mapM_ (printTask details tz) . filterResults . mapMaybe maybeTaskResult) tasks
   where
     hub = maybe fedoraKojiHub hubURL mhub
 
@@ -117,22 +124,23 @@ tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep minstall taskre
         isNVR _ (Left _) = False
         isNVR nvr (Right nvr') = nvr `isPrefixOf` showNVR nvr'
 
-    printTask :: Bool -> TimeZone -> TaskResult -> IO ()
-    printTask detailed tz task = do
+    printTask :: Details -> TimeZone -> TaskResult -> IO ()
+    printTask details tz task = do
       let mendtime = mtaskEndTime task
       mtime <- if isNothing  mendtime
                  then Just <$> getCurrentTime
                  else return Nothing
-      if detailed
+      if details == Detailed
         then do
         putStrLn ""
         -- FIX for parent/build method show children (like we do with taskid)
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
         if taskMethod task == "build"
           then do
-          getTasks tz hub queryopts (Parent $ taskId task) >>=
-            mapM_ (printTask detailed tz) . mapMaybe maybeTaskResult
-          else buildlogSize qDebug tail' hwinfo mgrep hub task
+          when (mdetails == Just Detailed) $
+            getTasks tz hub queryopts (ChildrenOf $ taskId task) >>=
+            mapM_ (printTask details tz) . mapMaybe maybeTaskResult
+          else buildlogSize qDebug tz tail' hwinfo mgrep hub task
         else do
         (putStrLn . compactTaskResult hub tz) task
         when (tail' || hwinfo || isJust mgrep) $
