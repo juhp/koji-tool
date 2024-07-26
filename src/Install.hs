@@ -169,7 +169,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
                 unless (dryrun || null dlRpms) $ do
                   bld <- kojiGetBuild' huburl nvr
                   -- FIXME should be NVRA ideally
-                  downloadRpms debug checkremotetime (strictLookupTimes lookupBuildTimes bld) subdir (buildURL nvr) dlRpms
+                  downloadRpms debug checkremotetime (lookupStartEndTimes' bld) subdir (buildURL nvr) dlRpms
                 -- FIXME once we check file size - can skip if no downloads
                   printDlDir
               return (subdir,dlRpms)
@@ -241,7 +241,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix se
       when debug $ mapM_ printInstalled dlRpms
       let subdir = show archtid
       unless (dryrun || null dlRpms) $ do
-        downloadRpms debug checkremotetime (strictLookupTimes lookupTaskTimes archtask) subdir (taskRPMURL archtid) dlRpms
+        downloadRpms debug checkremotetime (lookupStartEndTimes' archtask) subdir (taskRPMURL archtid) dlRpms
         printDlDir
       return (subdir,dlRpms)
   where

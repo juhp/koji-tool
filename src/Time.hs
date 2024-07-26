@@ -4,9 +4,9 @@ module Time (
   compactZonedTime,
   TimeEvent(..),
   lookupTime,
-  lookupBuildTimes,
+  lookupStartEndTimes,
+  lookupStartEndTimes',
   lookupTaskTimes,
-  strictLookupTimes,
   durationOfTask,
   formatLocalTime,
   renderDuration,
@@ -46,39 +46,40 @@ lookupTime event str = do
         lookupStruct (ev ++ "_time") str >>=
         parseTimeM False defaultTimeLocale "%Y-%m-%d %H:%M:%S%Q%EZ"
 
-lookupTaskTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
-lookupTaskTimes str = do
-  start <- lookupTime CreateEvent str
-  let mend = lookupTime CompletionEvent str
-  return (start,mend)
+lookupTime' :: TimeEvent -> Struct -> UTCTime
+lookupTime' event str =
+  case lookupTime event str of
+    Nothing -> error $ "no " ++ showEvent event -- for build/task
+    Just t -> t
 
-lookupBuildTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
-lookupBuildTimes str = do
+lookupTaskTimes :: Struct -> (UTCTime, Maybe UTCTime, Maybe UTCTime)
+lookupTaskTimes str =
+  let create = lookupTime' CreateEvent str
+      mstart = lookupTime StartEvent str
+      mend = lookupTime CompletionEvent str
+  in (create,mstart,mend)
+
+lookupStartEndTimes :: Struct -> Maybe (UTCTime, Maybe UTCTime)
+lookupStartEndTimes str = do
   start <- lookupTime StartEvent str
   let mend = lookupTime CompletionEvent str
   return (start,mend)
 
-strictLookupTimes :: (Struct -> Maybe (UTCTime, Maybe UTCTime))
-                  -> Struct -> (UTCTime, UTCTime)
-strictLookupTimes lf st =
-  case lf st of
-    Nothing -> error "no start time" -- for build/task
-    Just (start,mend) ->
-      case mend of
-        Nothing -> error "no end time" -- for build/task
-        Just end -> (start,end)
+lookupStartEndTimes' :: Struct -> (UTCTime, UTCTime)
+lookupStartEndTimes' st =
+  (lookupTime' StartEvent st, lookupTime' CompletionEvent st)
 
 durationOfTask :: Struct -> Maybe NominalDiffTime
 durationOfTask str = do
-  (start,mend) <- lookupTaskTimes str
+  let (create,_mstart,mend) = lookupTaskTimes str
   end <- mend
-  return $ diffUTCTime end start
+  return $ diffUTCTime end create
 
-formatLocalTime :: Bool -> TimeZone -> UTCTime -> String
-formatLocalTime start tz t =
+formatLocalTime :: TimeEvent -> TimeZone -> UTCTime -> String
+formatLocalTime event tz t =
   -- FIXME format time with formatting
   formatTime defaultTimeLocale
-  (formatToString (rpadded 11 ' ' string % "%c") (if start then "Created:" else "Completed:")) $
+  (formatToString (rpadded 12 ' ' string % "%c") (showEvent event ++ ":")) $
   utcToZonedTime tz t
 
 renderDuration :: Bool -> NominalDiffTime -> String

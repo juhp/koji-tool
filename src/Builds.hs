@@ -99,7 +99,7 @@ buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildre
       nvr <- lookupStruct "nvr" bld
       state <- readBuildState <$> lookupStruct "state" bld
       let date =
-            case lookupBuildTimes bld of
+            case lookupStartEndTimes bld of
               Nothing -> ""
               Just (start,mend) ->
                 compactZonedTime tz $ fromMaybe start mend
@@ -162,7 +162,7 @@ data BuildResult =
 
 maybeBuildResult :: Struct -> Maybe BuildResult
 maybeBuildResult st = do
-  (start,mend) <- lookupBuildTimes st
+  (start,mend) <- lookupStartEndTimes st
   buildid <- lookupStruct "build_id" st
   -- buildContainer has no task_id
   let mtaskid = lookupStruct "task_id" st
@@ -193,12 +193,12 @@ formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mend
   [ showNVR nvr +-+ show state
   , buildinfoUrl hub buildid]
   ++ [Tasks.taskinfoUrl hub taskid | Just taskid <- [mtaskid]]
-  ++ [formatLocalTime True tz start]
+  ++ [formatLocalTime StartEvent tz start]
   ++
   case mendtime of
     Nothing -> []
     Just end ->
-      [formatLocalTime False tz end | ended]
+      [formatLocalTime CompletionEvent tz end | ended]
 #if MIN_VERSION_time(1,9,1)
       ++
       let dur = diffUTCTime end start

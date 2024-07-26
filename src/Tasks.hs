@@ -65,8 +65,10 @@ data TaskResult =
               _taskState :: TaskState,
               _mtaskParent :: Maybe Int,
               taskId :: Int,
+              _taskCreateTime :: UTCTime,
               _mtaskStartTime :: Maybe UTCTime,
-              mtaskEndTime :: Maybe UTCTime
+              mtaskEndTime :: Maybe UTCTime,
+              _mtaskOwner :: Maybe String
              }
 
 data QueryOpts = QueryOpts {
@@ -140,15 +142,18 @@ tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep taskreq = do
 maybeTaskResult :: Struct -> Maybe TaskResult
 maybeTaskResult st = do
   arch <- lookupArch st
-  let mstart_time = lookupTime CreateEvent st
-      mend_time = lookupTime CompletionEvent st
+  let (create,mstart,mend) = lookupTaskTimes st
   taskid <- lookupStruct "id" st
   method <- lookupStruct "method" st
   state <- getTaskState st
   let pkgnvr = kojiTaskRequestNVR st
       mparent' = lookupStruct "parent" st :: Maybe Int
+  -- FIXME filter long names like
+  -- "koschei/koschei-backend01.iad2.fedoraproject.org"
+  -- "bpeck/jenkins-continuous-infra.apps.ci.centos.org"
+      mowner = lookupStruct "owner_name" st
   return $
-    TaskResult pkgnvr arch method state mparent' taskid mstart_time mend_time
+    TaskResult pkgnvr arch method state mparent' taskid create mstart mend mowner
 
 pPrintCompact :: Struct -> IO ()
 pPrintCompact =
@@ -286,7 +291,7 @@ taskinfoUrl hub tid =
 
 -- FIXME option to hide url (take terminal width into consideration?)
 compactTaskResult :: String -> TimeZone -> TaskResult -> String
-compactTaskResult hub tz (TaskResult pkg arch method state _mparent taskid mstart mend) =
+compactTaskResult hub tz (TaskResult pkg arch method state _mparent taskid _create mstart mend _mowner) =
   let time =
         case mend of
           Just end -> compactZonedTime tz end
@@ -299,8 +304,6 @@ compactTaskResult hub tz (TaskResult pkg arch method state _mparent taskid mstar
     [show state,
      showPackage pkg ++ if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method]
 
-
--- FIXME show task owner
 formatTaskResult :: String -> Maybe UTCTime -> TimeZone -> TaskResult -> [String]
 formatTaskResult hub
 #if MIN_VERSION_time(1,9,1)
@@ -308,19 +311,21 @@ formatTaskResult hub
 #else
   _mtime
 #endif
-  tz (TaskResult pkg arch method state mparent taskid mstart mend) =
-  [ showPackage pkg ++ (if method == "buildArch" then '.' : arch else ' ' : method) +-+ show state
-  , taskinfoUrl hub taskid +-+ maybe "" (\p -> "(parent: " ++ show p ++ ")") mparent] ++
-  [formatLocalTime True tz start | Just start <- [mstart]] ++
-  [formatLocalTime False tz end | Just end <- [mend]]
+  tz (TaskResult pkg arch method state mparent taskid create mstart mend mowner) =
+  [ showPackage pkg ++ (if method == "buildArch" then '.' : arch else ' ' : method) +-+ show state +-+ maybe "" (\o -> '(' : o ++ ")") mowner
+  , taskinfoUrl hub taskid +-+ maybe "" (\p -> "(parent:" +-+ show p ++ ")") mparent
+  , formatLocalTime CreateEvent tz create] ++
+  [formatLocalTime StartEvent tz start | Just start <- [mstart]] ++
+  [formatLocalTime CompletionEvent tz end | Just end <- [mend]]
 #if MIN_VERSION_time(1,9,1)
-      ++
+    ++
+    ["delay:" +-+ renderDuration False dur | Just start <- [mstart], let dur = diffUTCTime start create]
+    ++
     case mtime of
       Just now ->
-        ["current duration: " ++ renderDuration False dur | Just start <- [mstart], let dur = diffUTCTime now start]
+        ["current duration:" +-+ renderDuration False dur | Just start <- [mstart], let dur = diffUTCTime now start]
       Nothing ->
-        ["duration: " ++ renderDuration False dur | Just start <- [mstart], Just end <- [mend], let dur = diffUTCTime end start]
-
+        ["duration:" +-+ renderDuration False dur | Just start <- [mstart], Just end <- [mend], let dur = diffUTCTime end start]
 #endif
 
 showPackage :: Either String NVR -> String
