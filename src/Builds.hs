@@ -157,7 +157,8 @@ data BuildResult =
                _buildId :: Int,
                mbuildTaskId :: Maybe Int,
                _buildStartTime :: UTCTime,
-               mbuildEndTime :: Maybe UTCTime
+               mbuildEndTime :: Maybe UTCTime,
+               _buildOwner :: String
               }
 
 maybeBuildResult :: Struct -> Maybe BuildResult
@@ -168,8 +169,9 @@ maybeBuildResult st = do
   let mtaskid = lookupStruct "task_id" st
   state <- getBuildState st
   nvr <- lookupStruct "nvr" st >>= maybeNVR
+  owner <- lookupStruct "owner_name" st
   return $
-    BuildResult nvr state buildid mtaskid start mend
+    BuildResult nvr state buildid mtaskid start mend owner
 
 printBuild :: String -> TimeZone -> Details -> Bool -> Maybe Tasks.Select
            -> BuildResult -> IO ()
@@ -189,8 +191,8 @@ printBuild hub tz details debug minstall build = do
       installCmd False debug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqNVR [showNVR (buildNVR build)]
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
-formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime) =
-  [ showNVR nvr +-+ show state
+formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime owner) =
+  [ showNVR nvr +-+ show state +-+ '(' : owner ++ ")"
   , buildinfoUrl hub buildid]
   ++ [Tasks.taskinfoUrl hub taskid | Just taskid <- [mtaskid]]
   ++ [formatLocalTime StartEvent tz start]
