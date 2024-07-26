@@ -181,11 +181,11 @@ getTasks tz hub queryopts@QueryOpts {..} req =
         error' "cannot use taskid together with filter"
       mtask <- kojiGetTaskInfo hub (TaskId taskid)
       case mtask of
-        Nothing -> error $ "taskid not found: " ++ show taskid
+        Nothing -> error $ "taskid not found:" +-+ show taskid
         Just task -> do
           when qDebug $ pPrintCompact task
           case maybeTaskResult task of
-            Nothing -> error' $ "failed to read task: " ++ show task
+            Nothing -> error' $ "failed to read task:" +-+ show task
             -- FIXME maybe should have way to list parent or children
             Just _res -> return [task]
     Build bld -> do
@@ -198,16 +198,16 @@ getTasks tz hub queryopts@QueryOpts {..} req =
                  else kojiGetBuildTaskID hub bld
       case mtaskid of
         Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
-        Nothing -> error' $ "no taskid found for build " ++ bld
+        Nothing -> error' $ "no taskid found for build" +-+ bld
     Package pkg -> do
       when (head pkg == '-') $
-        error' $ "bad combination: not a package " ++ pkg
+        error' $ "bad combination: not a package" +-+ pkg
       when (isJust qmDate || isJust qmFilter) $
         -- FIXME why not?
         error' "cannot use package together with timedate or filter"
       mpkgid <- getPackageID hub pkg
       case mpkgid of
-        Nothing -> error' $ "no package id found for " ++ pkg
+        Nothing -> error' $ "no package id found for" +-+ pkg
         Just pkgid -> do
           builds <- listBuilds hub
                     [("packageID", ValueInt pkgid),
@@ -277,11 +277,11 @@ getTasks tz hub queryopts@QueryOpts {..} req =
             let timedate = getTimedate beforeAfter
             in case words timedate of
                  [t] | t `elem` ["hour", "day", "week", "month", "year"] ->
-                       "last " ++ t
+                       "last" +-+ t
                  [t] | t `elem` ["today", "yesterday"] ->
                        t ++ " 00:00"
                  [t] | any (lower t `isPrefixOf`) ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] ->
-                       "last " ++ t ++ " 00:00"
+                       "last" +-+ t ++ " 00:00"
                  [n,_unit] | all isDigit n -> timedate ++ " ago"
                  _ -> timedate
 
@@ -349,7 +349,7 @@ parseTaskState' s =
     "assigned" -> TaskAssigned
     "fail" -> TaskFailed
     "failed" -> TaskFailed
-    _ -> error' $! "unknown task state: " ++ s ++
+    _ -> error' $! "unknown task state:" +-+ s ++
          "\nknown states: free, open, closed, canceled, assigned, failed"
 
 data LogFile = BuildLog | RootLog | HWInfo
