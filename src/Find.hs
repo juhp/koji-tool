@@ -21,7 +21,7 @@ import qualified Tasks
 import User ( UserOpt(User, UserSelf) )
 
 data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
-           | Install | Tail | NoTail | Hwinfo | Arch
+           | Install | Tail | NoTail | Hwinfo | Arch | Debug
   deriving (Enum,Bounded)
 
 findWords :: Words -> [String]
@@ -38,6 +38,7 @@ findWords Install = ["install"]
 findWords Tail = ["tail"]
 findWords NoTail = ["notail"]
 findWords Hwinfo = ["hwinfo"]
+findWords Debug = ["debug", "dbg"]
 findWords Arch = ["x86_64", "aarch64", "ppc64le", "s390x", "i686", "armv7hl"]
 
 wordsList :: ([String] -> String) -> [String]
@@ -51,10 +52,10 @@ allWords = concatMap findWords [minBound..]
 -- FIXME: methods
 -- FIXME: mlt (or mlft)
 -- FIXME: separate last and latest?
-findCmd :: Maybe String -> Bool -> [String] -> IO ()
-findCmd _ _ [] = error' $ "find handles these words:\n\n" ++
+findCmd :: Maybe String -> [String] -> IO ()
+findCmd _ [] = error' $ "find handles these words:\n\n" ++
                   unlines (wordsList unwords)
-findCmd mhub debug args = do
+findCmd mhub args = do
   let user = if hasWord Mine
              then Just UserSelf
              else case filter ("'s" `isSuffixOf`) args of
@@ -74,6 +75,7 @@ findCmd mhub debug args = do
       tail' = hasWord Tail
       notail = hasWord NoTail
       hwinfo = hasWord Hwinfo
+      debug = hasWord Debug
       (limit,mpkg) =
         case removeUsers (args \\ allWords) of
           [] -> (defaultlimit, Nothing)

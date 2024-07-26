@@ -103,7 +103,6 @@ main =
        intercalate ", " (wordsList head) ++ "]") $
       findCmd
       <$> hubOpt
-      <*> switchWith 'D' "debug" "Debug output including XML results"
       <*> many (strArg "PHRASE")
     ]
   where
