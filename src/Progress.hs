@@ -45,7 +45,6 @@ import Utils
 -- FIXME if failure and no more, then stop
 -- FIXME catch HTTP exception for connection timeout
 -- FIXME pick up new user builds (if none specified)
--- FIXME noarch tasks shown with build arch
 progressCmd :: Bool -> QueryOpts -> TaskReq -> IO ()
 progressCmd modules queryopts@QueryOpts{..} taskreq = do
   tasks <- do
@@ -114,9 +113,10 @@ data BuildTask =
 
 initialBuildTask :: Struct -> IO BuildTask
 initialBuildTask taskinfo = do
-  let tid = case lookupStruct "id" taskinfo of
-              Just tid' -> TaskId tid'
-              Nothing -> error' $ "no taskid found for:" ++ show taskinfo
+  let tid =
+        case lookupStruct "id" taskinfo of
+          Just tid' -> TaskId tid'
+          Nothing -> error' $ "no taskid found for:" ++ show taskinfo
       parent =
         case lookupStruct "method" taskinfo :: Maybe String of
           Nothing -> error' $ "no method found for " ++ displayID tid
@@ -224,7 +224,7 @@ buildlogSize debug n (TaskInfoStatus task moldstatus) = do
   (msize,mtime) <- if exists
                    then httpFileSizeTime' buildlog
                    else return (Nothing,Nothing)
-  when debug $ print (mtime,moldstatus)
+  when debug $ print (msize,mtime,moldstatus)
   if (mtime == fmap logTime moldlog || isNothing mtime) && n < 5
     then buildlogSize debug (n+1) (TaskInfoStatus task moldstatus)
     else
@@ -284,11 +284,11 @@ printLogStatuses :: IO () -> TimeZone -> [TaskInfoStatuses] -> IO ()
 printLogStatuses header tz tss =
   let (mxsi, mxsp, taskoutputs) = (formatSize . map taskOutput) tss
   in
-    unless (null taskoutputs) $ do
+    unless (null taskoutputs) $
     when (any (\t -> outTimeChanged t || outSizeChanged t || outStateChanged t) taskoutputs) $ do
-      header
-      mapM_ (printTaskOut mxsi mxsp) taskoutputs
-      putChar '\n'
+    header
+    mapM_ (printTaskOut mxsi mxsp) taskoutputs
+    putChar '\n'
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
     printTaskOut maxsize maxspd (TaskOut arch msize msizediff _sizechanged mtime mtimediff _timechanged state _statechanged mthd mduration) =
@@ -355,6 +355,7 @@ kojiListBuildTasks muser = do
   user <- case muser of
             Just user -> return user
             Nothing -> do
+              -- FIXME test for klist
               mfasid <- (removeSuffix "@FEDORAPROJECT.ORG" <$>) . find ("@FEDORAPROJECT.ORG" `isSuffixOf`) . words <$> cmd "klist" ["-l"]
               case mfasid of
                 Just fas -> return fas
