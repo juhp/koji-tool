@@ -355,7 +355,7 @@ data OutputLocation = PackagesOutput | WorkOutput
 outputUrl :: String -> TaskResult -> OutputLocation -> Maybe String
 outputUrl hub task loc =
   case loc of
-    WorkOutput -> Just $ taskOutputUrl task
+    WorkOutput -> Just $ worktaskDirUrlfromTaskID $ taskId task
     PackagesOutput ->
       case taskPackage task of
         Left _ -> Nothing
@@ -365,26 +365,23 @@ outputUrl hub task loc =
 findOutputURL :: String -> TaskResult -> IO (Maybe String)
 findOutputURL hub task =
   case outputUrl hub task PackagesOutput of
-    Just burl -> urlExistsOr (taskOutputUrl task) $
-                 urlExistsOr burl $ return Nothing
-    Nothing -> urlExistsOr (taskOutputUrl task) $ return Nothing
+    Just burl -> urlMayExist (worktaskDirUrlfromTaskID $ taskId task) <||>
+                 urlMayExist burl
+    Nothing -> urlMayExist (worktaskDirUrlfromTaskID $ taskId task)
   where
-    urlExistsOr :: String -> IO (Maybe String) -> IO (Maybe String)
-    urlExistsOr url alt = do
+    urlMayExist :: String -> IO (Maybe String)
+    urlMayExist url = do
       exists <- httpExists' url
-      if exists
-        then return $ Just url
-        else alt
+      return $
+        if exists
+        then Just url
+        else Nothing
 
-taskOutputUrl :: TaskResult -> String
-taskOutputUrl task =
-  "https://kojipkgs.fedoraproject.org/work/tasks" </> lastFew </> tid
-  where
-    tid = show (taskId task)
-
-    lastFew =
-      let few = dropWhile (== '0') $ takeEnd 4 tid
-      in if null few then "0" else few
+    mact1 <||> mact2 = do
+      ma1 <- mact1
+      if isJust ma1
+        then return ma1
+        else mact2
 
 tailLogUrl :: String -> Int -> LogFile -> String
 tailLogUrl hub taskid file =
