@@ -33,6 +33,7 @@ import Data.Time (diffUTCTime, getCurrentTime, getCurrentTimeZone,
 import Data.Text (Text)
 import qualified Data.Text as T
 import Distribution.Koji
+import Safe (maximumMay)
 import SimpleCmd
 
 import Common (lookupArch)
@@ -199,7 +200,7 @@ loopBuildTasks debug tz bts = do
               (open,closed) = partition (\tis -> getTaskState (taskInfo tis) `elem` map Just openTaskStates) news
               mlargest = if not (any (\tis -> lookupStruct "method" (taskInfo tis) /= Just ("buildSRPMFromSCM" :: String)) closed)
                          then Nothing
-                         else Just $ maximum $ mapMaybe (\t -> taskStatus t >>= tstLog <&> logSize) closed
+                         else maximumMay $ mapMaybe (\t -> taskStatus t >>= tstLog <&> logSize) closed
               mbiggest = max mlargest msize
           if null open
             then runProgress (BuildTask tid start mend mbiggest [])
