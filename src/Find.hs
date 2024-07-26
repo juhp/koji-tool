@@ -16,6 +16,7 @@ import Distribution.Koji
 import SimpleCmd (error', (+-+))
 
 import qualified Builds
+import Install (Select(PkgsReq))
 import qualified Tasks
 import User ( UserOpt(User, UserSelf) )
 
@@ -89,7 +90,7 @@ findCmd mhub debug args = do
             "you can only specify one package - too many unknown words: " ++
             unwords other
       installation = if install
-                     then Just (Tasks.PkgsReq [] [] [] [])
+                     then Just (PkgsReq [] [] [] [])
                      else Nothing
   if build
     then

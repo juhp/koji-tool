@@ -13,7 +13,6 @@ module Tasks (
   kojiMethods,
   fedoraKojiHub,
   taskinfoUrl,
-  Select(PkgsReq)
   )
 where
 

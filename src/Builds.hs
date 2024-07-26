@@ -50,7 +50,7 @@ data Details = DetailDefault | Detailed | DetailedTasks
 
 buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Details
-          -> Maybe Tasks.Select -> Bool -> BuildReq -> IO ()
+          -> Maybe Select -> Bool -> BuildReq -> IO ()
 buildsCmd mhub museropt limit !states mdate mtype details minstall debug buildreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
@@ -173,7 +173,7 @@ maybeBuildResult st = do
   return $
     BuildResult nvr state buildid mtaskid start mend owner
 
-printBuild :: String -> TimeZone -> Details -> Bool -> Maybe Tasks.Select
+printBuild :: String -> TimeZone -> Details -> Bool -> Maybe Select
            -> BuildResult -> IO ()
 printBuild hub tz details debug minstall build = do
   putStrLn ""
