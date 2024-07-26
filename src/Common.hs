@@ -4,13 +4,15 @@ module Common (
   commonQueryOptions,
   commonBuildQueryOptions,
   webUrl,
-  getBuildState
+  getBuildState,
+  lookupArch
   )
 where
 
+import Control.Applicative ((<|>))
 import Data.List.Extra (dropSuffix, isPrefixOf)
 import Distribution.Koji (fedoraKojiHub, Value(..), Struct, BuildState,
-                          readBuildState)
+                          lookupStruct, readBuildState)
 import SimpleCmd (error')
 
 -- mbox kojihub is locked
@@ -43,3 +45,8 @@ webUrl = dropSuffix "hub"
 
 getBuildState :: Struct -> Maybe BuildState
 getBuildState st = readBuildState <$> lookup "state" st
+
+-- noarch build tasks usually have arch
+-- see also https://pagure.io/koji/issue/4098
+lookupArch :: Struct -> Maybe String
+lookupArch st = lookupStruct "label" st <|> lookupStruct "arch" st

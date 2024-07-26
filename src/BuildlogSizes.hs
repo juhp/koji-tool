@@ -33,7 +33,7 @@ import Network.HTTP.Directory
 
 import SimpleCmdArgs
 
-import Common (commonBuildQueryOptions, getBuildState)
+import Common (commonBuildQueryOptions, getBuildState, lookupArch)
 import Utils (buildlogUrlfromTaskId)
 
 -- FIXME split off arch suffix
@@ -93,7 +93,7 @@ nvrBuildlogSizes nvr = do
 
 buildlogSizes :: Int -> IO ()
 buildlogSizes tid = do
-  children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
+  children <- sortOn lookupArch <$>
               getTaskChildren fedoraKojiHub tid True
   mapM_ buildlogSize children
 

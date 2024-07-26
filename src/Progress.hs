@@ -35,6 +35,7 @@ import qualified Data.Text as T
 import Distribution.Koji
 import SimpleCmd
 
+import Common (lookupArch)
 import Tasks
 import Time
 import Utils
@@ -129,7 +130,7 @@ initialBuildTask taskinfo = do
               -- https://koji.fedoraproject.org/koji/taskinfo?taskID=104446426
               -- https://kojipkgs.fedoraproject.org//work/tasks/6426/104446426/
               _ -> error' $ "unsupported method: " ++ method
-  children <- sortOn (\t -> lookupStruct "arch" t :: Maybe String) <$>
+  children <- sortOn lookupArch <$>
                       kojiGetTaskChildren fedoraKojiHub parent True
   let start =
         case lookupTime CreateEvent taskinfo of
@@ -266,7 +267,7 @@ threadDelaySeconds m =
   threadDelay (fromEnum (fromIntegral m :: Micro))
 
 
-data TaskOutput = TaskOut {_outArch :: Text,
+data TaskOutput = TaskOut {_outArch :: String,
                            moutSize :: Maybe Int,
                            moutSizeStep :: Maybe Int,
                            outSizeChanged :: Bool,
@@ -290,7 +291,7 @@ printLogStatuses header tz tss =
   where
     printTaskOut :: Int64 -> Int64 -> TaskOutput -> IO ()
     printTaskOut maxsize maxspd (TaskOut arch msize msizediff _sizechanged mtime mtimediff _timechanged state _statechanged mthd mduration) =
-      fprintLn (rpadded 8 ' ' stext %
+      fprintLn (rpadded 8 ' ' string %
                 lpadded (max 6 (maxsize+2)) ' ' (optioned commas) % "kB" %
                 " " %
                 optioned (parenthesised string % " ") %
@@ -334,7 +335,7 @@ printLogStatuses header tz tss =
           mstate = getTaskState task
       in
         let method = maybeVal "method not found" (lookupStruct "method") task :: Text
-            arch = maybeVal "arch not found" (lookupStruct "arch") task :: Text
+            arch = maybeVal "arch not found" lookupArch task
             sizediff = liftM2 (-) size oldsize
             timediff = if time == oldtime
                        then Nothing
