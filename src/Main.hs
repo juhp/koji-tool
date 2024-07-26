@@ -54,8 +54,7 @@ main =
       <*> switchWith 'T' "tail" "Fetch the tail of build.log"
       <*> switchLongWith "hw-info" "Fetch hw_info.log"
       <*> optional (strOptionWith 'g' "grep" "STRING" "Filter matching log lines")
-      -- -- FIXME any way to pass --help to install?
-      -- <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
+      <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> taskReqOpt
     , Subcommand "latest"
       "Query latest Koji build for tag" $

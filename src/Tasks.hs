@@ -89,8 +89,8 @@ data QueryOpts = QueryOpts {
 -- FIXME parent tasks need not have limit
 -- FIXME `-# 2` etc to select second result
 tasksCmd :: Maybe String -> QueryOpts -> Bool -> Bool -> Bool -> Maybe String
-         -> TaskReq -> IO ()
-tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep taskreq = do
+         -> Maybe Select -> TaskReq -> IO ()
+tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep minstall taskreq = do
   when (hub /= fedoraKojiHub && qmUserOpt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -137,6 +137,9 @@ tasksCmd mhub queryopts@QueryOpts{..} details tail' hwinfo mgrep taskreq = do
         (putStrLn . compactTaskResult hub tz) task
         when (tail' || hwinfo || isJust mgrep) $
           buildlogSize qDebug tail' hwinfo mgrep hub task
+      whenJust minstall $ \installopts -> do
+        putStrLn ""
+        installCmd False qDebug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqName [show (taskId task)]
 
 maybeTaskResult :: Struct -> Maybe TaskResult
 maybeTaskResult st = do
