@@ -43,7 +43,8 @@ import Time
 import User
 import Utils
 
-data TaskReq = Task Int | Parent Int | Build String | Package String
+data TaskReq = Task Int | ChildrenOf Int | ParentOf Int
+             | Build String | Package String
              | TaskQuery | Pattern String
 
 data TaskFilter = TaskPackage String | TaskNVR String
@@ -207,7 +208,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
                       getBuild hub (InfoID (read bld))
                  else kojiGetBuildTaskID hub bld
       case mtaskid of
-        Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
+        Just (TaskId taskid) -> getTasks tz hub queryopts $ ChildrenOf taskid
         Nothing -> error' $ "no taskid found for build" +-+ bld
     Package pkg -> do
       when (head pkg == '-') $
@@ -227,8 +228,17 @@ getTasks tz hub queryopts@QueryOpts {..} req =
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             case mtaskid of
               -- FIXME gives too many tasks (parent builds):
-              Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
+              Just (TaskId taskid) -> getTasks tz hub queryopts $ ChildrenOf taskid
               Nothing -> return []
+    ParentOf taskid -> do
+      mtask <- kojiGetTaskInfo hub (TaskId taskid)
+      case mtask of
+        Nothing -> error $ "taskid not found:" +-+ show taskid
+        Just task -> do
+          when qDebug $ pPrintCompact task
+          case lookupStruct "parent" task of
+            Nothing -> error' $ "no parent of" +-+ show taskid
+            Just tid -> getTasks tz hub queryopts $ Task tid
     Pattern pat -> do
       let buildquery = [("pattern", ValueString pat),
                         commonBuildQueryOptions qLimit]
@@ -239,7 +249,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
         forM builds $ \bld -> do
         let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
         case mtaskid of
-          Just (TaskId taskid) -> getTasks tz hub queryopts $ Parent taskid
+          Just (TaskId taskid) -> getTasks tz hub queryopts $ ChildrenOf taskid
           Nothing -> return []
     _ -> do
       query <- setupQuery
@@ -249,7 +259,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
   where
     setupQuery = do
       case req of
-        Parent parent ->
+        ChildrenOf parent ->
           return $ ("parent", ValueInt parent) : commonParams
         _ -> do
           mdatestring <-

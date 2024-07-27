@@ -187,6 +187,7 @@ main =
     taskReqOpt =
       Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
       <|> Pattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Build tasks of matching pattern"
-      <|> Parent <$> optionLongWith auto "children" "TASKID" "Children tasks of parent"
+      <|> ChildrenOf <$> optionLongWith auto "children" "TASKID" "Children tasks of parent"
+      <|> ParentOf <$> optionLongWith auto "parent" "TASKID" "Parent of task"
       <|> argumentWith (maybeReader readTaskReq) "PACKAGE|TASKID"
       <|> pure TaskQuery
