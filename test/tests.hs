@@ -16,7 +16,7 @@ tests havedist =
     (["builds"],
      [["-L", "rust"]
      ,["-l", "3"]
-     ,["-L", "-p", "rpm-ostree*.fc37"]])
+     ,["-L", "-p", "rpm-ostree*.fc40"]])
   ,
     (["tasks"],
      [["-L"]
@@ -32,7 +32,7 @@ tests havedist =
     (["install", "-n", "-y"],
      [["podman", "-p", "podman"] ++ sysdist
      ,["-l", "coreutils"] ++ sysdist
-     ,["-l", "-R", "rpmlint-2.4.0-3.fc37"]
+     ,["-l", "-R", "rpmlint-2.5.0-5.fc40"]
      ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash", "-p", "bash"]
      ,["-H", "stream", "-d", "el9", "kernel", "-x", "kernel-devel*", "-x", "*-debug*"]
      ,["-l", "-H", "stream", "-d", "el9", "grep"]
@@ -49,7 +49,7 @@ tests havedist =
     )
   ]
   where
-    sysdist = if havedist then [] else ["-d", "fc37"]
+    sysdist = if havedist then [] else ["-d", "fc40"]
 
 main :: IO ()
 main = do

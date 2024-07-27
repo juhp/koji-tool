@@ -1,5 +1,20 @@
 # Version history of koji-tool
 
+## 1.2 (2024-07-27)
+- allow --unlimited results: useful for open tasks/builds
+- builds: also show owner
+- find: also support noarch
+- find: move --debug to debug arg
+- improve detailed output handling with Maybe Details for tasks and builds
+- improvements to log url logic
+- install: include noarch in getArchs to include noarch rpms
+- lookupArch first checks the label field then arch field
+- progress: use safe maximumMay of sizes
+- tasks: add --children and --parent of taskid
+- tasks: add --install option
+- tasks: also show create time and owner
+- tasks: in addition to buildlog size also print timestamp
+
 ## 1.1.1 (2023-10-20)
 - 'builds': reformat short build result to align better
 - 'install': detect ostree with "/sysroot/ostree" not rpm-ostree

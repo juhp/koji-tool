@@ -97,7 +97,7 @@ data ExistingStrategy = ExistingNoReinstall | ExistingSkip
 -- FIXME autodetect NVR, NV, etc
 -- FIXME support buildid
 -- FIXME specify tag or task
--- FIXME support --latest
+-- FIXME support --latest (last build)
 -- FIXME support enterprise builds
 -- FIXME --debuginfo
 -- FIXME --delete after installing
