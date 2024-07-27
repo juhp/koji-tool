@@ -27,7 +27,6 @@ tested-with:         GHC== 8.6.5
                      || == 9.4.8
                      || == 9.6.6
                      || == 9.8.2
-                     || == 9.10.1
 
 source-repository head
   type:                git
