@@ -63,7 +63,7 @@ data TaskResult =
   TaskResult {taskPackage :: Either String NVR,
               taskArch :: String,
               taskMethod :: String,
-              _taskState :: TaskState,
+              taskState :: TaskState,
               _mtaskParent :: Maybe Int,
               taskId :: Int,
               _taskCreateTime :: UTCTime,
@@ -145,7 +145,7 @@ tasksCmd mhub queryopts@QueryOpts{..} mdetails tail' hwinfo mgrep minstall taskr
         else do
         (putStrLn . compactTaskResult hub tz) task
         when (tail' || hwinfo || isJust mgrep) $
-          buildlogSize qDebug tail' hwinfo mgrep hub task
+          buildlogSize qDebug tz tail' hwinfo mgrep hub task
       whenJust minstall $ \installopts -> do
         putStrLn ""
         installCmd False qDebug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqName [show (taskId task)]
@@ -417,35 +417,37 @@ logFile RootLog = "root.log"
 logFile BuildLog = "build.log"
 logFile HWInfo = "hw_info.log"
 
-buildlogSize :: Bool -> Bool -> Bool -> Maybe String -> String -> TaskResult
-             -> IO ()
-buildlogSize _debug tail' hwinfo mgrep hub task = do
+buildlogSize :: Bool -> TimeZone -> Bool -> Bool -> Maybe String -> String
+             -> TaskResult -> IO ()
+buildlogSize _debug tz tail' hwinfo mgrep hub task = do
   murl <- findOutputURL hub task
   whenJust murl $ \ url -> do
     let buildlog = url +/+ logFile BuildLog
     exists <- httpExists' buildlog
     if exists
       then do
-      putStr $ buildlog ++ " "
-      msize <- httpFileSize' buildlog
-      case msize of
-        Nothing -> putChar '\n'
-        Just size -> do
-          fprintLn ("(" % commas % "kB)") (size `div` 1000)
-          -- FIXME check if short build.log ends with srpm
-          file <-
-            if hwinfo
+      putStr buildlog
+      (msize,mtime) <- httpFileSizeTime' buildlog
+      whenJust msize $ \size -> do
+        fprint (" (" % commas % "kB)") (size `div` 1000)
+        when (taskState task == TaskOpen) $
+          whenJust mtime $ \time ->
+          putStr $ " (" ++ compactZonedTime tz time ++ ")"
+        putChar '\n'
+        -- FIXME check if short build.log ends with srpm
+        file <-
+          if hwinfo
+          then do
+            putStr $ url +/+ logFile HWInfo
+            return HWInfo
+          else
+            -- for buildroot failure build.log could be ~3082 bytes
+            if size < 4000
             then do
-              putStrLn $ url +/+ logFile HWInfo
-              return HWInfo
-            else
-              -- for buildroot failure build.log could be ~3082 bytes
-              if size < 4000
-              then do
-                putStrLn $ url +/+ logFile RootLog
-                return RootLog
-              else return BuildLog
-          when (tail' || hwinfo || isJust mgrep) $ displayLog url file
+              putStr $ url +/+ logFile RootLog
+              return RootLog
+            else return BuildLog
+        when (tail' || hwinfo || isJust mgrep) $ displayLog url file
       else do
       let rootlog = url +/+ logFile RootLog
       whenM (httpExists' rootlog) $
