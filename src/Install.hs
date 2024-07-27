@@ -209,7 +209,9 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix se
                     "build" -> do
                       when debug $ mapM_ print taskinfo >> putStrLn ""
                       Koji.getTaskChildren huburl taskid True
-                    "buildArch" -> return [taskinfo]
+                    "buildArch" -> do
+                      when debug $ print taskinfo >> putStrLn ""
+                      return [taskinfo]
                     _ -> error' $ "unsupport method: " ++ method
   totalarchs <- getArchs archs
   let (archtid,archtask) =
