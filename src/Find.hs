@@ -40,7 +40,7 @@ findWords Tail = ["tail"]
 findWords NoTail = ["notail"]
 findWords Hwinfo = ["hwinfo"]
 findWords Debug = ["debug", "dbg"]
-findWords Arch = ["x86_64", "aarch64", "ppc64le", "s390x", "i686", "armv7hl"]
+findWords Arch = ["x86_64", "aarch64", "ppc64le", "s390x", "i686", "armv7hl", "noarch"]
 
 wordsList :: ([String] -> String) -> [String]
 wordsList f =
