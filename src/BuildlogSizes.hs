@@ -33,14 +33,15 @@ import Network.HTTP.Directory
 
 import SimpleCmdArgs
 
-import Common (commonBuildQueryOptions, getBuildState, lookupArch)
+import Common (commonBuildQueryOptions, getBuildState, Limit, lookupArch,
+               maybeLimit, defaultBuildsLimit)
 import Utils (buildlogUrlfromTaskId)
 
 -- FIXME split off arch suffix
 -- FIXME show build duration
 -- FIXME allow buildid
-buildlogSizesCmd :: String -> IO ()
-buildlogSizesCmd nvrpat = do
+buildlogSizesCmd :: Maybe Limit -> String -> IO ()
+buildlogSizesCmd mlimit nvrpat = do
   if all isDigit nvrpat -- taskid
     then buildlogSizes (read nvrpat)
     else do -- find builds
@@ -50,10 +51,11 @@ buildlogSizesCmd nvrpat = do
           else nvrpat
     results <- listBuilds fedoraKojiHub
                [("pattern", ValueString pat),
-                commonBuildQueryOptions (Just 5)]
+                commonBuildQueryOptions $
+                maybeLimit defaultBuildsLimit mlimit]
     if null results
       then if '*' `notElem` pat
-           then buildlogSizesCmd $ nvrpat ++ "*"
+           then buildlogSizesCmd mlimit $ nvrpat ++ "*"
            else putStrLn $ "no NVRs found for pattern: " ++ pat
       else mapM_ getResult results
   where

@@ -5,7 +5,12 @@ module Common (
   commonBuildQueryOptions,
   webUrl,
   getBuildState,
-  lookupArch
+  lookupArch,
+  Limit(..),
+  maybeLimit,
+  Natural,
+  defaultBuildsLimit,
+  defaultTasksLimit
   )
 where
 
@@ -13,6 +18,7 @@ import Control.Applicative ((<|>))
 import Data.List.Extra (dropSuffix, isPrefixOf)
 import Distribution.Koji (fedoraKojiHub, Value(..), Struct, BuildState,
                           lookupStruct, readBuildState)
+import Numeric.Natural (Natural)
 import SimpleCmd (error')
 
 -- mbox kojihub is locked
@@ -34,7 +40,7 @@ hubURL hub =
 commonQueryOptions :: Maybe Int -> String -> [(String, Value)]
 commonQueryOptions mlimit order =
   [("limit",ValueInt limit) | Just limit <- [mlimit]] ++
-  [ ("order",ValueString order)]
+  [("order",ValueString order)]
 
 commonBuildQueryOptions :: Maybe Int -> (String, Value)
 commonBuildQueryOptions mlimit =
@@ -50,3 +56,15 @@ getBuildState st = readBuildState <$> lookup "state" st
 -- see also https://pagure.io/koji/issue/4098
 lookupArch :: Struct -> Maybe String
 lookupArch st = lookupStruct "label" st <|> lookupStruct "arch" st
+
+data Limit =
+  Nolimit | Limit Natural
+
+maybeLimit :: Natural -> Maybe Limit -> Maybe Int
+maybeLimit l Nothing = Just (fromEnum l)
+maybeLimit _ (Just Nolimit) = Nothing
+maybeLimit _ (Just (Limit l)) = Just (fromEnum l)
+
+defaultBuildsLimit, defaultTasksLimit :: Natural
+defaultBuildsLimit = 5
+defaultTasksLimit = 20

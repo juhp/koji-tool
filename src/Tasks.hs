@@ -74,7 +74,7 @@ data TaskResult =
 
 data QueryOpts = QueryOpts {
   qmUserOpt :: Maybe UserOpt,
-  qLimit :: Maybe Int,
+  qLimit :: Maybe Limit,
   qStates :: ![TaskState],
   qArchs :: ![String],
   qmDate :: Maybe BeforeAfter,
@@ -221,7 +221,8 @@ getTasks tz hub queryopts@QueryOpts {..} req =
         Just pkgid -> do
           builds <- listBuilds hub
                     [("packageID", ValueInt pkgid),
-                     commonBuildQueryOptions qLimit]
+                     commonBuildQueryOptions $
+                     maybeLimit defaultBuildsLimit qLimit]
           fmap concat <$>
             forM builds $ \bld -> do
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
@@ -240,7 +241,8 @@ getTasks tz hub queryopts@QueryOpts {..} req =
             Just tid -> getTasks tz hub queryopts {qLimit = Nothing} $ Task tid
     Pattern pat -> do
       let buildquery = [("pattern", ValueString pat),
-                        commonBuildQueryOptions qLimit]
+                        commonBuildQueryOptions $
+                        maybeLimit defaultBuildsLimit qLimit]
       when qDebug $ print buildquery
       builds <- listBuilds hub buildquery
       when qDebug $ print builds
@@ -252,7 +254,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
           Nothing -> return []
     _ -> do
       query <- setupQuery
-      let qopts = commonQueryOptions qLimit "-id"
+      let qopts = commonQueryOptions (maybeLimit defaultTasksLimit qLimit) "-id"
       when qDebug $ print $ query ++ qopts
       listTasks hub query qopts
   where

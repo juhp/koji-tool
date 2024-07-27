@@ -11,6 +11,7 @@ import SimpleCmdArgs
 
 import Builds
 import BuildlogSizes
+import Common (Limit(..), Natural, defaultBuildsLimit, defaultTasksLimit)
 import User
 import Install
 import qualified Paths_koji_tool
@@ -29,9 +30,7 @@ main =
       buildsCmd
       <$> hubOpt
       <*> optional (userOpt False)
-      <*> (flagWith' (Just 1) 'L' "latest" "Latest build" <|>
-           flagWith' Nothing 'U' "unlimited" "No limit on number of results" <|>
-           Just <$> optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 20]" 20)
+      <*> optional (limitOpt "build" defaultBuildsLimit)
       <*> many (parseBuildState' <$> strOptionWith 's' "state" "STATE" "Filter builds by state (building,complete,deleted,fail(ed),cancel(ed)")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
@@ -99,7 +98,9 @@ main =
       <*> taskReqOpt
 
     , Subcommand "buildlog-sizes" "Show buildlog sizes for nvr patterns" $
-      buildlogSizesCmd <$> strArg "NVRPATTERN|PKG|TASKID"
+      buildlogSizesCmd
+      <$> optional (limitOpt "build" defaultBuildsLimit)
+      <*> strArg "NVRPATTERN|PKG|TASKID"
 
     , Subcommand "find"
       ("Simple quick common queries using words like: [" ++
@@ -174,9 +175,7 @@ main =
     queryOpts mine defaultMethod =
       QueryOpts
       <$> optional (userOpt mine)
-      <*> (flagWith' (Just 1) 'L' "latest" "Latest build or task" <|>
-           flagWith' Nothing 'U' "unlimited" "No limit on number of results" <|>
-           Just <$> optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 20]" 20)
+      <*> optional (limitOpt "build/task" defaultTasksLimit)
       <*> many (fmap parseTaskState' $! strOptionWith 's' "state" "STATE" "Filter tasks by state (open,close(d),cancel(ed),fail(ed),assigned,free)")
       <*> many archOpt
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>
@@ -193,3 +192,9 @@ main =
       <|> ParentOf <$> optionLongWith auto "parent" "TASKID" "Parent of task"
       <|> argumentWith (maybeReader readTaskReq) "PACKAGE|TASKID"
       <|> pure TaskQuery
+
+    limitOpt :: String -> Natural -> Parser Limit
+    limitOpt tgt dflt =
+      flagWith' (Limit 1) 'L' "latest" ("Latest" +-+ tgt) <|>
+      flagWith' Nolimit 'U' "unlimited" "No limit on number of results" <|>
+      Limit <$> optionWith auto 'l' "limit" "INT" ("Maximum number of" +-+ tgt ++ "s to show [default:" +-+ show dflt ++ "]")

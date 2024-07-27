@@ -17,17 +17,18 @@ import Distribution.Koji
 import SimpleCmd (error', (+-+))
 
 import qualified Builds
+import Common (Limit(Limit))
 import Install (Select(PkgsReq))
 import qualified Tasks
 import User ( UserOpt(User, UserSelf) )
 
-data Words = Mine | Limit | Failure | Complete | Current | Build | Detail
+data Words = Mine | Last | Failure | Complete | Current | Build | Detail
            | Install | Tail | NoTail | Hwinfo | Arch | Debug
   deriving (Enum,Bounded)
 
 findWords :: Words -> [String]
 findWords Mine = ["my","mine"]
-findWords Limit = ["last","latest"]
+findWords Last = ["last","latest"]
 findWords Failure = ["fail","failure","failed"]
 findWords Complete = ["complete","completed","completion",
                        "close","closed",
@@ -66,7 +67,7 @@ findCmd mhub args = do
                             unwords more
       archs = if hasWord Arch
               then filter (`elem` findWords Arch) args else []
-      defaultlimit = Just $ if hasWord Limit then 1 else 10
+      defaultlimit = Limit $ if hasWord Last then 1 else 10
       failure = hasWord Failure
       complete = hasWord Complete
       current = hasWord Current
@@ -83,7 +84,7 @@ findCmd mhub args = do
           (num:pkgs) | all isDigit num  && length pkgs < 2 ->
                        let number = read num
                        in if number < 1000
-                       then (Just number, listToMaybe pkgs)
+                       then (Limit number, listToMaybe pkgs)
                        else error' $ "is" +-+ num +-+
                           "an id? Use 'tasks' command for very large limits"
           -- FIXME allow pattern?
@@ -101,12 +102,12 @@ findCmd mhub args = do
                  [BuildBuilding|current]
         buildreq = maybe Builds.BuildQuery Builds.BuildPackage mpkg
         detailed = if detail then Just Builds.Detailed else Nothing
-    in Builds.buildsCmd mhub user limit states Nothing (Just "rpm") detailed installation debug buildreq
+    in Builds.buildsCmd mhub user (Just limit) states Nothing (Just "rpm") detailed installation debug buildreq
     else
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub (Tasks.QueryOpts user limit states archs Nothing Nothing debug Nothing) (if detail then Just Tasks.Detailed else Nothing) ((tail' || failure) && not notail) hwinfo Nothing installation taskreq
+    in Tasks.tasksCmd mhub (Tasks.QueryOpts user (Just limit) states archs Nothing Nothing debug Nothing) (if detail then Just Tasks.Detailed else Nothing) ((tail' || failure) && not notail) hwinfo Nothing installation taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args
