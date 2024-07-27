@@ -48,10 +48,10 @@ capitalize (h:t) = toUpper h : t
 data Details = Detailed | DetailedTasks
   deriving Eq
 
-buildsCmd :: Maybe String -> Maybe UserOpt -> Int -> [BuildState]
+buildsCmd :: Maybe String -> Maybe UserOpt -> Maybe Int -> [BuildState]
           -> Maybe Tasks.BeforeAfter -> Maybe String -> Maybe Details
           -> Maybe Select -> Bool -> BuildReq -> IO ()
-buildsCmd mhub museropt limit !states mdate mtype mdetails minstall debug buildreq = do
+buildsCmd mhub museropt mlimit !states mdate mtype mdetails minstall debug buildreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -75,7 +75,7 @@ buildsCmd mhub museropt limit !states mdate mtype mdetails minstall debug buildr
         Just pkgid -> do
           query <- setupQuery
           let fullquery = [("packageID", ValueInt pkgid),
-                          commonBuildQueryOptions limit] ++ query
+                          commonBuildQueryOptions mlimit] ++ query
           when debug $ print fullquery
           builds <- listBuilds hub fullquery
           when debug $ mapM_ pPrintCompact builds
@@ -84,7 +84,7 @@ buildsCmd mhub museropt limit !states mdate mtype mdetails minstall debug buildr
             else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
       query <- setupQuery
-      let fullquery = query ++ [commonBuildQueryOptions limit]
+      let fullquery = query ++ [commonBuildQueryOptions mlimit]
       when debug $ print fullquery
       builds <- listBuilds hub fullquery
       when debug $ mapM_ pPrintCompact builds
@@ -185,7 +185,7 @@ printBuild hub tz mdetails debug minstall build = do
   whenJust (mbuildTaskId build) $ \taskid -> do
     when (mdetails == Just DetailedTasks) $ do
       putStrLn ""
-      Tasks.tasksCmd (Just hub) (Tasks.QueryOpts Nothing 7 [] [] Nothing Nothing False Nothing) Nothing False False Nothing minstall (Tasks.ChildrenOf taskid)
+      Tasks.tasksCmd (Just hub) (Tasks.QueryOpts Nothing (Just 7) [] [] Nothing Nothing False Nothing) Nothing False False Nothing minstall (Tasks.ChildrenOf taskid)
     whenJust minstall $ \installopts -> do
       putStrLn ""
       installCmd False debug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqNVR [showNVR (buildNVR build)]

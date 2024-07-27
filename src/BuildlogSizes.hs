@@ -50,7 +50,7 @@ buildlogSizesCmd nvrpat = do
           else nvrpat
     results <- listBuilds fedoraKojiHub
                [("pattern", ValueString pat),
-                commonBuildQueryOptions 5]
+                commonBuildQueryOptions (Just 5)]
     if null results
       then if '*' `notElem` pat
            then buildlogSizesCmd $ nvrpat ++ "*"

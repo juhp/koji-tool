@@ -29,8 +29,9 @@ main =
       buildsCmd
       <$> hubOpt
       <*> optional (userOpt False)
-      <*> (flagWith' 1 'L' "latest" "Latest build" <|>
-           optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 10]" 10)
+      <*> (flagWith' (Just 1) 'L' "latest" "Latest build" <|>
+           flagWith' Nothing 'U' "unlimited" "No limit on number of results" <|>
+           Just <$> optionalWith auto 'l' "limit" "INT" "Maximum number of builds to show [default: 20]" 20)
       <*> many (parseBuildState' <$> strOptionWith 's' "state" "STATE" "Filter builds by state (building,complete,deleted,fail(ed),cancel(ed)")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
@@ -173,8 +174,9 @@ main =
     queryOpts mine defaultMethod =
       QueryOpts
       <$> optional (userOpt mine)
-      <*> (flagWith' 1 'L' "latest" "Latest build or task" <|>
-           optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 10]" 10)
+      <*> (flagWith' (Just 1) 'L' "latest" "Latest build or task" <|>
+           flagWith' Nothing 'U' "unlimited" "No limit on number of results" <|>
+           Just <$> optionalWith auto 'l' "limit" "INT" "Maximum number of tasks to show [default: 20]" 20)
       <*> many (fmap parseTaskState' $! strOptionWith 's' "state" "STATE" "Filter tasks by state (open,close(d),cancel(ed),fail(ed),assigned,free)")
       <*> many archOpt
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Tasks completed before timedate [default: now]" <|>

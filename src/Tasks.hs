@@ -74,7 +74,7 @@ data TaskResult =
 
 data QueryOpts = QueryOpts {
   qmUserOpt :: Maybe UserOpt,
-  qLimit :: Int,
+  qLimit :: Maybe Int,
   qStates :: ![TaskState],
   qArchs :: ![String],
   qmDate :: Maybe BeforeAfter,

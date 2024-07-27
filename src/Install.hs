@@ -431,8 +431,8 @@ kojiBuildOSBuilds debug hub listmode latest disttag request pkgpat = do
                   then id
                   else (("pattern", ValueString (if full then pkgpat else dropSuffix "*" pkgpat ++ "*" ++ disttag ++ "*")) :))
                  [("packageID", ValueInt pkgid),
-                  commonBuildQueryOptions
-                  (if listmode && not latest || oldkoji then 20 else 1)]
+                  commonBuildQueryOptions $
+                  Just (if listmode && not latest || oldkoji then 20 else 1)]
       when debug $ print opts
       nvrs <- mapMaybe (lookupStruct "nvr") <$> Koji.listBuilds hub opts
       if null nvrs

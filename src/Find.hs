@@ -10,6 +10,7 @@ where
 
 import Data.Char ( isDigit, isAsciiLower, isAsciiUpper )
 import Data.List.Extra ((\\), dropSuffix, isSuffixOf)
+import Data.Maybe (listToMaybe)
 import Distribution.Koji
     ( BuildState(BuildBuilding, BuildFailed, BuildComplete),
       TaskState(TaskOpen, TaskFailed, TaskClosed) )
@@ -65,7 +66,7 @@ findCmd mhub args = do
                             unwords more
       archs = if hasWord Arch
               then filter (`elem` findWords Arch) args else []
-      defaultlimit = if hasWord Limit then 1 else 10
+      defaultlimit = Just $ if hasWord Limit then 1 else 10
       failure = hasWord Failure
       complete = hasWord Complete
       current = hasWord Current
@@ -79,12 +80,12 @@ findCmd mhub args = do
       (limit,mpkg) =
         case removeUsers (args \\ allWords) of
           [] -> (defaultlimit, Nothing)
-          [num] | all isDigit num && not (hasWord Limit) ->
-                  let number = read num
-                  in if number < 1000
-                     then (number, Nothing)
-                     else error' $ "is" +-+ num +-+
-                          "an id? Use 'tasks' for very large limits"
+          (num:pkgs) | all isDigit num  && length pkgs < 2 ->
+                       let number = read num
+                       in if number < 1000
+                       then (Just number, listToMaybe pkgs)
+                       else error' $ "is" +-+ num +-+
+                          "an id? Use 'tasks' command for very large limits"
           -- FIXME allow pattern?
           [pkg] | all isPkgNameChar pkg -> (defaultlimit, Just pkg)
           other ->

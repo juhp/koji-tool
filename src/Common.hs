@@ -31,14 +31,14 @@ hubURL hub =
   then hub
   else error' $ "unknown hub: try " ++ show knownHubs
 
-commonQueryOptions :: Int -> String -> [(String, Value)]
-commonQueryOptions limit order =
-  [("limit",ValueInt limit),
-   ("order",ValueString order)]
+commonQueryOptions :: Maybe Int -> String -> [(String, Value)]
+commonQueryOptions mlimit order =
+  [("limit",ValueInt limit) | Just limit <- [mlimit]] ++
+  [ ("order",ValueString order)]
 
-commonBuildQueryOptions :: Int -> (String, Value)
-commonBuildQueryOptions limit =
-  ("queryOpts", ValueStruct (commonQueryOptions limit "-build_id"))
+commonBuildQueryOptions :: Maybe Int -> (String, Value)
+commonBuildQueryOptions mlimit =
+  ("queryOpts", ValueStruct (commonQueryOptions mlimit "-build_id"))
 
 webUrl :: String -> String
 webUrl = dropSuffix "hub"
