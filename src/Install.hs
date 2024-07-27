@@ -270,7 +270,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix se
 getArchs :: [String] -> IO [String]
 getArchs archs =
   case archs of
-    [] -> cmdLines "rpm" ["--eval", "%{_arch}"]
+    [] -> ("noarch" :) <$> cmdLines "rpm" ["--eval", "%{_arch}"]
     ars -> return ars
 
 data Existence = ExistingNVR | ChangedNVR | NotInstalled
