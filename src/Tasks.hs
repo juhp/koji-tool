@@ -91,7 +91,6 @@ data Details = Detailed | Concise
 -- FIXME --tail-size option (eg more that 4000B)
 -- FIXME --output-fields
 -- FIXME default to 'build' for install or try 'build' after 'buildarch'?
--- FIXME parent tasks need not have limit
 -- FIXME `-# 2` etc to select second result
 tasksCmd :: Maybe String -> QueryOpts -> Maybe Details -> Bool -> Bool
          -> Maybe String -> Maybe Select -> TaskReq -> IO ()
@@ -228,7 +227,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
             let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
             case mtaskid of
               -- FIXME gives too many tasks (parent builds):
-              Just (TaskId taskid) -> getTasks tz hub queryopts $ ChildrenOf taskid
+              Just (TaskId taskid) -> getTasks tz hub queryopts {qLimit = Nothing} $ ChildrenOf taskid
               Nothing -> return []
     ParentOf taskid -> do
       mtask <- kojiGetTaskInfo hub (TaskId taskid)
@@ -238,7 +237,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
           when qDebug $ pPrintCompact task
           case lookupStruct "parent" task of
             Nothing -> error' $ "no parent of" +-+ show taskid
-            Just tid -> getTasks tz hub queryopts $ Task tid
+            Just tid -> getTasks tz hub queryopts {qLimit = Nothing} $ Task tid
     Pattern pat -> do
       let buildquery = [("pattern", ValueString pat),
                         commonBuildQueryOptions qLimit]
@@ -249,7 +248,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
         forM builds $ \bld -> do
         let mtaskid = (fmap TaskId . lookupStruct "task_id") bld
         case mtaskid of
-          Just (TaskId taskid) -> getTasks tz hub queryopts $ ChildrenOf taskid
+          Just (TaskId taskid) -> getTasks tz hub (queryopts {qLimit = Nothing}) $ ChildrenOf taskid
           Nothing -> return []
     _ -> do
       query <- setupQuery

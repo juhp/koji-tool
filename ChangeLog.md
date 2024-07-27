@@ -14,6 +14,7 @@
 - tasks: add --install option
 - tasks: also show create time and owner
 - tasks: in addition to buildlog size also print timestamp
+- tasks: ignore subtask limit for Package, ParentOf, ChildrenOf
 
 ## 1.1.1 (2023-10-20)
 - 'builds': reformat short build result to align better
