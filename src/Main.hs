@@ -6,6 +6,7 @@ module Main (main) where
 
 import Data.Char (isDigit)
 import Data.List.Extra
+import SelectRPMs (selectRpmsOption)
 import SimpleCmd
 import SimpleCmdArgs
 
@@ -84,7 +85,7 @@ main =
       <*> many archOpt
       <*> optional existingOpt
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
-      <*> selectOpt
+      <*> selectRpmsOption
       <*> optional disttagOpt
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name" <|>
            flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
@@ -119,16 +120,6 @@ main =
     userOpt mine =
       User <$> strOptionWith 'u' "user" "USER" "Koji user"
       <|> if mine then pure UserSelf else flagWith' UserSelf 'M' "mine" "Your tasks (krb fasid)"
-
-    selectOpt :: Parser Select
-    selectOpt =
-      flagLongWith' All "all" "all subpackages [default if not installed]" <|>
-      flagLongWith' Ask "ask" "ask for each subpackage" <|>
-      PkgsReq
-      <$> many (strOptionWith 'p' "package" "SUBPKG" "select subpackage (glob) matches")
-      <*> many (strOptionWith 'e' "except" "SUBPKG" "select subpackages not matching (glob)")
-      <*> many (strOptionWith 'x' "exclude" "SUBPKG" "deselect subpackage (glob): overrides -p and -e")
-      <*> many (strOptionWith 'i' "include" "SUBPKG" "additional subpackage (glob) to install: overrides -x")
 
     disttagOpt :: Parser String
     disttagOpt = startingDot <$>
