@@ -23,6 +23,7 @@ import Data.Time.Clock
 import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
+import Safe (headMay)
 import SimpleCmd
 import Text.Pretty.Simple
 
@@ -65,7 +66,7 @@ buildsCmd mhub museropt mlimit !states mdate mtype mdetails minstall debug build
       mbld <- getBuild hub bldinfo
       whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz mdetails debug minstall
     BuildPackage pkg -> do
-      when (head pkg == '-') $
+      when (headMay pkg == Just '-') $
         error' $ "bad combination: not a package: " ++ pkg
       when (isJust mdate) $
         error' "cannot use --package together with timedate"

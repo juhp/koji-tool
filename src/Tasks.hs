@@ -33,6 +33,7 @@ import Distribution.Koji.API
 import Formatting hiding (now)
 import Network.HTTP.Directory
 import Network.HTTP.Simple
+import Safe (headMay, lastMay)
 import SimpleCmd
 import System.FilePath
 import Text.Pretty.Simple
@@ -210,7 +211,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
         Just (TaskId taskid) -> getTasks tz hub queryopts $ ChildrenOf taskid
         Nothing -> error' $ "no taskid found for build" +-+ bld
     Package pkg -> do
-      when (head pkg == '-') $
+      when (headMay pkg == Just '-') $
         error' $ "bad combination: not a package" +-+ pkg
       when (isJust qmDate || isJust qmFilter) $
         -- FIXME why not?
@@ -477,7 +478,7 @@ buildlogSize _debug tz tail' hwinfo mgrep hub task = do
               in
                 map (dropPrefix "DEBUG ") $ takeEnd 30 $
                 filter (\l -> not (any (`isInfixOf` l) excluded)) ls
-            | last ls == "Child return code was: 0" = ls
+            | lastMay ls == Just "Child return code was: 0" = ls
             | otherwise =
                 case breakOnEnd ["Child return code was: 1"] ls of
                   ([],ls') -> ls'
@@ -493,11 +494,11 @@ buildlogSize _debug tz tail' hwinfo mgrep hub task = do
         match "" _ = error' "empty grep string not allowed"
         match _ "" = False
         match ('^':needle) ls =
-          if last needle == '$'
+          if lastMay needle == Just '$'
           then needle == ls
           else needle `isPrefixOf` ls
         match needle ls =
-          if last needle == '$'
+          if lastMay needle == Just '$'
           then needle `isSuffixOf` ls
           else needle `isInfixOf` ls
 
