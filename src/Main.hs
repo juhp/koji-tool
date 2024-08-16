@@ -105,7 +105,7 @@ main =
 
     , Subcommand "find"
       ("Simple quick common queries using words like: [" ++
-       intercalate ", " (wordsList head) ++ "]") $
+       intercalate ", " wordsListHeads ++ "]") $
       findCmd
       <$> hubOpt
       <*> many (strArg "PHRASE")

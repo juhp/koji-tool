@@ -4,16 +4,17 @@
 
 module Find (
   findCmd,
-  wordsList
+  wordsListHeads
   )
 where
 
 import Data.Char ( isDigit, isAsciiLower, isAsciiUpper )
 import Data.List.Extra ((\\), dropSuffix, isSuffixOf)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, mapMaybe)
 import Distribution.Koji
-    ( BuildState(BuildBuilding, BuildFailed, BuildComplete),
-      TaskState(TaskOpen, TaskFailed, TaskClosed) )
+       (BuildState(BuildBuilding, BuildFailed, BuildComplete),
+        TaskState(TaskOpen, TaskFailed, TaskClosed))
+import Safe (headMay)
 import SimpleCmd (error', (+-+))
 
 import qualified Builds
@@ -43,9 +44,14 @@ findWords Hwinfo = ["hwinfo"]
 findWords Debug = ["debug", "dbg"]
 findWords Arch = ["x86_64", "aarch64", "ppc64le", "s390x", "i686", "armv7hl", "noarch"]
 
-wordsList :: ([String] -> String) -> [String]
-wordsList f =
-  map (f . findWords) [minBound..] ++ ["PACKAGE","USER\\'s","LIMIT"]
+wordsListHeads :: [String]
+wordsListHeads =
+  mapMaybe (headMay . findWords) [minBound..] ++ ["PACKAGE","USER\\'s","LIMIT"]
+
+wordsListAll :: [String]
+wordsListAll =
+  map (unwords . findWords) [minBound..] ++ ["PACKAGE","USER\\'s","LIMIT"]
+
 
 allWords :: [String]
 allWords = concatMap findWords [minBound..]
@@ -56,7 +62,7 @@ allWords = concatMap findWords [minBound..]
 -- FIXME: separate last and latest?
 findCmd :: Maybe String -> [String] -> IO ()
 findCmd _ [] = error' $ "find handles these words:\n\n" ++
-                  unlines (wordsList unwords)
+                  unlines wordsListAll
 findCmd mhub args = do
   let user = if hasWord Mine
              then Just UserSelf
