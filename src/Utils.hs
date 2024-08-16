@@ -10,8 +10,8 @@ module Utils (
   )
 where
 
-import Data.List.Extra (dropSuffix, isInfixOf, isPrefixOf, isSuffixOf, replace,
-                        takeEnd, takeWhileEnd)
+import Data.List.Extra (dropPrefix, dropSuffix, isInfixOf, isPrefixOf,
+                        isSuffixOf, replace, takeEnd, takeWhileEnd)
 import Data.RPM (dropArch)
 import Data.RPM.NVR
 import Data.RPM.NVRA
@@ -38,7 +38,7 @@ kojiTaskRequestNVR task =
                    Left $
                    -- fedora-ci_fc87dcd7db694cdfac703cf5af128a72_c1f53c859616fdbf40811058b60bebe2930e3271_0;forks:petersen:rpms:grub2.f38.src.rpm
                    if "fedora-ci_" `isPrefixOf` base
-                   then takeWhileEnd (/= ':') $ tail $ dropWhile (/= ';') base
+                   then takeWhileEnd (/= ':') $ dropPrefix ";" $ dropWhile (/= ';') base
                    else base
     _ -> error' "could determine package from build request"
 
