@@ -213,7 +213,7 @@ kojiBuildOSBuilds :: Bool -> String -> Bool -> Bool -> String -> Request
 kojiBuildOSBuilds debug hub listmode latest disttag request pkgpat = do
   when debug $ putStrLn pkgpat
   let (pkg,full) = packageOfPattern request pkgpat
-      -- FIXME recheck koji version
+      -- rpmfusion koji still doesn't support patterns (2024-09-20)
       oldkoji = "rpmfusion" `isInfixOf` hub
   when debug $ print (pkg,full)
   when debug $ putStrLn pkg

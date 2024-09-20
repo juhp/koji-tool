@@ -119,14 +119,20 @@ buildsCmd mhub museropt mlimit !states mdate mtype mdetails minstall debug build
       whenJust mdatestring $ \date ->
         putStrLn $ maybe "" show mdate +-+ date
       mowner <- maybeGetKojiUser hub museropt
+      pat <-
+        case buildreq of
+          BuildPattern pat -> do
+            -- rpmfusion koji still doesn't support patterns (2024-09-20)
+            when ("rpmfusion" `isInfixOf` hub) $
+              error' "cannot use pattern with this kojihub"
+            return [("pattern", ValueString pat)]
+          _ -> return []
       return $
         [("complete" ++ (capitalize . show) date, ValueString datestring) | Just date <- [mdate], Just datestring <- [mdatestring]]
         ++ [("userID", ValueInt (getID owner)) | Just owner <- [mowner]]
         ++ [("state", ValueArray (map buildStateToValue states)) | notNull states]
         ++ [("type", ValueString typ) | Just typ <- [mtype]]
-        ++ case buildreq of
-             BuildPattern pat -> [("pattern", ValueString pat)]
-             _ -> []
+        ++ pat
 
     dateString :: Tasks.BeforeAfter -> String
     -- make time refer to past not future

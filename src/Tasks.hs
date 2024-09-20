@@ -245,6 +245,9 @@ getTasks tz hub queryopts@QueryOpts {..} req =
                         commonBuildQueryOptions $
                         maybeLimit defaultBuildsLimit qLimit]
       when qDebug $ print buildquery
+      -- rpmfusion koji still doesn't support patterns (2024-09-20)
+      when ("rpmfusion" `isInfixOf` hub) $
+        error' "cannot use pattern with this kojihub"
       builds <- listBuilds hub buildquery
       when qDebug $ print builds
       fmap concat <$>

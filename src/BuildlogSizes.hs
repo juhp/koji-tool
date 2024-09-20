@@ -40,6 +40,7 @@ import Utils (buildlogUrlfromTaskId)
 -- FIXME split off arch suffix
 -- FIXME show build duration
 -- FIXME allow buildid
+-- FIXME only supports Fedora koji
 buildlogSizesCmd :: Maybe Limit -> String -> IO ()
 buildlogSizesCmd mlimit nvrpat = do
   if all isDigit nvrpat -- taskid
