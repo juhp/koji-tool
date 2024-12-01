@@ -6,7 +6,7 @@ module Main (main) where
 
 import Data.Char (isDigit)
 import Data.List.Extra
-import SelectRPMs (selectRpmsOption)
+import SelectRPMs (existingStrategyOption, selectRpmsOptions)
 import SimpleCmd
 import SimpleCmdArgs
 
@@ -83,9 +83,9 @@ main =
       <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
       <*> optional pkgMgrOpt
       <*> many archOpt
-      <*> optional existingOpt
+      <*> optional existingStrategyOption
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
-      <*> selectRpmsOption
+      <*> selectRpmsOptions
       <*> optional disttagOpt
       <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name" <|>
            flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
@@ -153,11 +153,6 @@ main =
       flagLongWith' OSTREE "rpm-ostree" "Use rpm-ostree instead of dnf" <|>
       flagLongWith' DNF5 "dnf5" "Use dnf5 to install" <|>
       flagLongWith' DNF3 "dnf3" "Use dnf-3 to install [default dnf unless ostree]"
-
-    existingOpt :: Parser ExistingStrategy
-    existingOpt =
-      flagWith' ExistingNoReinstall 'N' "no-reinstall" "Do not reinstall existing NVRs" <|>
-      flagWith' ExistingSkip 'S' "skip-existing" "Ignore already installed subpackages (implies --no-reinstall)"
 
     -- FIXME check valid arch (eg i686 not i386)
     archOpt = strOptionWith 'a' "arch" "ARCH" "Task arch"
