@@ -284,17 +284,12 @@ getTasks tz hub queryopts@QueryOpts {..} req =
           commonParams =
             [("decode", ValueBool True)]
             ++ [("state", ValueArray (map taskStateToValue qStates)) | notNull qStates]
-            ++ [("arch", ValueArray (map (ValueString . kojiArch) qArchs)) | notNull qArchs]
+            ++ [("arch", ValueArray (map (ValueString . kojiTaskArch) qArchs)) | notNull qArchs]
             ++ [("method", ValueString method) | let method = fromMaybe defaultTaskMethod qmMethod]
 
           capitalize :: String -> String
           capitalize "" = ""
           capitalize (h:t) = toUpper h : t
-
-          kojiArch :: String -> String
-          kojiArch "i686" = "i386"
-          kojiArch "armv7hl" = "armhfp"
-          kojiArch a = a
 
           dateString :: BeforeAfter -> String
           -- make time refer to past not future

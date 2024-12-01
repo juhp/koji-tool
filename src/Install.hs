@@ -149,7 +149,7 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix se
                       when debug $ print taskinfo >> putStrLn ""
                       return [taskinfo]
                     _ -> error' $ "unsupport method: " ++ method
-  totalarchs <- getArchs archs
+  totalarchs <- map kojiTaskArch <$> getArchs archs
   let (archtid,archtask) =
         case find (selectBuildArch totalarchs) tasks of
           Nothing -> error' $ "no task found for" +-+ unwords totalarchs

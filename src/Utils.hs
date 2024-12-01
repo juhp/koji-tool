@@ -2,6 +2,7 @@ module Utils (
   kojiTaskRequestNVR,
   kojiGetBuildID',
   kojiGetBuild',
+  kojiTaskArch,
   showValue,
   buildOutputURL,
   hubToPkgsURL,
@@ -94,3 +95,8 @@ worktaskDirUrlfromTaskID tid =
     lastFew =
       let few = dropWhile (== '0') $ takeEnd 4 taskid in
         if null few then "0" else few
+
+kojiTaskArch :: String -> String
+kojiTaskArch "i686" = "i386"
+kojiTaskArch "armv7hl" = "armhfp"
+kojiTaskArch a = a
