@@ -55,7 +55,6 @@ main =
       <*> optional
       (flagWith' Tasks.Detailed 'd' "details" "Show more task details" <|>
        flagWith' Tasks.Concise 'c' "concise" "Compact task output")
-      -- FIXME error if integer (eg mistakenly taskid)
       <*> tailOpt
       <*> (flagLongWith' HWInfo "hw-info" "Fetch hw_info.log" <|>
            flagLongWith BuildLog RootLog "rootlog" "Fetch root.log")
@@ -175,6 +174,7 @@ main =
       <*> optional (TaskPackage <$> strOptionWith 'P' "only-package" "PKG" "Filter task results to specified package"
                    <|> TaskNVR <$> strOptionWith 'N' "only-nvr" "PREFIX" "Filter task results by NVR prefix")
 
+    -- FIXME error if integer (eg mistakenly taskid) instead of string
     taskReqOpt =
       Build <$> strOptionWith 'b' "build" "BUILD" "List child tasks of build"
       <|> Pattern <$> strOptionWith 'p' "pattern" "NVRPAT" "Build tasks of matching pattern"
