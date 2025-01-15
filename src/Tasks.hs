@@ -7,6 +7,7 @@ module Tasks (
   TaskReq(..),
   BeforeAfter(..),
   QueryOpts(..),
+  emptyQueryOpts,
   Details(..),
   LogFile(..),
   tasksCmd,
@@ -83,6 +84,10 @@ data QueryOpts = QueryOpts {
   qmMethod :: Maybe String,
   qDebug :: Bool,
   qmFilter :: Maybe TaskFilter}
+
+emptyQueryOpts :: QueryOpts
+emptyQueryOpts =
+  QueryOpts Nothing Nothing [] [] Nothing Nothing False Nothing
 
 data Details = Detailed | Concise
   deriving Eq

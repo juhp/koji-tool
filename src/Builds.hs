@@ -195,7 +195,7 @@ printBuild hub tz mdetails debug minstall build = do
   whenJust (mbuildTaskId build) $ \taskid -> do
     when (mdetails == Just DetailedTasks) $ do
       putStrLn ""
-      Tasks.tasksCmd (Just hub) (Tasks.QueryOpts Nothing Nothing [] [] Nothing Nothing False Nothing) Nothing False Tasks.BuildLog Nothing minstall (Tasks.ChildrenOf taskid)
+      Tasks.tasksCmd (Just hub) Tasks.emptyQueryOpts Nothing False Tasks.BuildLog Nothing minstall (Tasks.ChildrenOf taskid)
     whenJust minstall $ \installopts -> do
       putStrLn ""
       installCmd False debug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqNVR [showNVR (buildNVR build)]
