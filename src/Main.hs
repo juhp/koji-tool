@@ -90,9 +90,10 @@ main =
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")
       <*> selectRpmsOptions
       <*> optional disttagOpt
-      <*> (flagWith' ReqNVR 'R' "nvr" "Give an N-V-R instead of package name" <|>
-           flagWith ReqName ReqNV 'V' "nv" "Give an N-V instead of package name")
-      <*> some (strArg "PKG|NVR|TASKID...")
+      <*> (flagLongWith' (Left ()) "tagged" "Give a tag instead of package name" <|>
+           flagWith' (Right ReqNVR) 'R' "nvr" "Give an N-V-R instead of package name" <|>
+           flagWith (Right ReqName) (Right ReqNV) 'V' "nv" "Give an N-V instead of (default) package name")
+      <*> some (strArg "PKG|NVR|TASKID|TAG...")
 
     , Subcommand "progress"
       "Track running Koji tasks by buildlog size" $

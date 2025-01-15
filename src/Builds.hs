@@ -202,7 +202,7 @@ printBuild hub tz mdetails tail' debug minstall build = do
       void $ cmdBool "koji" ["watch-task", show taskid]
     whenJust minstall $ \installopts -> do
       putStrLn ""
-      installCmd False debug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqNVR [showNVR (buildNVR build)]
+      installCmd False debug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing (Right ReqNVR) [showNVR (buildNVR build)]
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
 formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime owner) =

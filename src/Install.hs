@@ -54,8 +54,8 @@ data Request = ReqName | ReqNV | ReqNVR
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
            -> Bool -> Bool -> Maybe PkgMgr -> [String]
            -> Maybe ExistingStrategy -> Maybe String -> Select -> Maybe String
-           -> Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr archs mstrategy mprefix select mdisttag request pkgbldtsks = do
+           -> Either () Request -> [String] -> IO ()
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr archs mstrategy mprefix select mdisttag erequest pkgbldtsktag = do
   checkSelection select
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
@@ -65,20 +65,32 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
   printDlDir <- setDownloadDir dryrun "koji-tool"
   when debug printDlDir
   setNoBuffering
-  buildrpms <- mapM (kojiRPMs huburl pkgsurl) $ nubOrd pkgbldtsks
+  (request,pkgbldtsks) <-
+    case erequest of
+      -- tagged
+      Left () ->
+        case pkgbldtsktag of
+          [tag] -> do
+            nvrs <- map kbNvr <$> kojiListTaggedBuilds huburl True tag
+            return (ReqNVR,nvrs)
+          _ -> error' "only one tag can be specified"
+      Right req ->
+        return (req,pkgbldtsktag)
+  buildrpms <- mapM (kojiRPMs huburl pkgsurl request) $
+               nubOrd pkgbldtsks
   printDlDir
   installRPMs dryrun debug mmgr yes buildrpms
   where
-    kojiRPMs :: String -> String -> String
+    kojiRPMs :: String -> String -> Request -> String
              -> IO (FilePath,[ExistNVRA])
-    kojiRPMs huburl pkgsurl bldtask =
+    kojiRPMs huburl pkgsurl request bldtask =
       case readMaybe bldtask of
         Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime taskid
-        Nothing -> kojiBuildRPMs huburl pkgsurl bldtask
+        Nothing -> kojiBuildRPMs huburl pkgsurl request bldtask
 
-    kojiBuildRPMs :: String -> String -> String
+    kojiBuildRPMs :: String -> String -> Request -> String
                   -> IO (FilePath,[ExistNVRA])
-    kojiBuildRPMs huburl pkgsurl pkgbld = do
+    kojiBuildRPMs huburl pkgsurl request pkgbld = do
       disttag <-
         case mdisttag of
           Just dt -> return dt
