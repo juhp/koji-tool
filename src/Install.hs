@@ -323,7 +323,7 @@ downloadRpms debug checkremotetime (taskstart,taskend) subdir urlOf rpms = do
     return $ if notfile then Just url else Nothing
   unless (null urls) $ do
     putStrLn "downloading..."
-    cmd_ "curl" $ ["--remote-time", "--fail", "-C-", "--show-error", "--create-dirs", "--output-dir", subdir, "--remote-name-all", "--write-out", "%{filename_effective}\n"] ++ ["--progress-bar" | not debug] ++ urls
+    cmd_ "curl" $ ["--remote-time", "--fail", "--fail-early", "-C-", "--show-error", "--create-dirs", "--output-dir", subdir, "--remote-name-all", "--write-out", "%{filename_effective}\n"] ++ ["--progress-bar" | not debug] ++ urls
   where
     outOfDate :: String -> String -> IO Bool
     outOfDate file url = do
