@@ -27,6 +27,7 @@ data Words = Mine | Last | Failure | Complete | Current | Build | Detail
            | Install | Tail | NoTail | Hwinfo | Rootlog | Arch | Debug
   deriving (Enum,Bounded)
 
+-- FIXME should be NonEmpty list
 findWords :: Words -> [String]
 findWords Mine = ["my","mine"]
 findWords Last = ["last","latest"]

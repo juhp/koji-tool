@@ -141,12 +141,13 @@ tasksCmd mhub queryopts@QueryOpts{..} mdetails tail' logfile mgrep minstall task
       if details == Detailed
         then do
         putStrLn ""
-        -- FIX for parent/build method show children (like we do with taskid)
+        -- FIXME for parent/build method show children (like we do with taskid)
         (mapM_ putStrLn . formatTaskResult hub mtime tz) task
         if taskMethod task == "build"
           then do
           when (mdetails == Just Detailed) $
             getTasks tz hub queryopts (ChildrenOf $ taskId task) >>=
+            -- FIXME interleave newlines
             mapM_ (printTask details tz) . mapMaybe maybeTaskResult
           else buildlogSize qDebug tz tail' logfile mgrep hub task
         else do
@@ -252,6 +253,7 @@ getTasks tz hub queryopts@QueryOpts {..} req =
                         commonBuildQueryOptions $
                         maybeLimit defaultBuildsLimit qLimit]
       when qDebug $ print buildquery
+      -- FIXME remove after moving to newer koji-hs
       -- rpmfusion koji still doesn't support patterns (2024-09-20)
       when ("rpmfusion" `isInfixOf` hub) $
         error' "cannot use pattern with this kojihub"

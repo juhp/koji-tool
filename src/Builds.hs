@@ -34,6 +34,7 @@ import Time
 import User
 import Utils (buildOutputURL)
 
+-- FIXME NonEmptyString's
 data BuildReq = BuildBuild String | BuildPackage String
               | BuildQuery | BuildPattern String
   deriving Eq
@@ -122,6 +123,7 @@ buildsCmd mhub museropt mlimit !states mdate mtype mdetails tail' minstall debug
       pat <-
         case buildreq of
           BuildPattern pat -> do
+            -- FIXME remove after moving to newer koji-hs
             -- rpmfusion koji still doesn't support patterns (2024-09-20)
             when ("rpmfusion" `isInfixOf` hub) $
               error' "cannot use pattern with this kojihub"
