@@ -50,9 +50,9 @@ data Details = Detailed | DetailedTasks
   deriving Eq
 
 buildsCmd :: Maybe String -> Maybe UserOpt -> Maybe Limit -> [BuildState]
-          -> Maybe Tasks.BeforeAfter -> Maybe String -> Maybe Details
+          -> Maybe Tasks.BeforeAfter -> Maybe String -> Maybe Details -> Bool
           -> Maybe Select -> Bool -> BuildReq -> IO ()
-buildsCmd mhub museropt mlimit !states mdate mtype mdetails minstall debug buildreq = do
+buildsCmd mhub museropt mlimit !states mdate mtype mdetails tail' minstall debug buildreq = do
   when (hub /= fedoraKojiHub && museropt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -64,7 +64,7 @@ buildsCmd mhub museropt mlimit !states mdate mtype mdetails minstall debug build
                     then InfoID (read bld)
                     else InfoString bld
       mbld <- getBuild hub bldinfo
-      whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz mdetails debug minstall
+      whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz mdetails tail' debug minstall
     BuildPackage pkg -> do
       when (headMay pkg == Just '-') $
         error' $ "bad combination: not a package: " ++ pkg
@@ -83,7 +83,7 @@ buildsCmd mhub museropt mlimit !states mdate mtype mdetails minstall debug build
           builds <- listBuilds hub fullquery
           when debug $ mapM_ pPrintCompact builds
           if isJust mdetails || length builds == 1
-            then mapM_ (printBuild hub tz mdetails debug minstall) $ mapMaybe maybeBuildResult builds
+            then mapM_ (printBuild hub tz mdetails tail' debug minstall) $ mapMaybe maybeBuildResult builds
             else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
     _ -> do
       query <- setupQuery
@@ -93,7 +93,7 @@ buildsCmd mhub museropt mlimit !states mdate mtype mdetails minstall debug build
       builds <- listBuilds hub fullquery
       when debug $ mapM_ pPrintCompact builds
       if isJust mdetails || length builds == 1
-        then mapM_ (printBuild hub tz mdetails debug minstall) $ mapMaybe maybeBuildResult builds
+        then mapM_ (printBuild hub tz mdetails tail' debug minstall) $ mapMaybe maybeBuildResult builds
         else mapM_ putStrLn $ mapMaybe (shortBuildResult tz) builds
   where
     hub = maybe fedoraKojiHub hubURL mhub
@@ -183,9 +183,9 @@ maybeBuildResult st = do
   return $
     BuildResult nvr state buildid mtaskid start mend owner
 
-printBuild :: String -> TimeZone -> Maybe Details -> Bool -> Maybe Select
-           -> BuildResult -> IO ()
-printBuild hub tz mdetails debug minstall build = do
+printBuild :: String -> TimeZone -> Maybe Details -> Bool -> Bool
+           -> Maybe Select -> BuildResult -> IO ()
+printBuild hub tz mdetails tail' debug minstall build = do
   putStrLn ""
   let mendtime = mbuildEndTime build
   time <- maybe getCurrentTime return mendtime
@@ -193,9 +193,13 @@ printBuild hub tz mdetails debug minstall build = do
   when (buildState build == BuildComplete) $
     putStrLn $ buildOutputURL hub $ buildNVR build
   whenJust (mbuildTaskId build) $ \taskid -> do
-    when (mdetails == Just DetailedTasks) $ do
+    if mdetails == Just DetailedTasks
+      then do
       putStrLn ""
-      Tasks.tasksCmd (Just hub) Tasks.emptyQueryOpts Nothing False Tasks.BuildLog Nothing minstall (Tasks.ChildrenOf taskid)
+      Tasks.tasksCmd (Just hub) Tasks.emptyQueryOpts Nothing tail' Tasks.BuildLog Nothing minstall (Tasks.ChildrenOf taskid)
+      else
+      when tail' $
+      void $ cmdBool "koji" ["watch-task", show taskid]
     whenJust minstall $ \installopts -> do
       putStrLn ""
       installCmd False debug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqNVR [showNVR (buildNVR build)]
@@ -244,4 +248,4 @@ latestCmd mhub debug tag pkg = do
   mbld <- kojiLatestBuild hub tag pkg
   when debug $ print mbld
   tz <- getCurrentTimeZone
-  whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz (Just Detailed) debug Nothing
+  whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz (Just Detailed) False debug Nothing

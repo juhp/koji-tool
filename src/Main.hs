@@ -39,6 +39,7 @@ main =
       <*> optional
       (flagWith' Builds.Detailed 'd' "details" "Show more build details" <|>
        flagWith' Builds.DetailedTasks 't' "tasks" "Show details and tasks")
+      <*> tailOpt
       <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> switchWith 'D' "debug" "Pretty-print raw XML result"
       <*> (BuildBuild <$> strOptionWith 'b' "build" "NVR/BUILDID" "Show build" <|>

@@ -113,7 +113,7 @@ findCmd mhub args = do
                  [BuildBuilding|current]
         buildreq = maybe Builds.BuildQuery Builds.BuildPackage mpkg
         detailed = if detail then Just Builds.Detailed else Nothing
-    in Builds.buildsCmd mhub user (Just limit) states Nothing (Just "rpm") detailed installation debug buildreq
+    in Builds.buildsCmd mhub user (Just limit) states Nothing (Just "rpm") detailed tail' installation debug buildreq
     else
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
