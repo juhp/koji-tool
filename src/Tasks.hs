@@ -8,6 +8,7 @@ module Tasks (
   BeforeAfter(..),
   QueryOpts(..),
   Details(..),
+  LogFile(..),
   tasksCmd,
   getTasks,
   parseTaskState',
@@ -93,9 +94,9 @@ data Details = Detailed | Concise
 -- FIXME --output-fields
 -- FIXME default to 'build' for install or try 'build' after 'buildarch'?
 -- FIXME `-# 2` etc to select second result
-tasksCmd :: Maybe String -> QueryOpts -> Maybe Details -> Bool -> Bool
+tasksCmd :: Maybe String -> QueryOpts -> Maybe Details -> Bool -> LogFile
          -> Maybe String -> Maybe Select -> TaskReq -> IO ()
-tasksCmd mhub queryopts@QueryOpts{..} mdetails tail' hwinfo mgrep minstall taskreq = do
+tasksCmd mhub queryopts@QueryOpts{..} mdetails tail' logfile mgrep minstall taskreq = do
   when (hub /= fedoraKojiHub && qmUserOpt == Just UserSelf) $
     error' "--mine currently only works with Fedora Koji: use --user instead"
   tz <- getCurrentTimeZone
@@ -141,11 +142,11 @@ tasksCmd mhub queryopts@QueryOpts{..} mdetails tail' hwinfo mgrep minstall taskr
           when (mdetails == Just Detailed) $
             getTasks tz hub queryopts (ChildrenOf $ taskId task) >>=
             mapM_ (printTask details tz) . mapMaybe maybeTaskResult
-          else buildlogSize qDebug tz tail' hwinfo mgrep hub task
+          else buildlogSize qDebug tz tail' logfile mgrep hub task
         else do
         (putStrLn . compactTaskResult hub tz) task
-        when (tail' || hwinfo || isJust mgrep) $
-          buildlogSize qDebug tz tail' hwinfo mgrep hub task
+        when (tail' || logfile /= BuildLog || isJust mgrep) $
+          buildlogSize qDebug tz tail' logfile mgrep hub task
       whenJust minstall $ \installopts -> do
         putStrLn ""
         installCmd False qDebug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing ReqName [show (taskId task)]
@@ -417,37 +418,35 @@ logFile RootLog = "root.log"
 logFile BuildLog = "build.log"
 logFile HWInfo = "hw_info.log"
 
-buildlogSize :: Bool -> TimeZone -> Bool -> Bool -> Maybe String -> String
+buildlogSize :: Bool -> TimeZone -> Bool -> LogFile -> Maybe String -> String
              -> TaskResult -> IO ()
-buildlogSize _debug tz tail' hwinfo mgrep hub task = do
+buildlogSize debug tz tail' logfile mgrep hub task = do
   murl <- findOutputURL hub task
+  when debug $ print murl
   whenJust murl $ \ url -> do
     let buildlog = url +/+ logFile BuildLog
+    when debug $ print buildlog
     exists <- httpExists' buildlog
     if exists
       then do
-      putStr buildlog
       (msize,mtime) <- httpFileSizeTime' buildlog
       whenJust msize $ \size -> do
+        putStr buildlog
         fprint (" (" % commas % "kB)") (size `div` 1000)
         when (taskState task == TaskOpen) $
           whenJust mtime $ \time ->
           putStr $ " (" ++ compactZonedTime tz time ++ ")"
         putChar '\n'
         -- FIXME check if short build.log ends with srpm
-        file <-
-          if hwinfo
-          then do
-            putStr $ url +/+ logFile HWInfo
-            return HWInfo
-          else
-            -- for buildroot failure build.log could be ~3082 bytes
-            if size < 4000
-            then do
-              putStr $ url +/+ logFile RootLog
-              return RootLog
-            else return BuildLog
-        when (tail' || hwinfo || isJust mgrep) $ displayLog url file
+        let file =
+              if logfile == BuildLog && size < 4000
+                then RootLog
+                else logfile
+        unless (file == BuildLog) $
+          putStrLn $ url +/+ logFile file
+        when (tail' || logfile /= BuildLog || isJust mgrep) $ do
+          displayLog url file
+          (putStrLn . compactTaskResult hub tz) task
       else do
       let rootlog = url +/+ logFile RootLog
       whenM (httpExists' rootlog) $

@@ -55,11 +55,13 @@ main =
       (flagWith' Tasks.Detailed 'd' "details" "Show more task details" <|>
        flagWith' Tasks.Concise 'c' "concise" "Compact task output")
       -- FIXME error if integer (eg mistakenly taskid)
-      <*> switchWith 'T' "tail" "Fetch the tail of build.log"
-      <*> switchLongWith "hw-info" "Fetch hw_info.log"
+      <*> tailOpt
+      <*> (flagLongWith' HWInfo "hw-info" "Fetch hw_info.log" <|>
+           flagLongWith BuildLog RootLog "rootlog" "Fetch root.log")
       <*> optional (strOptionWith 'g' "grep" "STRING" "Filter matching log lines")
       <*> optional (installArgs <$> strOptionWith 'i' "install" "INSTALLOPTS" "Install the package with 'install' options")
       <*> taskReqOpt
+
     , Subcommand "latest"
       "Query latest Koji build for tag" $
       latestCmd
@@ -184,3 +186,5 @@ main =
       flagWith' (Limit 1) 'L' "latest" ("Latest" +-+ tgt) <|>
       flagWith' Nolimit 'U' "unlimited" "No limit on number of results" <|>
       Limit <$> optionWith auto 'l' "limit" "INT" ("Maximum number of" +-+ tgt ++ "s to show [default:" +-+ show dflt ++ "]")
+
+    tailOpt = switchWith 'T' "tail" "Fetch the tail of build.log"

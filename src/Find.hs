@@ -24,7 +24,7 @@ import qualified Tasks
 import User ( UserOpt(User, UserSelf) )
 
 data Words = Mine | Last | Failure | Complete | Current | Build | Detail
-           | Install | Tail | NoTail | Hwinfo | Arch | Debug
+           | Install | Tail | NoTail | Hwinfo | Rootlog | Arch | Debug
   deriving (Enum,Bounded)
 
 findWords :: Words -> [String]
@@ -41,6 +41,7 @@ findWords Install = ["install"]
 findWords Tail = ["tail"]
 findWords NoTail = ["notail"]
 findWords Hwinfo = ["hwinfo"]
+findWords Rootlog = ["rootlog"]
 findWords Debug = ["debug", "dbg"]
 findWords Arch = ["x86_64", "aarch64", "ppc64le", "s390x", "i686", "armv7hl", "noarch"]
 
@@ -82,7 +83,11 @@ findCmd mhub args = do
       install = hasWord Install
       tail' = hasWord Tail
       notail = hasWord NoTail
-      hwinfo = hasWord Hwinfo
+      logfile = case (hasWord Hwinfo,hasWord Rootlog) of
+                  (True,True) -> error' "cannot combine hwinfo and rootlog"
+                  (True,False) -> Tasks.HWInfo
+                  (False,True) -> Tasks.RootLog
+                  (False,False) -> Tasks.BuildLog
       debug = hasWord Debug
       (limit,mpkg) =
         case removeUsers (args \\ allWords) of
@@ -113,7 +118,7 @@ findCmd mhub args = do
     let states = [TaskFailed|failure] ++ [TaskClosed|complete] ++
                  [TaskOpen|current]
         taskreq = maybe Tasks.TaskQuery Tasks.Package mpkg
-    in Tasks.tasksCmd mhub (Tasks.QueryOpts user (Just limit) states archs Nothing Nothing debug Nothing) (if detail then Just Tasks.Detailed else Nothing) ((tail' || failure) && not notail) hwinfo Nothing installation taskreq
+    in Tasks.tasksCmd mhub (Tasks.QueryOpts user (Just limit) states archs Nothing Nothing debug Nothing) (if detail then Just Tasks.Detailed else Nothing) ((tail' || failure) && not notail) logfile Nothing installation taskreq
   where
     hasWord :: Words -> Bool
     hasWord word = any (`elem` findWords word) args
