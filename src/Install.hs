@@ -101,7 +101,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
       case nvrs of
         [] -> error' $ pkgbld ++ " not found for " ++ disttag
         [nvr] -> do
-          putStrLn $ showNVR nvr ++ "\n"
+          putStrLn $ showNVR nvr ++ ":"
           bid <- kojiGetBuildID' huburl (showNVR nvr)
           -- FIXME should we try kojiTaskRPMs first?
           nvras <- rpmsToNVRAs <$> kojiGetBuildRPMs huburl nvr archs bid
