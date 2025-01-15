@@ -19,6 +19,7 @@ module Tasks (
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Monad.Extra
 import qualified Data.ByteString.Lazy.UTF8 as U
 import Data.Char (isDigit, toUpper)
@@ -345,13 +346,10 @@ formatTaskResult hub
   [formatLocalTime CompletionEvent tz end | Just end <- [mend]]
 #if MIN_VERSION_time(1,9,1)
     ++
-    ["delay:" +-+ renderDuration False dur | Just start <- [mstart], let dur = diffUTCTime start create]
-    ++
-    case mtime of
-      Just now ->
-        ["current duration:" +-+ renderDuration False dur | Just start <- [mstart], let dur = diffUTCTime now start]
-      Nothing ->
-        ["duration:" +-+ renderDuration False dur | Just start <- [mstart], Just end <- [mend], let dur = diffUTCTime end start]
+    case mtime <|> mend of
+      Just end ->
+        [(if isJust mtime then "current" else "") +-+ "duration:" +-+ renderDuration False dur +-+ '(' : "start delay" +-+ renderDuration False delay ++ ")" | Just start <- [mstart], let dur = diffUTCTime end start, let delay = diffUTCTime start create]
+      Nothing -> []
 #endif
 
 showPackage :: Either String NVR -> String
