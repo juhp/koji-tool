@@ -198,10 +198,8 @@ loopBuildTasks debug tz bts = do
           printLogStatuses header tz statuses
           let news = map (\(task',(s,t),_) -> TaskInfoStatus task' (mkTaskStatus s t (getTaskState task'))) statuses
               (open,closed) = partition (\tis -> getTaskState (taskInfo tis) `elem` map Just openTaskStates) news
-              mlargest = if not (any (\tis -> lookupStruct "method" (taskInfo tis) /= Just ("buildSRPMFromSCM" :: String)) closed)
-                         then Nothing
-                         else maximumMay $ mapMaybe (\t -> taskStatus t >>= tstLog <&> logSize) closed
-              mbiggest = max mlargest msize
+              closedbuilds = filter (\tis -> lookupStruct "method" (taskInfo tis) == Just ("buildArch" :: String)) closed
+              mbiggest = maximumMay $ maybeToList msize ++ mapMaybe (\t -> taskStatus t >>= tstLog <&> logSize) closedbuilds
           if null open
             then runProgress (BuildTask tid start mend mbiggest [])
             else return $ BuildTask tid start mend mbiggest open
