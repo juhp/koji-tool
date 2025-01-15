@@ -65,19 +65,20 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
   printDlDir <- setDownloadDir dryrun "koji-tool"
   when debug printDlDir
   setNoBuffering
-  buildrpms <- mapM (kojiRPMs huburl pkgsurl printDlDir) $ nubOrd pkgbldtsks
+  buildrpms <- mapM (kojiRPMs huburl pkgsurl) $ nubOrd pkgbldtsks
+  printDlDir
   installRPMs dryrun debug mmgr yes buildrpms
   where
-    kojiRPMs :: String -> String -> IO () -> String
+    kojiRPMs :: String -> String -> String
              -> IO (FilePath,[ExistNVRA])
-    kojiRPMs huburl pkgsurl printDlDir bldtask =
+    kojiRPMs huburl pkgsurl bldtask =
       case readMaybe bldtask of
-        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime printDlDir taskid
-        Nothing -> kojiBuildRPMs huburl pkgsurl printDlDir bldtask
+        Just taskid -> kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime taskid
+        Nothing -> kojiBuildRPMs huburl pkgsurl bldtask
 
-    kojiBuildRPMs :: String -> String -> IO () -> String
+    kojiBuildRPMs :: String -> String -> String
                   -> IO (FilePath,[ExistNVRA])
-    kojiBuildRPMs huburl pkgsurl printDlDir pkgbld = do
+    kojiBuildRPMs huburl pkgsurl pkgbld = do
       disttag <-
         case mdisttag of
           Just dt -> return dt
@@ -98,7 +99,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
               mtid <- kojiGetBuildTaskID huburl (showNVR nvr)
               case mtid of
                 Just (TaskId tid) ->
-                  kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime printDlDir tid
+                  kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime tid
                 Nothing -> error' $ "task id not found for" +-+ showNVR nvr
               else do
               when debug $ mapM_ (putStrLn . showNVRA) nvras
@@ -110,8 +111,6 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
                   bld <- kojiGetBuild' huburl nvr
                   -- FIXME should be NVRA ideally
                   downloadRpms debug checkremotetime (lookupStartEndTimes' bld) subdir (buildURL nvr) dlRpms
-                -- FIXME once we check file size - can skip if no downloads
-                  printDlDir
               return (subdir,dlRpms)
           return $
             if listmode
@@ -132,8 +131,8 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
 
 kojiTaskRPMs :: Bool -> Bool -> Yes -> String -> String -> Bool -> [String]
              -> Maybe ExistingStrategy -> Maybe String -> Select -> Bool
-             -> IO () -> Int -> IO (FilePath,[ExistNVRA])
-kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime printDlDir taskid = do
+             -> Int -> IO (FilePath,[ExistNVRA])
+kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix select checkremotetime taskid = do
   mtaskinfo <- Koji.getTaskInfo huburl taskid True
   tasks <- case mtaskinfo of
             Nothing -> error' "failed to get taskinfo"
@@ -177,9 +176,8 @@ kojiTaskRPMs dryrun debug yes huburl pkgsurl listmode archs mstrategy mprefix se
       let subdir = show archtid
       dlRpms <- decideRPMs yes listmode mstrategy select prefix $
                 filter ((/= "src") . rpmArch) nvras
-      unless (dryrun || null dlRpms) $ do
+      unless (dryrun || null dlRpms) $
         downloadRpms debug checkremotetime (lookupStartEndTimes' archtask) subdir (taskRPMURL archtid) dlRpms
-        printDlDir
       return (subdir,dlRpms)
   where
     selectBuildArch :: [String] -> Struct -> Bool
