@@ -1,3 +1,12 @@
+install: use YEAR/MONTH subdirs (but how to re-use later?)
+
+- build-times command a la buildlog-sizes
+
+- list rpms
+- download command
+
+- query option for (nth) previous build etc
+
 use koji --profile !
 
 'tasks' lists too many tasks for package
@@ -10,6 +19,7 @@ use koji --profile !
 # misc
 - api-version command
 - swap '-M' (--mine) and '-m' (--method) ?
+- support checkout.log
 
 # install
 - autodetect nvr
