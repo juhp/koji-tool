@@ -490,7 +490,7 @@ buildlogSize debug tz tail' logfile mgrep hub task = do
           Nothing -> output
           Just needle ->
             filter (match needle) ls
-      putStrLn $ "\n" ++ logurl
+      putStrLn $ '\n' : logurl ++ "\n"
       where
         match :: String -> String -> Bool
         match "" _ = error' "empty grep string not allowed"
