@@ -97,7 +97,7 @@ main =
     , Subcommand "progress"
       "Track running Koji tasks by buildlog size" $
       progressCmd
-      <$> switchWith 'm' "modules" "Track module builds"
+      <$> switchLongWith "modules" "Track module builds"
       <*> queryOpts True "build"
       <*> taskReqOpt
 
