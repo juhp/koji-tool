@@ -231,7 +231,10 @@ buildStateToValue = ValueInt . fromEnum
 parseBuildState' :: String -> BuildState
 parseBuildState' s =
   case lower s of
+    "build" -> BuildBuilding
     "building" -> BuildBuilding
+    "open" -> BuildBuilding
+    "run" -> BuildBuilding
     "complete" -> BuildComplete
     "deleted" -> BuildDeleted
     "fail" -> BuildFailed
@@ -239,7 +242,7 @@ parseBuildState' s =
     "cancel" -> BuildCanceled
     "canceled" -> BuildCanceled
     _ -> error' $! "unknown build state: " ++ s ++
-         "\nknown states are: building, complete, deleted, failed, canceled"
+         "\nknown states are: build(ing), complete, deleted, fail(ed), cancel(ed)"
 
 kojiBuildTypes :: [String]
 kojiBuildTypes = ["all", "image", "maven", "module", "rpm", "win"]
