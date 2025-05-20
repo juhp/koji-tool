@@ -414,9 +414,10 @@ findOutputURL hub task =
         then return ma1
         else mact2
 
-tailLogUrl :: String -> Int -> LogFile -> String
-tailLogUrl hub taskid file =
-  webUrl hub +/+ "getfile?taskID=" ++ show taskid ++ "&name=" ++ logFile file ++ "&offset=-6000"
+-- FIXME moffset not actually used yet
+tailLogUrl :: String -> Int -> LogFile -> Maybe Int -> String
+tailLogUrl hub taskid file moffset =
+  webUrl hub +/+ "getfile?taskID=" ++ show taskid ++ "&name=" ++ logFile file ++ "&offset=" ++ maybe "-6000" show moffset
 
 logFile :: LogFile -> String
 logFile RootLog = "root.log"
@@ -461,7 +462,7 @@ buildlogSize debug tz tail' logfile mgrep hub task = do
     displayLog url file = do
       let logurl =
             case file of
-              BuildLog -> tailLogUrl hub (taskId task) file
+              BuildLog -> tailLogUrl hub (taskId task) file Nothing
               _ -> url +/+  logFile file
       req <- parseRequest logurl
       resp <- httpLBS req
