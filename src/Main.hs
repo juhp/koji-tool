@@ -35,7 +35,7 @@ main =
       <*> many (parseBuildState' <$> strOptionWith 's' "state" "STATE" "Filter builds by state (building,complete,deleted,fail(ed),cancel(ed)")
       <*> optional (Before <$> strOptionWith 'B' "before" "TIMESTAMP" "Builds completed before timedate [default: now]" <|>
                     After <$> strOptionWith 'F' "from" "TIMESTAMP" "Builds completed after timedate")
-      <*> (fmap normalizeBuildType <$> optional (strOptionWith 'T' "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
+      <*> (fmap normalizeBuildType <$> optional (strOptionLongWith "type" "TYPE" ("Select builds by type: " ++ intercalate "," kojiBuildTypes)))
       <*> optional
       (flagWith' Builds.Detailed 'd' "details" "Show more build details" <|>
        flagWith' Builds.DetailedTasks 't' "tasks" "Show details and tasks")
