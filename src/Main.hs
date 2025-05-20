@@ -112,6 +112,13 @@ main =
       findCmd
       <$> hubOpt
       <*> many (strArg "PHRASE")
+
+    , Subcommand "tagged"
+      "List builds for tag" $
+      taggedCmd
+      <$> hubOpt
+      <*> switchWith 'i' "install" "Install packages"
+      <*> strArg "TAG"
     ]
   where
     hubOpt = optional (strOptionWith 'H' "hub" "HUB"

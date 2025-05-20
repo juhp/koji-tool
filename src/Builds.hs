@@ -9,7 +9,8 @@ module Builds (
   parseBuildState',
   fedoraKojiHub,
   kojiBuildTypes,
-  latestCmd
+  latestCmd,
+  taggedCmd
   )
 where
 
@@ -24,6 +25,7 @@ import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
 import Safe (headMay)
+import SelectRPMs (selectDefault)
 import SimpleCmd
 import Text.Pretty.Simple
 
@@ -254,3 +256,19 @@ latestCmd mhub debug tag pkg = do
   when debug $ print mbld
   tz <- getCurrentTimeZone
   whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz (Just Detailed) False debug Nothing
+
+taggedCmd :: Maybe String -> Bool -> String -> IO ()
+taggedCmd mhub install tag = do
+  let hub = maybe fedoraKojiHub hubURL mhub
+  kblds <- kojiListTaggedBuilds hub install tag
+--  when debug $ mapM_ print blds
+--  tz <- getCurrentTimeZone
+  -- forM_ (mapMaybe maybeBuildResult blds) $
+  --   printBuild hub tz (Just Detailed) False debug Nothing
+  mapM_ putKojiBuild kblds
+  when install $
+    installCmd False False No (Just hub) Nothing False False False Nothing [] Nothing Nothing selectDefault Nothing (Right ReqNVR) $ map kbNvr kblds
+  where
+    putKojiBuild :: KojiBuild -> IO ()
+    putKojiBuild (KojiBuild _ _ owner nvr) =
+      putStrLn $ nvr +-+ owner
