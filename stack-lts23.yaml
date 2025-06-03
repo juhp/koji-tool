@@ -1,4 +1,4 @@
-resolver: lts-22.43
+resolver: lts-23.24
 ghc-options:
   HsOpenSSL: -optc=-Wno-incompatible-pointer-types
 extra-deps:
