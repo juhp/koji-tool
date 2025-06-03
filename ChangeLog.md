@@ -1,5 +1,26 @@
 # Version history of koji-tool
 
+## 1.3 (2025-05-03)
+- 'builds': add --tail
+- 'builds': building state aliases: build, open, run
+- 'builds': drop short option (-T) for --type: conflicts with --tail
+- 'builds'/'tasks' nvr patterns now give up for rpmfusion instead of koji error
+- 'install' rpm selection was refactored into new select-rpms library
+- 'install': add --tagged to allow installing an entire (side)tag
+- 'install': only print download dir after downloading rpms for all packages
+- 'install': print url after nvr not below
+- 'install': use curl --fail-early to stop on any rpm download failure
+- 'progress': correct/simplify mbiggest logic/calc
+- 'progress': drop --modules short option, which conflicts with --method
+- add 'tagged' command, with --install option
+- 'tasks': add --rootlog (and "rootlog" for find)
+- 'tasks': add newline after log final url
+- 'tasks': simplify duration output logic (handle current/finished together)
+- 'tasks': tailLogUrl optional offset
+- more correct result limit options and handling
+- use more safe functions
+- use select-rpms-0.2.0 for existingStrategyOption & selectRpmsOptions
+
 ## 1.2 (2024-07-27)
 - allow --unlimited results: useful for open tasks/builds
 - builds: also show owner

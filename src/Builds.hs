@@ -257,6 +257,7 @@ latestCmd mhub debug tag pkg = do
   tz <- getCurrentTimeZone
   whenJust (mbld >>= maybeBuildResult) $ printBuild hub tz (Just Detailed) False debug Nothing
 
+-- FIXME select packages and rpms
 taggedCmd :: Maybe String -> Bool -> String -> IO ()
 taggedCmd mhub install tag = do
   let hub = maybe fedoraKojiHub hubURL mhub
