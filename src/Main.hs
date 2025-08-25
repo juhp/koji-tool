@@ -6,7 +6,7 @@ module Main (main) where
 
 import Data.Char (isDigit)
 import Data.List.Extra
-import SelectRPMs (existingStrategyOption, selectRpmsOptions)
+import SelectRPMs (existingStrategyOption, pkgMgrOpt, selectRpmsOptions)
 import SimpleCmd
 import SimpleCmdArgs
 
@@ -156,13 +156,6 @@ main =
     readTaskReq :: String -> Maybe TaskReq
     readTaskReq cs =
       Just $ if all isDigit cs then Task (read cs) else Package cs
-
-    pkgMgrOpt :: Parser PkgMgr
-    pkgMgrOpt =
-      flagLongWith' RPM "rpm" "Use rpm instead of dnf" <|>
-      flagLongWith' OSTREE "rpm-ostree" "Use rpm-ostree instead of dnf" <|>
-      flagLongWith' DNF5 "dnf5" "Use dnf5 to install" <|>
-      flagLongWith' DNF3 "dnf3" "Use dnf-3 to install [default dnf unless ostree]"
 
     -- FIXME check valid arch (eg i686 not i386)
     archOpt = strOptionWith 'a' "arch" "ARCH" "Task arch"

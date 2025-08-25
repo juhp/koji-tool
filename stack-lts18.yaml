@@ -5,4 +5,4 @@ extra-deps:
   - simple-cmd-args-0.1.8
   - http-directory-0.1.10
   - simple-prompt-0.2.0.1
-  - select-rpms-0.2.0
+  - select-rpms-0.3.1

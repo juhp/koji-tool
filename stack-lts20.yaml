@@ -3,4 +3,4 @@ ghc-options:
   HsOpenSSL: -optc=-Wno-incompatible-pointer-types
 extra-deps:
   - simple-prompt-0.2.0.1
-  - select-rpms-0.2.0
+  - select-rpms-0.3.1
