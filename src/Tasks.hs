@@ -331,7 +331,7 @@ compactTaskResult hub tz (TaskResult pkg arch method state _mparent taskid _crea
      taskinfoUrl hub taskid] ++
     ["(" ++ renderDuration True dur ++ ")" | Just start <- [mstart],  Just end <- [mend], let dur = diffUTCTime end start] ++
     [show state,
-     showPackage pkg ++ if method == "buildArch" then '.' : arch ++ replicate (8 - length arch) ' ' else ' ' : method]
+     showPackage pkg ++ if method == "buildArch" then '.' : arch else ' ' : method]
 
 formatTaskResult :: String -> Maybe UTCTime -> TimeZone -> TaskResult -> [String]
 formatTaskResult hub
