@@ -6,7 +6,7 @@ module Install (
   Select(..),
   Request(..),
   installCmd,
-  ExistingStrategy(..),
+  ExistingStrategy,
   PkgMgr(..),
   knownHubs,
   Yes(..),
@@ -24,7 +24,7 @@ import Data.RPM.NVRA
 import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
 import Network.HTTP.Directory (httpFileSize', httpLastModified', (+/+))
-import SelectRPMs (Yes(..), PkgMgr(..), ExistingStrategy(..), Select(..),
+import SelectRPMs (Yes(..), PkgMgr(..), ExistingStrategy, Select(..),
                    ExistNVRA, checkSelection, decideRPMs, installArgs,
                    installRPMs, nvraToRPM, rpmsToNVRAs)
 import SimpleCmd
