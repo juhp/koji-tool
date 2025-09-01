@@ -156,7 +156,7 @@ tasksCmd mhub queryopts@QueryOpts{..} mdetails tail' logfile mgrep minstall task
           buildlogSize qDebug tz tail' logfile mgrep hub task
       whenJust minstall $ \installopts -> do
         putStrLn ""
-        installCmd False qDebug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing (Right ReqName) [show (taskId task)]
+        installCmd False qDebug No (Just hub) Nothing False False False Nothing False [] Nothing Nothing installopts Nothing (Right ReqName) [show (taskId task)]
 
 maybeTaskResult :: Struct -> Maybe TaskResult
 maybeTaskResult st = do

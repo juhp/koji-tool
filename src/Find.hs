@@ -19,7 +19,7 @@ import SimpleCmd (error', (+-+))
 
 import qualified Builds
 import Common (Limit(Limit))
-import Install (Select(PkgsReq))
+import Install (selectDefault)
 import qualified Tasks
 import User ( UserOpt(User, UserSelf) )
 
@@ -106,7 +106,7 @@ findCmd mhub args = do
             "you can only specify one package - too many unknown words: " ++
             unwords other
       installation = if install
-                     then Just (PkgsReq [] [] [] [])
+                     then Just selectDefault
                      else Nothing
   if build
     then

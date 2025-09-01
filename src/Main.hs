@@ -84,6 +84,7 @@ main =
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
       <*> optional pkgMgrOpt
+      <*> switchLongWith "allow-erasing" "Use dnf --allowerasing"
       <*> many archOpt
       <*> optional existingStrategyOption
       <*> optional (strOptionWith 'b' "prefix" "SUBPKGPREFIX" "Prefix to use for subpackages [default: base package]")

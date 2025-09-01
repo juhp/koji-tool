@@ -25,7 +25,6 @@ import Data.Time.LocalTime
 import Distribution.Koji
 import Distribution.Koji.API
 import Safe (headMay)
-import SelectRPMs (selectDefault)
 import SimpleCmd
 import Text.Pretty.Simple
 
@@ -206,7 +205,7 @@ printBuild hub tz mdetails tail' debug minstall build = do
       void $ cmdBool "koji" ["watch-task", show taskid]
     whenJust minstall $ \installopts -> do
       putStrLn ""
-      installCmd False debug No (Just hub) Nothing False False False Nothing [] Nothing Nothing installopts Nothing (Right ReqNVR) [showNVR (buildNVR build)]
+      installCmd False debug No (Just hub) Nothing False False False Nothing False [] Nothing Nothing installopts Nothing (Right ReqNVR) [showNVR (buildNVR build)]
 
 formatBuildResult :: String -> Bool -> TimeZone -> BuildResult -> [String]
 formatBuildResult hub ended tz (BuildResult nvr state buildid mtaskid start mendtime owner) =
@@ -268,7 +267,7 @@ taggedCmd mhub install tag = do
   --   printBuild hub tz (Just Detailed) False debug Nothing
   mapM_ putKojiBuild kblds
   when install $
-    installCmd False False No (Just hub) Nothing False False False Nothing [] Nothing Nothing selectDefault Nothing (Right ReqNVR) $ map kbNvr kblds
+    installCmd False False No (Just hub) Nothing False False False Nothing False [] Nothing Nothing selectDefault Nothing (Right ReqNVR) $ map kbNvr kblds
   where
     putKojiBuild :: KojiBuild -> IO ()
     putKojiBuild (KojiBuild _ _ owner nvr) =

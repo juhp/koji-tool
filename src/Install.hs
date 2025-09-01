@@ -4,6 +4,7 @@
 
 module Install (
   Select(..),
+  selectDefault,
   Request(..),
   installCmd,
   ExistingStrategy,
@@ -25,8 +26,8 @@ import Distribution.Koji
 import qualified Distribution.Koji.API as Koji
 import Network.HTTP.Directory (httpFileSize', httpLastModified', (+/+))
 import SelectRPMs (Yes(..), PkgMgr(..), ExistingStrategy, Select(..),
-                   ExistNVRA, checkSelection, decideRPMs, installArgs,
-                   installRPMs, nvraToRPM, rpmsToNVRAs)
+                   ExistNVRA, decideRPMs, installArgs, installRPMsAllowErasing,
+                   nvraToRPM, rpmsToNVRAs, selectDefault)
 import SimpleCmd
 import System.Directory
 import System.FilePath
@@ -52,11 +53,10 @@ data Request = ReqName | ReqNV | ReqNVR
 -- FIXME offer to download subpackage deps
 -- FIXME is --check-remote-time really needed?
 installCmd :: Bool -> Bool -> Yes -> Maybe String -> Maybe String -> Bool
-           -> Bool -> Bool -> Maybe PkgMgr -> [String]
+           -> Bool -> Bool -> Maybe PkgMgr -> Bool -> [String]
            -> Maybe ExistingStrategy -> Maybe String -> Select -> Maybe String
            -> Either () Request -> [String] -> IO ()
-installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr archs mstrategy mprefix select mdisttag erequest pkgbldtsktag = do
-  checkSelection select
+installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmgr allowerasing archs mstrategy mprefix select mdisttag erequest pkgbldtsktag = do
   let huburl = maybe fedoraKojiHub hubURL mhuburl
       pkgsurl = fromMaybe (hubToPkgsURL huburl) mpkgsurl
   when debug $ do
@@ -79,7 +79,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
   buildrpms <- mapM (kojiRPMs huburl pkgsurl request) $
                nubOrd pkgbldtsks
   printDlDir
-  installRPMs dryrun debug mmgr yes buildrpms
+  installRPMsAllowErasing dryrun debug mmgr allowerasing yes buildrpms
   where
     kojiRPMs :: String -> String -> Request -> String
              -> IO (FilePath,[ExistNVRA])
