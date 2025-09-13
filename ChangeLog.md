@@ -1,5 +1,13 @@
 # Version history of koji-tool
 
+## 1.3.1 (2025-09-XX)
+- install: use select-rpms-0.3.1
+  - allows selecting debuginfo
+  - add --allow-erasing
+  - rpm package manager options
+- install: do not print download dir for --list mode
+- tasks: less whitespace for compact task output
+
 ## 1.3 (2025-05-03)
 - 'builds': add --tail
 - 'builds': building state aliases: build, open, run
