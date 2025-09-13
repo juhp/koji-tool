@@ -80,7 +80,7 @@ main =
       <*> hubOpt
       <*> optional (strOptionWith 'P' "packages-url" "URL"
                     "KojiFiles packages url [default: Fedora]")
-      <*> switchWith 'l' "list" "List builds"
+      <*> switchWith 'l' "list" "List RPMs"
       <*> switchWith 'L' "latest" "Latest build"
       <*> switchWith 't' "check-remote-time" "Check remote rpm timestamps"
       <*> optional pkgMgrOpt
