@@ -78,7 +78,7 @@ installCmd dryrun debug yes mhuburl mpkgsurl listmode latest checkremotetime mmg
         return (req,pkgbldtsktag)
   buildrpms <- mapM (kojiRPMs huburl pkgsurl request) $
                nubOrd pkgbldtsks
-  printDlDir
+  unless listmode printDlDir
   installRPMsAllowErasing dryrun debug mmgr allowerasing yes buildrpms
   where
     kojiRPMs :: String -> String -> Request -> String
