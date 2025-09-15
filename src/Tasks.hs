@@ -443,7 +443,6 @@ buildlogSize debug tz tail' logfile mgrep hub task = do
           whenJust mtime $ \time ->
           putStr $ " (" ++ compactZonedTime tz time ++ ")"
         putChar '\n'
-        -- FIXME check if short build.log ends with srpm
         let file =
               if logfile == BuildLog && size < 4000
                 then RootLog
@@ -451,59 +450,68 @@ buildlogSize debug tz tail' logfile mgrep hub task = do
         unless (file == BuildLog) $
           putStrLn $ url +/+ logFile file
         when (tail' || logfile /= BuildLog || isJust mgrep) $ do
-          displayLog url file
+          displayLog size url file
           (putStrLn . compactTaskResult hub tz) task
       else do
       let rootlog = url +/+ logFile RootLog
       whenM (httpExists' rootlog) $
         putStrLn rootlog
   where
-    displayLog :: String -> LogFile -> IO ()
-    displayLog url file = do
+    displayLog :: Integer -> String -> LogFile -> IO ()
+    displayLog buildlogsize url file = do
       let logurl =
             case file of
               BuildLog -> tailLogUrl hub (taskId task) file Nothing
               _ -> url +/+  logFile file
       req <- parseRequest logurl
       resp <- httpLBS req
-      let out = U.toString $ getResponseBody resp
-          ls = lines out
-      putStrLn ""
-      let output
-            | file == RootLog =
-              let excluded = ["Executing command:",
-                              "Child return code was: 0",
-                              "child environment: None",
-                              "ensuring that dir exists:",
-                              "touching file:",
-                              "creating dir:",
-                              "kill orphans"]
-              in
-                map (dropPrefix "DEBUG ") $ takeEnd 30 $
-                filter (\l -> not (any (`isInfixOf` l) excluded)) ls
-            | lastMay ls == Just "Child return code was: 0" = ls
-            | otherwise =
-                case breakOnEnd ["Child return code was: 1"] ls of
-                  ([],ls') -> ls'
-                  (ls',_) -> ls'
-      putStr $ unlines $
-        case mgrep of
-          Nothing -> output
-          Just needle ->
-            filter (match needle) ls
-      putStrLn $ '\n' : logurl ++ "\n"
-      where
-        match :: String -> String -> Bool
-        match "" _ = error' "empty grep string not allowed"
-        match _ "" = False
-        match ('^':needle) ls =
-          if lastMay needle == Just '$'
-          then needle == ls
-          else needle `isPrefixOf` ls
-        match needle ls =
-          if lastMay needle == Just '$'
-          then needle `isSuffixOf` ls
-          else needle `isInfixOf` ls
+      let ls = lines . U.toString $ getResponseBody resp
+      -- detect dynbr failure (build.log ~ 7400B):
+      -- Wrote: /builddir/build/SRPMS/bustle-0.13.0-1.fc42.buildreqs.nosrc.rpm
+      -- Child return code was: 11
+      -- Dynamic buildrequires detected
+      -- Going to install missing buildrequires. See root.log for details.
+      if file == BuildLog && buildlogsize < 8000 &&
+        lastMay ls == Just "Going to install missing buildrequires. See root.log for details."
+        then displayLog buildlogsize url RootLog
+        else do
+        putStrLn ""
+        let output
+              | file == RootLog =
+                let excluded = ["Executing command:",
+                                "Child return code was: 0",
+                                "child environment: None",
+                                "ensuring that dir exists:",
+                                "touching file:",
+                                "creating dir:",
+                                "kill orphans"]
+                in
+                  map (dropPrefix "DEBUG ") $ takeEnd 30 $
+                  filter (\l -> not (any (`isInfixOf` l) excluded)) ls
+              | lastMay ls == Just "Child return code was: 0" = ls
+              | otherwise =
+                  case breakOnEnd ["Child return code was: 1"] ls of
+                    ([],ls') -> ls'
+                    (ls',_) -> ls'
+        putStr $ unlines $
+          case mgrep of
+            Nothing -> output
+            Just needle ->
+              filter (match needle) ls
+        -- FIXME print full log url here for convenience (not the truncated displayed log)
+        putStrLn $ '\n' : logurl ++ "\n"
+        where
+          match :: String -> String -> Bool
+          match "" _ = error' "empty grep string not allowed"
+          match _ "" = False
+          match ('^':needle) ls =
+            if lastMay needle == Just '$'
+            then needle == ls
+            else needle `isPrefixOf` ls
+          match needle ls =
+            if lastMay needle == Just '$'
+            then needle `isSuffixOf` ls
+            else needle `isInfixOf` ls
 
 -- FIXME turn into a type?
 kojiMethods :: [String]
