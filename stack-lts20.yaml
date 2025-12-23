@@ -4,3 +4,4 @@ ghc-options:
 extra-deps:
   - simple-prompt-0.2.0.1
   - select-rpms-0.3.1
+  - http-directory-0.1.12
