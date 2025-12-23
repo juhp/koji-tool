@@ -36,6 +36,7 @@ import Distribution.Koji.API
 import Formatting hiding (now)
 import Network.HTTP.Directory
 import Network.HTTP.Simple
+import Network.HTTP.Types (hAccept)
 import Safe (headMay, lastMay)
 import SimpleCmd
 import System.FilePath
@@ -464,7 +465,7 @@ buildlogSize debug tz tail' logfile mgrep hub task = do
               BuildLog -> tailLogUrl hub (taskId task) file Nothing
               _ -> url +/+  logFile file
       req <- parseRequest logurl
-      resp <- httpLBS req
+      resp <- httpLBS $ addRequestHeader hAccept "text/plain" req
       let ls = lines . U.toString $ getResponseBody resp
       -- detect dynbr failure (build.log ~ 7400B):
       -- Wrote: /builddir/build/SRPMS/bustle-0.13.0-1.fc42.buildreqs.nosrc.rpm
