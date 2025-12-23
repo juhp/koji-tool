@@ -499,8 +499,9 @@ buildlogSize debug tz tail' logfile mgrep hub task = do
             Nothing -> output
             Just needle ->
               filter (match needle) ls
-        -- FIXME print full log url here for convenience (not the truncated displayed log)
-        putStrLn $ '\n' : logurl ++ "\n"
+        putStrLn $ '\n' : logurl
+        when (file == BuildLog) $
+          putStrLn $ url +/+ logFile file ++ "\n"
         where
           match :: String -> String -> Bool
           match "" _ = error' "empty grep string not allowed"
