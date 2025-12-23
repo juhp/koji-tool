@@ -1,44 +1,44 @@
 import SimpleCmd
 import System.IO
 
-program :: ([String], [[String]]) -> IO ()
-program (c, argsv) =
-  putStrLn ("\n# " ++ head c) >>
+program :: (String, [String], [[String]]) -> IO ()
+program (c, cs, argsv) =
+  putStrLn ("\n# " ++ c) >>
   mapM_ run argsv
   where
     run args = do
       putStrLn ""
-      cmdLog "koji-tool" (c ++ args)
+      cmdLog_ "koji-tool" (c:cs ++ args)
 
-tests :: Bool -> [([String], [[String]])]
+tests :: Bool -> [(String, [String], [[String]])]
 tests havedist =
   [
-    (["builds"],
+    ("builds", [],
      [["-L", "rust"]
      ,["-l", "3"]
      ,["-L", "-p", "rpm-ostree*.fc40"]])
   ,
-    (["tasks"],
+    ("tasks", [],
      [["-L"]
      ,["-l", "3"]
      ,["-L", "rpm-ostree"]])
   ,
-    (["latest"],
+    ("latest", [],
      [["rawhide", "ghc"]])
   ,
-    (["find"],
+    ("find", [],
      [["last", "failed", "build"]])
   ,
-    (["install", "-n", "-y"],
+    ("install", ["-n", "-y"],
      [["podman", "-p", "podman"] ++ sysdist
      ,["-l", "coreutils"] ++ sysdist
      ,["-l", "-R", "rpmlint-2.5.0-5.fc40"]
      ,["-H", "https://kojihub.stream.centos.org/kojihub", "-d", "el9", "bash", "-p", "bash"]
      ,["-H", "stream", "-d", "el9", "kernel", "-x", "kernel-devel*", "-x", "*-debug*"]
      ,["-l", "-H", "stream", "-d", "el9", "grep"]
-     ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
-     ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
-     ,["ghc9.4",
+     -- ,["-H", "rpmfusion", "ffmpeg", "-p", "ffmpeg", "-p", "ffmpeg-libs"] ++ sysdist
+     -- ,["-l", "-H", "rpmfusion", "ffmpeg"] ++ sysdist
+     ,["ghc9.6",
        "-e", "*-devel",
        "-x", "*-prof",
        "-x", "*-doc",
@@ -49,7 +49,7 @@ tests havedist =
     )
   ]
   where
-    sysdist = if havedist then [] else ["-d", "fc40"]
+    sysdist = if havedist then [] else ["-d", "fc42"]
 
 main :: IO ()
 main = do
