@@ -1,12 +1,16 @@
 # Version history of koji-tool
 
-## 1.3.1 (2025-09-XX)
-- install: use select-rpms-0.3.1
+## 1.3.1 (2025-12-23)
+- 'install': use select-rpms-0.3.1
   - allows selecting debuginfo
   - add --allow-erasing
   - rpm package manager options
-- install: do not print download dir for --list mode
-- tasks: less whitespace for compact task output
+- 'install': do not print download dir for --list mode
+- 'tasks': detect dynbr failure and show root.log
+- 'tasks': for build.log print the full log url too
+- 'tasks': use "Accept: text/plain" for getting logs
+- 'tasks': less whitespace for compact task output
+- use http-directory-0.1.12 for Accept text/html
 
 ## 1.3 (2025-05-03)
 - 'builds': add --tail

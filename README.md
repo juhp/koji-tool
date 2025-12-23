@@ -24,7 +24,7 @@ shows the last successful build with a url and other details.
 `$ koji-tool --version`
 
 ```
-1.3
+1.3.1
 ```
 
 `$ koji-tool --help`
@@ -79,13 +79,13 @@ One can also use an NVR glob pattern to select builds.
 `$ koji-tool builds --help`
 
 ```
-Usage: koji-tool builds [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
-                        [(-L|--latest) | (-U|--unlimited) | (-l|--limit INT)]
-                        [-s|--state STATE]
-                        [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
-                        [--type TYPE] [(-d|--details) | (-t|--tasks)]
-                        [-T|--tail] [-i|--install INSTALLOPTS] [-D|--debug]
-                        [(-b|--build NVR/BUILDID) | (-p|--pattern NVRPAT) |
+Usage: koji-tool builds [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)] 
+                        [(-L|--latest) | (-U|--unlimited) | (-l|--limit INT)] 
+                        [-s|--state STATE] 
+                        [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)] 
+                        [--type TYPE] [(-d|--details) | (-t|--tasks)] 
+                        [-T|--tail] [-i|--install INSTALLOPTS] [-D|--debug] 
+                        [(-b|--build NVR/BUILDID) | (-p|--pattern NVRPAT) | 
                           PACKAGE]
 
   Query Koji builds (by default lists the most recent builds)
@@ -128,8 +128,8 @@ List latest build of a package:
 redhat-rpm-config-342-4.fc42 BuildComplete (churchyard)
 https://koji.fedoraproject.org/koji/buildinfo?buildID=2696410
 https://koji.fedoraproject.org/koji/taskinfo?taskID=131402281
-start:      Fri Apr 11 12:30:43 CEST 2025
-completion: Fri Apr 11 12:32:00 CEST 2025
+start:      Fri Apr 11 18:30:43 +08 2025
+completion: Fri Apr 11 18:32:00 +08 2025
 duration: 1 min 17 sec
 https://kojipkgs.fedoraproject.org/packages/redhat-rpm-config/342/4.fc42
 ```
@@ -163,16 +163,16 @@ the `--details` and `--concise` options.
 `$ koji-tool tasks --help`
 
 ```
-Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)]
-                       [(-L|--latest) | (-U|--unlimited) | (-l|--limit INT)]
-                       [-s|--state STATE] [-a|--arch ARCH]
-                       [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)]
-                       [-m|--method METHOD] [-D|--debug]
-                       [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)]
-                       [(-d|--details) | (-c|--concise)] [-T|--tail]
-                       [--hw-info | --rootlog] [-g|--grep STRING]
-                       [-i|--install INSTALLOPTS]
-                       [(-b|--build BUILD) | (-p|--pattern NVRPAT) |
+Usage: koji-tool tasks [-H|--hub HUB] [(-u|--user USER) | (-M|--mine)] 
+                       [(-L|--latest) | (-U|--unlimited) | (-l|--limit INT)] 
+                       [-s|--state STATE] [-a|--arch ARCH] 
+                       [(-B|--before TIMESTAMP) | (-F|--from TIMESTAMP)] 
+                       [-m|--method METHOD] [-D|--debug] 
+                       [(-P|--only-package PKG) | (-N|--only-nvr PREFIX)] 
+                       [(-d|--details) | (-c|--concise)] [-T|--tail] 
+                       [--hw-info | --rootlog] [-g|--grep STRING] 
+                       [-i|--install INSTALLOPTS] 
+                       [(-b|--build BUILD) | (-p|--pattern NVRPAT) | 
                          --children TASKID | --parent TASKID | PACKAGE|TASKID]
 
   Query Koji tasks (by default lists the most recent buildArch tasks)
@@ -221,11 +221,12 @@ Show latest newRepo task:
 `$ koji-tool tasks --method newrepo --latest`
 
 ```
-ValueStruct [("id",ValueInt 106124),("name",ValueString "epel10.1-build")] ValueStruct [("opts",ValueStruct []),("__starstar",ValueBool True)] newRepo TaskOpen (kojira)
-https://koji.fedoraproject.org/koji/taskinfo?taskID=133511105
-create:     Tue Jun  3 18:23:56 CEST 2025
-start:      Tue Jun  3 18:24:47 CEST 2025
-current duration: 1 min 46 sec (start delay 51 sec)
+ValueStruct [("id",ValueInt 45727),("name",ValueString "epel9-build")] ValueStruct [("opts",ValueStruct []),("__starstar",ValueBool True)] newRepo TaskClosed (kojira)
+https://koji.fedoraproject.org/koji/taskinfo?taskID=140300590
+create:     Tue Dec 23 14:41:11 +08 2025
+start:      Tue Dec 23 14:42:03 +08 2025
+completion: Tue Dec 23 14:45:38 +08 2025
+duration: 3 min 35 sec (start delay 52 sec)
 ```
 
 List latest package build's tasks:
@@ -233,13 +234,13 @@ List latest package build's tasks:
 `$ koji-tool tasks --latest redhat-rpm-config`
 
 ```
-redhat-rpm-config-343-6.eln148.noarch TaskClosed (distrobuildsync-eln/jenkins-continuous-infra.apps.ci.centos.org)
-https://koji.fedoraproject.org/koji/taskinfo?taskID=133375186 (parent: 133374938)
-create:     Sat May 31 12:36:50 CEST 2025
-start:      Sat May 31 12:37:34 CEST 2025
-completion: Sat May 31 12:38:37 CEST 2025
-duration: 1 min 3 sec (start delay 44 sec)
-https://kojipkgs.fedoraproject.org/work/tasks/5186/133375186/build.log (16kB)
+redhat-rpm-config-343-19.eln153.noarch TaskClosed (distrobuildsync-eln/jenkins-continuous-infra.apps.ci.centos.org)
+https://koji.fedoraproject.org/koji/taskinfo?taskID=140205053 (parent: 140204866)
+create:     Sat Dec 20 23:40:05 +08 2025
+start:      Sat Dec 20 23:41:17 +08 2025
+completion: Sat Dec 20 23:42:19 +08 2025
+duration: 1 min 2 sec (start delay 1 min 12 sec)
+https://kojipkgs.fedoraproject.org/work/tasks/5053/140205053/build.log (16kB)
 ```
 
 It is also possible to install packages from a task using
@@ -313,16 +314,17 @@ for a single build/task.)
 `$ koji-tool install --help`
 
 ```
-Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB]
-                         [-P|--packages-url URL] [-l|--list] [-L|--latest]
-                         [-t|--check-remote-time]
-                         [--rpm | --rpm-ostree | --dnf5 | --dnf3]
-                         [-a|--arch ARCH]
-                         [(-N|--no-reinstall) | (-S|--skip-existing) |
-                           (-O|--only-existing)] [-b|--prefix SUBPKGPREFIX]
-                         [--all | --ask | [-p|--package SUBPKG]
-                           [-e|--except SUBPKG] [-x|--exclude SUBPKG]
-                           [-i|--include SUBPKG]] [-d|--disttag DISTTAG]
+Usage: koji-tool install [-n|--dry-run] [-D|--debug] [-y|--yes] [-H|--hub HUB] 
+                         [-P|--packages-url URL] [-l|--list] [-L|--latest] 
+                         [-t|--check-remote-time] 
+                         [--rpm | --rpm-ostree | --dnf5 | --dnf3] 
+                         [--allow-erasing] [-a|--arch ARCH] 
+                         [(-N|--no-reinstall) | (-S|--skip-existing) | 
+                           (-O|--only-existing) | (-E|--error-existing)] 
+                         [-b|--prefix SUBPKGPREFIX] 
+                         [--all | --ask | [-p|--package SUBPKG] 
+                           [-e|--except SUBPKG] [-x|--exclude SUBPKG] 
+                           [-i|--include SUBPKG]] [-d|--disttag DISTTAG] 
                          [--tagged | (-R|--nvr) | (-V|--nv)]
                          PKG|NVR|TASKID|TAG...
 
@@ -335,18 +337,20 @@ Available options:
   -H,--hub HUB             KojiHub shortname or url (HUB = fedora, stream,
                            rpmfusion, or URL) [default: fedora]
   -P,--packages-url URL    KojiFiles packages url [default: Fedora]
-  -l,--list                List builds
+  -l,--list                List RPMs
   -L,--latest              Latest build
   -t,--check-remote-time   Check remote rpm timestamps
   --rpm                    Use rpm instead of dnf
   --rpm-ostree             Use rpm-ostree instead of dnf
   --dnf5                   Use dnf5 to install
   --dnf3                   Use dnf-3 to install [default dnf unless ostree]
+  --allow-erasing          Use dnf --allowerasing
   -a,--arch ARCH           Task arch
   -N,--no-reinstall        Do not reinstall existing NVRs
   -S,--skip-existing       Ignore already installed subpackages (implies
                            --no-reinstall)
   -O,--only-existing       Only update existing installed subpackages
+  -E,--error-existing      Abort for existing installed subpackages
   -b,--prefix SUBPKGPREFIX Prefix to use for subpackages [default: base package]
   --all                    all subpackages [default if not installed]
   --ask                    ask for each subpackage
